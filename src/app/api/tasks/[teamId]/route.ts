@@ -1,0 +1,35 @@
+import { NextRequest, NextResponse } from "next/server";
+import { getIronSession } from "iron-session";
+import { sessionOptions, SessionData } from "@/lib/session";
+import axios from "axios";
+
+export async function GET(
+  req: NextRequest,
+  { params }: { params: { teamId: string } }
+) {
+  const res = new NextResponse();
+  const session = await getIronSession<SessionData>(req, res, sessionOptions);
+
+  if (!session.accessToken) {
+    return NextResponse.json({ error: "Not logged in" }, { status: 401 });
+  }
+
+  try {
+    // You can adjust query params here for filtering (e.g., include_closed=false)
+    const tasksRes = await axios.get(
+      `https://api.clickup.com/api/v2/team/${params.teamId}/task?include_closed=false`,
+      {
+        headers: {
+          Authorization: `Bearer ${session.accessToken}`,
+        },
+      }
+    );
+
+    return NextResponse.json(tasksRes.data);
+  } catch (error: any) {
+    return NextResponse.json(
+      { error: error.response?.data || error.message },
+      { status: 500 }
+    );
+  }
+}

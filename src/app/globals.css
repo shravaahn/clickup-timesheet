@@ -1,26 +1,378 @@
-@import "tailwindcss";
-
+/* Make sure to add these styles to your existing globals.css */
+/* You can paste it at the end of the file. 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --bg: #0f1115;
+  --panel: #171a21;
+  --muted: #8b94a7;
+  --text: #e8ecf1;
+  --accent: #4f8cff;
+  --accent-2: #22c55e;
+  --warn: #f59e0b;
+  --danger: #ef4444;
+  --border: #242a35;
+  --input: #11141a;
+  --good: #22c55e;
+  --bad: #ef4444;
+  --radius: 12px;
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+* {
+  box-sizing: border-box;
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  margin: 0;
+  font: 14px/1.45 system-ui, -apple-system, Segoe UI, Roboto, Inter, Arial;
+  color: var(--text);
+  background: linear-gradient(180deg, #0f1115, #0b0d12 60%);
+  min-height: 100vh;
 }
+
+/* Add some styles to make the default Next.js layout work well with this design 
+html, body {
+  height: 100%;
+}
+
+main {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  width: 100%;
+}
+
+
+.card {
+  width: min(1300px, 100%);
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
+  overflow: hidden;
+}
+
+header {
+  padding: 18px 22px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid var(--border);
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.brand {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+.logo {
+  width: 34px;
+  height: 34px;
+  display: grid;
+  place-items: center;
+  border-radius: 10px;
+  background: linear-gradient(135deg, var(--accent), #7aa8ff);
+  color: white;
+  font-weight: 800;
+}
+
+.muted {
+  color: var(--muted);
+}
+
+.role-badge {
+  font-size: 12px;
+  padding: 6px 10px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  color: var(--muted);
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.wrap {
+  padding: 22px;
+}
+
+.controls {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+button {
+  appearance: none;
+  border: 1px solid var(--border);
+  background: #11141a;
+  color: var(--text);
+  padding: 10px 14px;
+  border-radius: 10px;
+  cursor: pointer;
+}
+
+button.primary {
+  background: var(--accent);
+  border-color: transparent;
+  color: white;
+  font-weight: 600;
+}
+
+button.success {
+  background: var(--accent-2);
+  border-color: transparent;
+  color: #06240f;
+  font-weight: 600;
+}
+
+button.warn {
+  background: var(--warn);
+  border-color: transparent;
+  color: #1b1404;
+  font-weight: 600;
+}
+
+button.ghost {
+  background: transparent;
+}
+
+button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+input,
+select {
+  width: 100%;
+  background: var(--input);
+  border: 1px solid var(--border);
+  color: var(--text);
+  border-radius: 10px;
+  padding: 10px 12px;
+  outline: none;
+}
+
+input[disabled].locked {
+  background: rgba(79, 140, 255, 0.08);
+  border-color: rgba(79, 140, 255, 0.35);
+  color: #bcd2ff;
+}
+
+.grid {
+  overflow: auto;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  margin-top: 14px;
+}
+
+table {
+  border-collapse: separate;
+  border-spacing: 0;
+  width: 100%;
+}
+
+thead th {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background: #12151c;
+  color: #c8d2e3;
+  border-bottom: 1px solid var(--border);
+  text-align: left;
+  font-weight: 600;
+  padding: 12px;
+  white-space: nowrap;
+}
+
+th,
+td {
+  border-bottom: 1px solid var(--border);
+  padding: 10px;
+  vertical-align: middle;
+  white-space: nowrap;
+}
+
+tbody tr:nth-child(even) {
+  background: rgba(255, 255, 255, 0.02);
+}
+
+tfoot td {
+  background: #10131a;
+  color: #d7dfef;
+  font-weight: 600;
+}
+
+.proj-cell {
+  min-width: 220px;
+  position: sticky;
+  left: 0;
+  background: inherit;
+  z-index: 3;
+}
+
+.num {
+  text-align: right;
+}
+
+.tiny {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.pill {
+  font-size: 12px;
+  padding: 4px 8px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  color: #cbd5e1;
+  background: #0f131a;
+}
+
+.linklike {
+  color: #7aa8ff;
+  cursor: pointer;
+  text-decoration: underline;
+}
+
+.dash {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  margin-top: 16px;
+}
+
+.kpi {
+  background: #0f131a;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 14px;
+}
+
+.kpi .label {
+  font-size: 12px;
+  color: var(--muted);
+  margin-bottom: 6px;
+}
+
+.kpi .value {
+  font-size: 22px;
+  font-weight: 700;
+}
+
+.kpi.delta.positive .value {
+  color: var(--good);
+}
+
+.kpi.delta.negative .value {
+  color: var(--bad);
+}
+
+.chartbox {
+  margin-top: 12px;
+  background: #0f131a;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 12px;
+  overflow: auto;
+}
+
+canvas {
+  width: 100%;
+  height: 220px;
+}
+
+.pickerRow {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  flex-wrap: wrap;
+  margin-top: 8px;
+}
+
+.label {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.togglegrp {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+
+.cellBox {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+}
+
+/* MODAL 
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.55);
+  display: none; /* Will be controlled by state in React 
+  align-items: center;
+  justify-content: center;
+  z-index: 10;
+}
+
+.modal {
+  width: min(520px, 92vw);
+  background: #0f131a;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 18px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.6);
+}
+
+.modal header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 0 10px 0;
+  border: 0;
+}
+
+.modal h3 {
+  margin: 0;
+  font-size: 18px;
+}
+
+.modal .row {
+  display: grid;
+  gap: 8px;
+  margin: 12px 0;
+}
+
+.modal .row.two {
+  grid-template-columns: 1fr 1fr;
+}
+
+.modal footer {
+  display: flex;
+  gap: 10px;
+  justify-content: flex-end;
+  margin-top: 8px;
+}
+
+.help {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.badge {
+  display: inline-flex;
+  font-size: 11px;
+  padding: 2px 8px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  color: #cbd5e1;
+}
+
+*/
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+

@@ -1,4 +1,4 @@
-import Image from "next/image";
+/*import Image from "next/image";
 
 export default function Home() {
   return (
@@ -99,5 +99,19 @@ export default function Home() {
         </a>
       </footer>
     </div>
+  );
+}
+*/
+
+"use client";
+
+export default function HomePage() {
+  return (
+    <main>
+      <h1>ClickUp OAuth Debug</h1>
+      <a href="/api/auth/clickup-login">
+        <button>Login with ClickUp</button>
+      </a>
+    </main>
   );
 }
