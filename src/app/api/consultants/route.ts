@@ -24,21 +24,18 @@ export async function GET(req: NextRequest) {
   const res = new NextResponse();
   const session = await getIronSession<SessionData>(req, res, sessionOptions);
   const token = session.accessToken;
+
   if (!token) {
     return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
   }
 
   const headers = { Authorization: `Bearer ${token}` };
-  const byId: Record<string, MemberOut> = {};
   const debugMode = req.nextUrl.searchParams.get("debug") === "1";
-  const debug: {
-    teamsFetch?: { ok: boolean; status: number; body?: any };
-    teamMemberCalls?: Array<{ teamId: string; ok: boolean; status: number; bodyText?: string }>;
-    fallbackUsed?: boolean;
-  } = { teamMemberCalls: [] };
 
-  // 1) Get all teams/workspaces the token can see
-  let teamIds: string[] = [];
+  // Fetch teams. We'll read members directly from the /team response.
+  const byId: Record<string, MemberOut> = {};
+  let teamsFetchInfo: any = undefined;
+
   try {
     const teamsResp = await fetch("https://api.clickup.com/api/v2/team", {
       headers,
@@ -47,52 +44,33 @@ export async function GET(req: NextRequest) {
 
     if (!teamsResp.ok) {
       const body = await teamsResp.text().catch(() => "");
-      debug.teamsFetch = { ok: false, status: teamsResp.status, body };
+      teamsFetchInfo = { ok: false, status: teamsResp.status, body };
     } else {
       const teamsJson = await teamsResp.json().catch(() => ({} as any));
-      debug.teamsFetch = { ok: true, status: 200, body: debugMode ? teamsJson : undefined };
-      teamIds = Array.isArray(teamsJson?.teams)
-        ? teamsJson.teams.map((t: any) => String(t?.id)).filter(Boolean)
-        : [];
+      teamsFetchInfo = { ok: true, status: 200, body: debugMode ? teamsJson : undefined };
+
+      const teams = Array.isArray(teamsJson?.teams) ? teamsJson.teams : [];
+      for (const t of teams) {
+        const membersArr = Array.isArray(t?.members) ? t.members : [];
+        for (const m of membersArr) {
+          // ClickUp puts the person on m.user
+          const u: CUUser = m?.user ?? m ?? {};
+          const id = String(u?.id ?? "");
+          if (!id) continue;
+
+          const email = String(u?.email ?? "");
+          const username = String(u?.username ?? email ?? id);
+          const profilePicture = (u?.profilePicture as string) ?? null;
+
+          byId[id] = { id, email, username, profilePicture };
+        }
+      }
     }
   } catch (e) {
-    debug.teamsFetch = { ok: false, status: 0, body: String(e) };
+    teamsFetchInfo = { ok: false, status: 0, body: String(e) };
   }
 
-  // 2) For each team, fetch members; skip unauthorized teams
-  for (const teamId of teamIds) {
-    try {
-      const mResp = await fetch(
-        `https://api.clickup.com/api/v2/team/${teamId}/member`,
-        { headers, cache: "no-store" }
-      );
-
-      if (!mResp.ok) {
-        const bodyText = await mResp.text().catch(() => "");
-        debug.teamMemberCalls?.push({ teamId, ok: false, status: mResp.status, bodyText });
-        continue; // “Team not authorized” etc.
-      }
-
-      const mJson = await mResp.json().catch(() => ({} as any));
-      debug.teamMemberCalls?.push({ teamId, ok: true, status: 200 });
-
-      const list: any[] = Array.isArray(mJson?.members) ? mJson.members : [];
-      for (const m of list) {
-        const u: CUUser = m?.user ?? m ?? {};
-        const id = String(u?.id ?? "");
-        if (!id) continue;
-        const email = String(u?.email ?? "");
-        const username = String(u?.username ?? email ?? id);
-        const profilePicture = (u?.profilePicture as string) ?? null;
-
-        byId[id] = { id, email, username, profilePicture };
-      }
-    } catch (e) {
-      debug.teamMemberCalls?.push({ teamId, ok: false, status: 0, bodyText: String(e) });
-    }
-  }
-
-  // 3) Fallback — if still nothing, at least return current user
+  // Fallback: if nothing yet, at least return current user
   if (Object.keys(byId).length === 0) {
     try {
       const meResp = await fetch("https://api.clickup.com/api/v2/user", {
@@ -115,19 +93,16 @@ export async function GET(req: NextRequest) {
     } catch {
       // ignore
     }
-    debug.fallbackUsed = true;
   }
 
   const members = Object.values(byId).sort((a, b) =>
     (a.username || a.email).localeCompare(b.username || b.email)
   );
 
-  return new NextResponse(
-    JSON.stringify({
-      members,
-      source: "teams_api",
-      ...(debugMode ? { debug } : {}),
-    }),
-    { headers: res.headers }
-  );
+  const payload: any = { members, source: "teams_inline" };
+  if (debugMode) payload.debug = { teamsFetch: teamsFetchInfo, count: members.length };
+
+  return new NextResponse(JSON.stringify(payload), {
+    headers: res.headers, // forward Set-Cookie if session changed
+  });
 }
