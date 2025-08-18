@@ -9,6 +9,12 @@
     "lint": "next lint"
   },
   "dependencies": {
+    "@emotion/react": "^11.14.0",
+    "@mantine/core": "^8.2.5",
+    "@mantine/hooks": "^8.2.5",
+    "@mantine/notifications": "^8.2.5",
+    "@supabase/supabase-js": "^2.55.0",
+    "@tabler/icons-react": "^3.34.1",
     "axios": "^1.11.0",
     "iron-session": "^8.0.4",
     "next": "15.4.6",
