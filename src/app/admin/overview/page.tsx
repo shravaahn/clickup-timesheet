@@ -1,9 +1,11 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import Image from "next/image";
+// from src/app/admin/overview → up twice to /app, then into /dashboard
 import styles from "../../dashboard/Dashboard.module.css";
 
-/** tiny date helpers */
+/** ---- tiny date helpers ---- */
 const MONTHS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
 const toMidday = (d = new Date()) => { const x = new Date(d); x.setHours(12,0,0,0); return x; };
 const startOfWeek = (d = new Date()) => { const x = toMidday(d); const dow = (x.getDay()+6)%7; x.setDate(x.getDate()-dow); return toMidday(x); };
@@ -12,22 +14,27 @@ const fmtMMMdd = (d: Date) => `${MONTHS[d.getMonth()]} ${d.getDate()}`;
 const ymd = (d: Date) => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
 const clamp2 = (n: number) => Math.round(n*100)/100;
 
+/** ---- types ---- */
 type Me = { user: { id: string; email: string; username?: string; is_admin?: boolean } };
 type Member = { id: string; username?: string; email?: string };
 type SumRow = { id: string; name: string; est: number; tracked: number };
 
 export default function AdminOverviewPage() {
+  // Only admins can view
   const [me, setMe] = useState<Me["user"] | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
 
+  // Week selector
   const [weekStart, setWeekStart] = useState<Date>(() => startOfWeek());
   const weekEnd = useMemo(() => addDays(weekStart, 4), [weekStart]);
   const weekLabel = useMemo(() => `${fmtMMMdd(weekStart)} — ${fmtMMMdd(weekEnd)}`, [weekStart, weekEnd]);
 
+  // Data
   const [members, setMembers] = useState<Member[]>([]);
   const [rows, setRows] = useState<SumRow[]>([]);
   const [q, setQ] = useState("");
 
+  // Gate by role + load members
   useEffect(() => {
     (async () => {
       const r = await fetch("/api/me", { cache: "no-store" });
@@ -35,8 +42,8 @@ export default function AdminOverviewPage() {
       const j: Me = await r.json();
       const u = j?.user;
       if (!u) { window.location.href = "/login"; return; }
-      if (!u.is_admin) { window.location.href = "/dashboard"; return; }
 
+      if (!u.is_admin) { window.location.href = "/dashboard"; return; }
       setMe(u);
       setIsAdmin(true);
 
@@ -48,6 +55,7 @@ export default function AdminOverviewPage() {
     })();
   }, []);
 
+  // Load aggregated totals for the selected week
   useEffect(() => {
     if (!isAdmin) return;
     const start = ymd(weekStart), end = ymd(weekEnd);
@@ -56,6 +64,7 @@ export default function AdminOverviewPage() {
       const j = await r.json().catch(()=>({ rows: [] as any[] }));
       const rowsServer: { id: string; name: string; est: number; tracked: number }[] = j.rows || [];
 
+      // Map ID → display name from members
       const byId = new Map(members.map(m => [m.id, m]));
       const merged = rowsServer.map((x) => ({
         id: x.id,
@@ -64,13 +73,14 @@ export default function AdminOverviewPage() {
         tracked: Number(x.tracked || 0),
       }));
 
+      // Include people with 0 rows so admin sees everyone
       for (const m of members) {
         if (!merged.find(r => r.id === m.id)) {
           merged.push({ id: m.id, name: m.username || m.email || m.id, est: 0, tracked: 0 });
         }
       }
 
-      merged.sort((a,b)=> b.tracked - a.tracked);
+      merged.sort((a,b)=> b.tracked - a.tracked); // by tracked desc
       setRows(merged);
     })();
   }, [isAdmin, members, weekStart, weekEnd]);
@@ -106,9 +116,18 @@ export default function AdminOverviewPage() {
     <div className={styles.page}>
       <div className={styles.shell}>
 
+        {/* Header */}
         <header className={styles.header}>
           <div className={styles.brand}>
-            <div className={styles.badge}>TT</div>
+            {/* 👇 Replaced TT with your logo image */}
+            <Image
+              src="/company-logo.png"
+              alt="Company logo"
+              width={36}
+              height={36}
+              style={{ borderRadius: 8, border: "1px solid #2a2a2a", background: "transparent" }}
+              priority
+            />
             <div>
               <div className={styles.title}>Admin Overview</div>
               <div className={styles.subtitle}>{weekLabel}</div>
@@ -129,6 +148,7 @@ export default function AdminOverviewPage() {
           </div>
         </header>
 
+        {/* Summary row */}
         <div className={styles.summary}>
           <span className={styles.pill}>Est: {totals.est.toFixed(2)}h</span>
           <span className={styles.pill}>Tracked: {totals.tracked.toFixed(2)}h</span>
@@ -144,6 +164,7 @@ export default function AdminOverviewPage() {
           </div>
         </div>
 
+        {/* Table */}
         <section className={styles.card}>
           <div className={styles.tableWrap}>
             <table className={styles.table} style={{ minWidth: 800 }}>
