@@ -1,10 +1,25 @@
 // src/lib/session.ts
 import type { SessionOptions } from "iron-session";
 
+export type SessionData = {
+  // OAuth bearer token for ClickUp
+  accessToken?: string | null;
+
+  // Convenience: who’s logged in + role
+  user?: {
+    id: string;
+    email: string;
+    username?: string;
+    is_admin?: boolean;
+  } | null;
+
+  // Optional: selected team/workspace id
+  teamId?: string | null;
+};
+
 export const sessionOptions: SessionOptions = {
-  // must be >= 32 chars; you already set SESSION_SECRET in .env.local
-  password: process.env.SESSION_SECRET!,
-  cookieName: "clickup_timesheet",
+  cookieName: "timesheet_session",
+  password: process.env.SESSION_SECRET ?? "",
   cookieOptions: {
     secure: process.env.NODE_ENV === "production",
     sameSite: "lax",
@@ -13,13 +28,7 @@ export const sessionOptions: SessionOptions = {
   },
 };
 
-export type AppSession = {
-  access_token?: string;
-  user?: {
-    id: string;
-    email?: string;
-    username?: string;
-    profilePicture?: string;
-    is_admin?: boolean;
-  };
-} & Record<string, any>;
+// Small helper if you need it elsewhere
+export function hasToken(s: SessionData): s is SessionData & { accessToken: string } {
+  return typeof s.accessToken === "string" && s.accessToken.length > 0;
+}

@@ -1,12 +1,16 @@
+// src/lib/getSession.ts
 import { cookies } from "next/headers";
 import { getIronSession } from "iron-session";
-import { sessionOptions, SessionData } from "@/lib/session";
+import { sessionOptions, type SessionData } from "@/lib/session";
 
+/**
+ * Use this in Server Components / route handlers that only
+ * have access to next/headers cookies().
+ */
 export async function getSession() {
-  const cookieStore = cookies();
-  const res = {
-    cookies: cookieStore,
-  } as any; // iron-session requires a compatible req/res shape
-  const req = res;
-  return getIronSession<SessionData>(req, res, sessionOptions);
+  const session = await getIronSession<SessionData>(cookies(), sessionOptions);
+  return session;
 }
+
+// Re-export the type for convenience (optional)
+export type { SessionData };
