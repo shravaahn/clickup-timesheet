@@ -4,13 +4,14 @@ import { getIronSession } from "iron-session";
 import { sessionOptions, type SessionData } from "@/lib/session";
 
 /**
- * Use this in Server Components / route handlers that only
- * have access to next/headers cookies().
+ * Server-side session getter for App Router (no req/res).
+ * Works with Next 15 where cookies() is async.
  */
 export async function getSession() {
-  const session = await getIronSession<SessionData>(cookies(), sessionOptions);
+  const cookieStore = await cookies(); // <-- await is required on Next 15
+  const session = await getIronSession<SessionData>(cookieStore, sessionOptions);
   return session;
 }
 
-// Re-export the type for convenience (optional)
+// optional re-export
 export type { SessionData };
