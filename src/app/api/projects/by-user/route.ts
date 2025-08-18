@@ -1,166 +1,113 @@
 // src/app/api/projects/by-user/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import { getIronSession } from "iron-session";
-import { sessionOptions } from "@/lib/session";
+import { sessionOptions, type SessionData } from "@/lib/session";
 
-const TEAM_ID = process.env.CLICKUP_TEAM_ID || "";
-const DEFAULT_SPACE_ID = process.env.CLICKUP_SPACE_ID || "";
-const ADMIN_EMAILS = (process.env.ADMIN_EMAILS || "")
-  .split(",")
-  .map((s) => s.trim().toLowerCase())
-  .filter(Boolean);
+type ProjectOut = { id: string; name: string };
 
-type CUListInfo = {
-  id: string;
-  name: string;
-  spaceId?: string | null;
-  spaceName?: string | null;
-  folderId?: string | null;
-  folderName?: string | null;
-};
-
-async function getCurrentUser(token: string) {
-  const r = await fetch("https://api.clickup.com/api/v2/user", {
-    headers: { Authorization: token },
-    cache: "no-store",
-  });
-  if (!r.ok) return null;
-  const j = await r.json();
-  const u = j?.user || j;
-  return {
-    id: String(u?.id || ""),
-    email: (u?.email || "").toLowerCase(),
-    username: u?.username || "",
-  };
-}
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
 
 export async function GET(req: NextRequest) {
-  try {
-    const url = new URL(req.url);
-    let assigneeId = url.searchParams.get("assigneeId") || "";
-    const spaceId = url.searchParams.get("spaceId") || DEFAULT_SPACE_ID;
+  const res = new NextResponse();
+  const session = await getIronSession<SessionData>(req, res, sessionOptions);
+  const token = session.accessToken;
+  if (!token) {
+    return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
+  }
 
-    if (!TEAM_ID) {
-      return NextResponse.json({ error: "Missing CLICKUP_TEAM_ID in env" }, { status: 500 });
-    }
+  const assigneeId = req.nextUrl.searchParams.get("assigneeId");
+  if (!assigneeId) {
+    return NextResponse.json({ error: "assigneeId required" }, { status: 400 });
+  }
 
-    // auth
-    const res = new NextResponse();
-    const session = await getIronSession(req, res, sessionOptions as any);
-    const token =
-      (session as any)?.access_token ||
-      (session as any)?.token ||
-      (session as any)?.clickup_token;
-    if (!token) return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
+  const headers = { Authorization: `Bearer ${token}` };
+  const debugMode = req.nextUrl.searchParams.get("debug") === "1";
+  const debug: any = { teams: [] as string[], calls: [] as any[] };
 
-    const me = await getCurrentUser(token);
-    if (!me?.id) return NextResponse.json({ error: "Unable to fetch current user" }, { status: 500 });
-    const isAdmin = !!me.email && ADMIN_EMAILS.includes(me.email);
+  // 1) Get all teams/workspaces visible to this token
+  const teamsResp = await fetch("https://api.clickup.com/api/v2/team", {
+    headers,
+    cache: "no-store",
+  });
+  if (!teamsResp.ok) {
+    const body = await teamsResp.text().catch(() => "");
+    return NextResponse.json(
+      { error: "Failed to fetch teams", details: body },
+      { status: 500 }
+    );
+  }
+  const teamsJson = await teamsResp.json().catch(() => ({} as any));
+  const teamIds: string[] = Array.isArray(teamsJson?.teams)
+    ? teamsJson.teams.map((t: any) => String(t?.id)).filter(Boolean)
+    : [];
+  debug.teams = teamIds;
 
-    // --- Security: consultants can ONLY query themselves
-    if (!isAdmin) assigneeId = me.id;
-    if (!assigneeId) return NextResponse.json({ error: "Missing assigneeId" }, { status: 400 });
+  // 2) For each team, search tasks assigned to the user; group by list (project)
+  const projectsMap = new Map<string, ProjectOut>();
 
-    const headers = { Authorization: token, "Content-Type": "application/json" };
-
-    async function listsUnderSpace(sId: string) {
-      const allow = new Map<string, true>();
-      try {
-        const sLists = await fetch(`https://api.clickup.com/api/v2/space/${sId}/list?archived=false`, { headers, cache: "no-store" });
-        if (sLists.ok) {
-          const j = await sLists.json();
-          for (const lst of j?.lists || []) if (lst?.id) allow.set(String(lst.id), true);
-        }
-      } catch {}
-      try {
-        const folders = await fetch(`https://api.clickup.com/api/v2/space/${sId}/folder`, { headers, cache: "no-store" });
-        if (folders.ok) {
-          const fj = await folders.json();
-          for (const f of fj?.folders || []) {
-            const fid = String(f?.id || "");
-            if (!fid) continue;
-            const fLists = await fetch(`https://api.clickup.com/api/v2/folder/${fid}/list`, { headers, cache: "no-store" });
-            if (fLists.ok) {
-              const flj = await fLists.json();
-              for (const lst of flj?.lists || []) if (lst?.id) allow.set(String(lst.id), true);
-            }
-          }
-        }
-      } catch {}
-      return allow;
-    }
-
-    // 1) All tasks for this user in Workspace (paginated)
-    const listIdSet = new Set<string>();
+  for (const teamId of teamIds) {
     let page = 0;
-    for (let i = 0; i < 50; i++) {
-      const qs = new URLSearchParams({
-        include_closed: "false",
-        subtasks: "true",
-        page: String(page),
-        limit: "100",
-      });
-      qs.append("assignees[]", assigneeId);
+    // page in chunks (ClickUp uses ~100/page). Cap at 10 pages to be safe.
+    for (let round = 0; round < 10; round++) {
+      const url = new URL(`https://api.clickup.com/api/v2/team/${teamId}/task`);
+      url.searchParams.set("assignees[]", assigneeId);
+      url.searchParams.set("include_closed", "false");
+      url.searchParams.set("subtasks", "true");
+      url.searchParams.set("page", String(page));
 
-      const api = `https://api.clickup.com/api/v2/team/${TEAM_ID}/task?${qs.toString()}`;
-      const r = await fetch(api, { headers, cache: "no-store" });
+      const r = await fetch(url.toString(), { headers, cache: "no-store" });
       if (!r.ok) {
-        const txt = await r.text();
-        return NextResponse.json({ error: "ClickUp team tasks failed", details: txt, page }, { status: r.status });
+        const bodyText = await r.text().catch(() => "");
+        debug.calls.push({ teamId, page, ok: false, status: r.status, bodyText });
+        break; // skip this team if route not authorized/available
       }
 
-      const j = await r.json();
-      const tasks: any[] = j?.tasks || [];
-      if (!Array.isArray(tasks) || tasks.length === 0) break;
+      const j = await r.json().catch(() => ({} as any));
+      const tasks: any[] = Array.isArray(j?.tasks) ? j.tasks : [];
+      debug.calls.push({ teamId, page, ok: true, status: 200, count: tasks.length });
 
       for (const t of tasks) {
-        const lid = String(t?.list?.id || t?.list_id || t?.listId || "");
-        if (lid) listIdSet.add(lid);
+        // ClickUp task usually carries list info under t.list
+        const listId = String(t?.list?.id ?? t?.list_id ?? "");
+        if (!listId) continue;
+        const listName = String(t?.list?.name ?? "") || listId;
+
+        // Last write wins, but they should be consistent
+        projectsMap.set(listId, { id: listId, name: listName });
       }
 
-      if (tasks.length < 100) break;
-      page++;
+      if (tasks.length < 100) break; // likely no more pages
+      page += 1;
     }
-
-    // 2) Optional limit by Space
-    let allowMap: Map<string, true> | null = null;
-    if (spaceId) allowMap = await listsUnderSpace(spaceId);
-    const candidateListIds = Array.from(listIdSet).filter((id) => !allowMap || allowMap.has(id));
-
-    if (candidateListIds.length === 0) {
-      return NextResponse.json({
-        assigneeId,
-        spaceId: spaceId || null,
-        count: 0,
-        projects: [],
-        hint: spaceId ? "No tasks for this user in this Space." : "No tasks for this user.",
-      });
-    }
-
-    // 3) Fetch List details
-    const results: CUListInfo[] = [];
-    for (const lid of candidateListIds) {
-      try {
-        const li = await fetch(`https://api.clickup.com/api/v2/list/${lid}`, { headers, cache: "no-store" });
-        if (!li.ok) continue;
-        const lj = await li.json();
-        results.push({
-          id: String(lj?.id || lid),
-          name: String(lj?.name || lj?.id || lid),
-          spaceId: lj?.space?.id ? String(lj.space.id) : null,
-          spaceName: lj?.space?.name || null,
-          folderId: lj?.folder?.id ? String(lj.folder.id) : null,
-          folderName: lj?.folder?.name || null,
-        });
-      } catch {}
-    }
-
-    const uniq = Array.from(new Map(results.map((r) => [r.id, r])).values()).sort((a, b) =>
-      (a.name || "").localeCompare(b.name || "")
-    );
-
-    return NextResponse.json({ assigneeId, spaceId: spaceId || null, count: uniq.length, projects: uniq });
-  } catch (e: any) {
-    return NextResponse.json({ error: e?.message || "Unknown error" }, { status: 500 });
   }
+
+  // 3) If some list names are missing, fetch them individually
+  const missing = Array.from(projectsMap.values()).filter((p) => !p.name || p.name === p.id);
+  for (const p of missing) {
+    try {
+      const lr = await fetch(`https://api.clickup.com/api/v2/list/${p.id}`, {
+        headers,
+        cache: "no-store",
+      });
+      if (lr.ok) {
+        const lj = await lr.json().catch(() => ({} as any));
+        const nm = lj?.list?.name ?? lj?.name;
+        if (nm) projectsMap.set(p.id, { id: p.id, name: String(nm) });
+      }
+    } catch {
+      /* ignore */
+    }
+  }
+
+  const projects = Array.from(projectsMap.values()).sort((a, b) =>
+    a.name.localeCompare(b.name)
+  );
+
+  const payload: any = { projects, source: "team_tasks" };
+  if (debugMode) payload.debug = debug;
+
+  return new NextResponse(JSON.stringify(payload), {
+    headers: res.headers, // forward Set-Cookie
+  });
 }
