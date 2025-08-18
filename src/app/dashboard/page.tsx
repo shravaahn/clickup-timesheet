@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import Image from "next/image";
 import styles from "./Dashboard.module.css";
 
 /** ---- SSR-safe date helpers ---- */
@@ -409,9 +408,6 @@ export default function DashboardPage() {
   /** admin unlock */
   async function unlockAllEstimates() {
     if (!selectedUserId) return;
-    const ok = confirm("Unlock all estimates for this consultant for the visible week?");
-    if (!ok) return;
-
     const start = ymd(weekStart), end = ymd(weekEnd);
     const r = await fetch("/api/admin/unlock-estimates", {
       method: "POST", headers: { "Content-Type": "application/json" },
@@ -445,15 +441,7 @@ export default function DashboardPage() {
         {/* top header bar */}
         <header className={styles.header}>
           <div className={styles.brand}>
-            {/* 👇 Replaced TT with your logo image */}
-            <Image
-              src="/company-logo.png"
-              alt="Company logo"
-              width={36}
-              height={36}
-              style={{ borderRadius: 8, border: "1px solid #2a2a2a", background: "transparent" }}
-              priority
-            />
+            <div className={styles.badge}>TT</div>
             <div>
               <div className={styles.title}>Time Tracking</div>
               <div className={styles.subtitle}>{weekLabel}</div>
@@ -526,7 +514,7 @@ export default function DashboardPage() {
                 onClick={()=> setViewMode("week")}
               >Week</button>
               <button
-                className={`${styles.btn} ${styles.selected}`}
+                className={`${styles.btn} ${viewMode === "month" ? styles.selected : ""}`}
                 onClick={()=> setViewMode("month")}
                 title="Month totals coming soon"
               >Month</button>
@@ -568,8 +556,10 @@ export default function DashboardPage() {
                 )}
 
                 {!loading && rows.map((r) => {
-                  const tEst = clamp2(r.estByDay.reduce((a,b)=>a+(b||0),0));
-                  const tTracked = clamp2(r.trackedByDay.reduce((a,b)=>a+(b||0),0));
+                  // ✅ Explicitly type the accumulator so reduce returns `number`
+                  const tEst = clamp2(r.estByDay.reduce<number>((a, b) => a + (b ?? 0), 0));
+                  const tTracked = clamp2(r.trackedByDay.reduce<number>((a, b) => a + (b ?? 0), 0));
+
                   return (
                     <tr key={r.taskId}>
                       <td className={styles.thProject}>
