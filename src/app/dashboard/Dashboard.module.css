@@ -1,47 +1,53 @@
-/* -------- Dashboard.module.css (no :root / :global) -------- */
-
+/* src/app/dashboard/Dashboard.module.css */
+/* ------- Colors & base ------- */
 .page {
   background: #0f141a;
-  color: #e6edf3;
-  min-height: 100vh;
+  color: #e8edf3;
+  min-height: 100dvh;
 }
 
 .shell {
-  max-width: 1200px;
+  max-width: 1400px;
   margin: 0 auto;
-  padding: 16px 16px 48px;
+  padding: 12px 16px 40px;
 }
 
-/* header */
+/* ------- Header ------- */
 .header {
-  background: #151d27;
-  border: 1px solid #233041;
-  border-radius: 12px;
-  padding: 14px;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
+  background: #151d27;
+  border: 1px solid #223041;
+  border-radius: 12px;
+  padding: 12px 16px;
+  margin-bottom: 12px;
 }
 
 .brand {
   display: flex;
-  align-items: center;
   gap: 12px;
+  align-items: center;
 }
-
 .badge {
-  width: 38px;
-  height: 38px;
-  border-radius: 10px;
-  background: #243245;
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
   display: grid;
   place-items: center;
+  background: linear-gradient(180deg, #2d88ff, #0aa2d4);
+  color: #fff;
   font-weight: 700;
 }
 
-.title { font-weight: 700; }
-.subtitle { font-size: 12px; color: #b6c2d0; }
+.title {
+  font-size: 16px;
+  font-weight: 700;
+}
+.subtitle {
+  font-size: 12px;
+  color: #a8b3c1;
+}
 
 .controls {
   display: flex;
@@ -50,173 +56,273 @@
   flex-wrap: wrap;
 }
 
-.viewer { color: #b6c2d0; margin-right: 8px; }
-.viewerName { color: #e6edf3; }
-.roleDot { color: #8fa6bf; }
+.viewer {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  margin-right: 8px;
+  white-space: nowrap;
+}
+.viewerName {
+  font-weight: 600;
+}
+.roleDot {
+  color: #9bb0c0;
+}
 
+/* ------- Buttons & selects ------- */
 .btn {
-  border: 1px solid #2e3a4c;
-  background: #1a2533;
-  color: #e6edf3;
+  background: #1b2532;
+  border: 1px solid #2a3a4e;
+  color: #e8edf3;
   padding: 6px 10px;
   border-radius: 8px;
-  font-size: 14px;
+  font-size: 12px;
+  cursor: pointer;
 }
-.btn:hover { background: #213049; }
-.primary { background: #2a6ee0; border-color: #2a6ee0; }
-.primary:hover { background: #3b7bf0; }
-.warn { background: #7a2b2b; border-color: #7a2b2b; }
-.warn:hover { background: #8a3434; }
-.selected { outline: 2px solid #2a6ee0; }
+.btn:hover { background: #213042; }
+.primary { background: #2d88ff; border-color: #2d88ff; }
+.primary:hover { background: #1573f6; }
+.warn { background: #a53e3e; border-color: #a53e3e; }
+.warn:hover { background: #8e3333; }
 
-.select, .selectWide, .text, .num {
-  border: 1px solid #2e3a4c;
-  background: #0f141a;
-  color: #e6edf3;
+.select, .selectWide {
+  background: #111821;
+  border: 1px solid #2a3a4e;
+  color: #e8edf3;
   border-radius: 8px;
   padding: 6px 8px;
-  font-size: 14px;
+  font-size: 12px;
 }
-.selectWide { min-width: 280px; }
-.text { width: 100%; }
-.num { width: 96px; text-align: right; }
-.numWide { width: 110px; }
-.locked { background: #182231; color: #a9bacf; }
+.selectWide { min-width: 180px; }
 
-.trackBtn {
-  border: 1px dashed #3b4b63;
-  background: #101722;
-  color: #c7d6ea;
-  border-radius: 8px;
-  padding: 6px 8px;
-  font-size: 14px;
-}
-.trackBtn:hover { background: #152034; }
-
+/* ------- Selectors row ------- */
 .selectorsBar {
-  margin-top: 12px;
   display: grid;
   grid-template-columns: 1fr 1fr auto;
-  gap: 12px;
-}
-.selectorCol { display: flex; align-items: center; gap: 8px; }
-.selectorLabel { color: #8fa6bf; font-size: 13px; }
-.viewToggle { display: flex; gap: 6px; }
-
-.summary {
-  margin-top: 10px;
-  display: flex; gap: 10px; align-items: center; flex-wrap: wrap;
-}
-.pill {
-  background: #131a24; border: 1px solid #27364a; border-radius: 999px;
-  padding: 4px 10px; font-size: 13px; color: #c7d6ea;
-}
-.period { margin-left: auto; color: #8fa6bf; }
-
-/* cards */
-.card {
-  margin-top: 14px;
-  background: #121923;
-  border: 1px solid #243247;
-  border-radius: 12px;
-  padding: 12px;
-}
-
-/* week table */
-.scrollX { overflow-x: auto; }
-
-.table { border-collapse: separate; border-spacing: 10px; min-width: 980px; }
-.table th, .table td { vertical-align: top; }
-.thProject { width: 320px; text-align: left; }
-
-.projectName {
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  max-width: 300px;
-}
-
-.day { font-weight: 600; }
-.daySub { color: #8fa6bf; font-size: 12px; }
-
-.cellBox { display: flex; gap: 8px; align-items: center; }
-
-/* month view */
-.monthScroller {
-  display: flex; gap: 16px;
-  overflow-x: auto; padding-bottom: 4px;
-}
-.weekCard {
-  min-width: 520px;
-  background: #0f1620;
-  border: 1px solid #253247;
+  gap: 10px;
+  align-items: center;
+  background: #151d27;
+  border: 1px solid #223041;
   border-radius: 12px;
   padding: 10px;
-  flex: 0 0 auto;
+  margin-bottom: 10px;
 }
-.weekHead {
-  display: flex; justify-content: space-between; align-items: baseline;
-  margin-bottom: 8px;
+.selectorCol { display: flex; align-items: center; gap: 8px; }
+.selectorLabel {
+  color: #9bb0c0;
+  font-size: 12px;
 }
-.weekTitle { font-weight: 700; }
-.weekRange { color: #8fa6bf; font-size: 12px; }
+.viewToggle { display: flex; gap: 6px; }
+.selected { outline: 2px solid #2d88ff; }
 
-.weekRow { display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; }
-.dayMini { background: #0b121b; border: 1px solid #243145; border-radius: 10px; padding: 8px; }
-.dayMiniHead { color: #9fb1c9; font-size: 12px; margin-bottom: 6px; }
-.dayMiniPills { display: flex; gap: 6px; }
-.miniPill { background: #142033; border: 1px solid #2b3a52; padding: 3px 6px; border-radius: 999px; font-size: 12px; }
-
-.weekTotals { margin-top: 8px; display: flex; gap: 10px; }
-.weekTotalsBox {
-  flex: 1; background: #0b121b; border: 1px solid #243145; border-radius: 10px;
-  padding: 8px; display: flex; justify-content: space-between; align-items: baseline;
+/* ------- Summary pills ------- */
+.summary {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+  margin-bottom: 10px;
 }
-.weekTotalsBox span { color: #9fb1c9; }
-
-/* admin */
-.adminPanel { margin-top: 16px; }
-.cardsRow { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
-.statCard { background: #0f1620; border: 1px solid #253247; border-radius: 12px; padding: 12px; }
-.statLabel { color: #9fb1c9; font-size: 13px; }
-.statValue { font-size: 22px; font-weight: 800; margin-top: 2px; }
-
-.chartsRow { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 12px; }
-.chartCard { background: #0f1620; border: 1px solid #253247; border-radius: 12px; padding: 12px; }
-.chartTitle { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
-.chartLink { color: #8fb4ff; text-decoration: none; font-size: 13px; }
-.chartSvg { width: 100%; height: 240px; }
-.chartAxis { stroke: #314966; stroke-width: 1; }
-.chartGrid { stroke: #1e2a3a; stroke-width: 1; }
-.barA { fill: #6aa4ff; }
-.barB { fill: #7adfa0; }
-.chartX, .chartY, .leg { fill: #b9c9de; font-size: 12px; }
-
-/* admin actions */
-.adminActions { margin-top: 10px; }
-
-/* modal */
-.modalBackdrop {
-  position: fixed; inset: 0; background: rgba(0,0,0,0.6);
-  display: grid; place-items: center; z-index: 50;
+.pill {
+  background: #151d27;
+  border: 1px solid #223041;
+  border-radius: 999px;
+  padding: 6px 10px;
+  font-size: 12px;
 }
-.modal {
-  background: #0f1620; border: 1px solid #2a3a52; border-radius: 12px; width: 520px; max-width: 92vw;
+.period { color: #9bb0c0; font-size: 12px; }
+
+/* ------- Card ------- */
+.card {
+  background: #151d27;
+  border: 1px solid #223041;
+  border-radius: 12px;
+  padding: 0;
+}
+
+/* ------- Table (Week View) ------- */
+.tableWrap {
+  width: 100%;
+  overflow-x: auto; /* horizontal scroll for day columns */
+}
+.table {
+  width: max(1100px, 100%); /* keep some minimum width */
+  border-collapse: separate;
+  border-spacing: 0;
+}
+
+thead th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: #151d27;
+  border-bottom: 1px solid #223041;
+  padding: 8px;
+  font-weight: 700;
+  text-align: left;
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.thProject {
+  position: sticky;
+  left: 0;
+  z-index: 2;
+  background: #151d27;
+  border-right: 1px solid #223041;
+  min-width: 320px;
+  max-width: 420px;
+}
+
+tbody td, tfoot td {
+  border-top: 1px solid #223041;
+  padding: 8px;
+  vertical-align: middle;
+  white-space: nowrap;
+}
+
+tbody tr:hover td { background: #101825; }
+
+.projectName {
+  max-width: 380px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* keep first column sticky in body/footer cells as well */
+tbody .projectCol, tfoot .projectCol {
+  position: sticky;
+  left: 0;
+  z-index: 1;
+  background: #151d27;
+  border-right: 1px solid #223041;
+}
+
+.day { font-weight: 600; font-size: 12px; }
+.daySub { font-size: 11px; color: #9bb0c0; }
+
+.cellBox { display: flex; gap: 6px; align-items: center; }
+.num {
+  width: 78px;
+  padding: 6px 8px;
+  border-radius: 8px;
+  border: 1px solid #2a3a4e;
+  background: #0e1620;
+  color: #e8edf3;
+  font-size: 12px;
+}
+.numWide { width: 86px; }
+.locked { opacity: 0.65; }
+
+.trackBtn {
+  padding: 6px 8px;
+  border-radius: 8px;
+  background: #0f1a27;
+  border: 1px solid #2a3a4e;
+  color: #cfe2ff;
+  cursor: pointer;
+  font-size: 12px;
+}
+.trackBtn:hover { background: #132235; }
+
+/* ------- Admin panel & charts ------- */
+.adminPanel { margin-top: 14px; }
+.cardsRow {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0,1fr));
+  gap: 10px;
+}
+.statCard {
+  background: #151d27;
+  border: 1px solid #223041;
+  border-radius: 12px;
   padding: 12px;
 }
-.modalHeader { display: flex; justify-content: space-between; align-items: baseline; }
-.modalTitle { font-weight: 800; }
-.modalMeta { color: #9fb1c9; font-size: 12px; }
+.statLabel { color: #9bb0c0; font-size: 12px; }
+.statValue { font-size: 20px; font-weight: 700; margin-top: 4px; }
 
+.chartsRow {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin-top: 10px;
+}
+.chartCard {
+  background: #151d27;
+  border: 1px solid #223041;
+  border-radius: 12px;
+  padding: 10px;
+}
+.chartTitle {
+  font-weight: 700;
+  font-size: 13px;
+  margin-bottom: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.chartLink { color: #7fb3ff; text-decoration: underline; font-size: 12px; }
+.chartSvg { width: 100%; height: 240px; display: block; }
+.chartAxis, .chartGrid { stroke: #2a3a4e; stroke-width: 1; }
+.barA { fill: #2d88ff; opacity: 0.85; }
+.barB { fill: #00c2a8; opacity: 0.85; }
+.chartX, .chartY, .leg { fill: #cfe2ff; font-size: 11px; }
+
+/* ------- Admin actions ------- */
+.adminActions { margin-top: 10px; }
+
+/* ------- Modal ------- */
+.modalBackdrop {
+  position: fixed; inset: 0;
+  background: rgba(0,0,0,0.5);
+  display: grid; place-items: center;
+}
+.modal {
+  width: min(520px, 96vw);
+  background: #131a24;
+  border: 1px solid #223041;
+  border-radius: 12px;
+  padding: 12px;
+}
+.modalHeader { display: flex; align-items: baseline; gap: 8px; }
+.modalTitle { font-weight: 700; font-size: 16px; }
+.modalMeta { color: #9bb0c0; font-size: 12px; }
 .modalBody { margin-top: 10px; display: grid; gap: 8px; }
-.label { color: #9fb1c9; font-size: 13px; }
-.help { color: #7e94af; font-size: 12px; margin-top: 4px; }
-.modalActions { margin-top: 12px; display: flex; justify-content: flex-end; gap: 8px; }
+.label { font-size: 12px; color: #9bb0c0; }
+.help { font-size: 11px; color: #9bb0c0; }
+.modalActions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 10px; }
 
-/* responsive */
-@media (max-width: 960px) {
-  .thProject { width: 260px; }
-  .projectName { max-width: 240px; }
-  .cardsRow { grid-template-columns: 1fr; }
+/* ------- Month view ------- */
+.monthBar {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  padding: 8px 2px 2px;
+  margin-top: 2px;
+}
+.weekChip {
+  flex: 0 0 auto;
+  background: #151d27;
+  border: 1px solid #223041;
+  border-radius: 10px;
+  padding: 6px 10px;
+  font-size: 12px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.weekChipActive { outline: 2px solid #2d88ff; }
+.monthGridNote {
+  color: #9bb0c0;
+  font-size: 12px;
+  margin: 8px 2px 12px;
+}
+
+/* ------- Responsive tweaks ------- */
+@media (max-width: 920px) {
+  .thProject { min-width: 260px; }
+  .projectName { max-width: 260px; }
+  .num, .numWide { width: 70px; }
   .chartsRow { grid-template-columns: 1fr; }
 }
