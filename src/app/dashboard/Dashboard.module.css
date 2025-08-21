@@ -1,7 +1,7 @@
 /* --------- Dashboard.module.css (responsive month grid & table) --------- */
 
-/* Global CSS variables must be wrapped when used inside a CSS Module */
-:global(:root) {
+/* Scope variables to the local wrapper so the selector is pure */
+.page {
   --bg: #0f141a;
   --panel: #151d27;
   --panel-2: #1b2430;
@@ -12,10 +12,7 @@
   --warn: #ff9e66;
   --border: #263141;
   --pill: #1f2a39;
-}
 
-/* Page shell */
-.page {
   min-height: 100dvh;
   background: var(--bg);
   color: var(--text);
@@ -40,57 +37,22 @@
   margin-bottom: 16px;
 }
 
-.brand {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
+.brand { display: flex; align-items: center; gap: 12px; }
 
 .badge {
-  width: 36px;
-  height: 36px;
-  border-radius: 8px;
-  display: grid;
-  place-items: center;
-  font-weight: 700;
-  background: var(--accent);
-  color: white;
+  width: 36px; height: 36px; border-radius: 8px;
+  display: grid; place-items: center; font-weight: 700;
+  background: var(--accent); color: #fff;
 }
 
-.title {
-  font-size: 16px;
-  font-weight: 700;
-  line-height: 1.1;
-}
+.title { font-size: 16px; font-weight: 700; line-height: 1.1; }
+.subtitle { font-size: 12px; color: var(--muted); }
 
-.subtitle {
-  font-size: 12px;
-  color: var(--muted);
-}
+.controls { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
 
-.controls {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 8px;
-}
-
-.viewer {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  color: var(--muted);
-  margin-right: 4px;
-}
-
-.viewerName {
-  color: var(--text);
-  font-weight: 600;
-}
-
-.roleDot {
-  opacity: 0.9;
-}
+.viewer { display: flex; align-items: center; gap: 6px; color: var(--muted); margin-right: 4px; }
+.viewerName { color: var(--text); font-weight: 600; }
+.roleDot { opacity: 0.9; }
 
 /* Buttons & selects (scoped) */
 .btn {
@@ -102,9 +64,7 @@
   font-size: 13px;
   cursor: pointer;
 }
-
 .btn:hover { filter: brightness(1.05); }
-
 .primary { background: var(--accent); border-color: transparent; }
 .warn { background: var(--warn); border-color: transparent; color: #1c130c; }
 
@@ -116,7 +76,6 @@
   border-radius: 8px;
   font-size: 13px;
 }
-
 .selectWide { min-width: 220px; }
 
 .viewToggle { display: inline-flex; gap: 6px; }
@@ -134,11 +93,7 @@
 
 /* Summary pills */
 .summary {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  align-items: center;
-  margin-bottom: 12px;
+  display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 12px;
 }
 .pill {
   background: var(--pill);
@@ -162,43 +117,22 @@
 /* Week table */
 .tableWrap { overflow-x: auto; }
 
-.table {
-  width: 100%;
-  border-collapse: separate;
-  border-spacing: 0 8px;
-}
+.table { width: 100%; border-collapse: separate; border-spacing: 0 8px; }
 
 .table thead th {
-  text-align: left;
-  font-size: 12px;
-  color: var(--muted);
-  padding: 6px 8px;
+  text-align: left; font-size: 12px; color: var(--muted); padding: 6px 8px;
 }
 
 .table tbody td,
-.table tfoot td {
-  padding: 6px 8px;
-}
+.table tfoot td { padding: 6px 8px; }
 
-.thProject {
-  width: 28%;
-  min-width: 220px;
-}
-
-.projectName {
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
+.thProject { width: 28%; min-width: 220px; }
+.projectName { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
 .day { font-weight: 600; }
 .daySub { font-size: 11px; color: var(--muted); }
 
-.cellBox {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 6px;
-}
+.cellBox { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
 
 .num, .trackBtn {
   width: 100%;
@@ -210,26 +144,15 @@
   font-size: 13px;
   height: 36px;
 }
-
 .numWide { width: 100%; }
 .locked { opacity: 0.7; background: #152235; }
 
-.trackBtn {
-  cursor: pointer;
-  text-align: center;
-}
-
+.trackBtn { cursor: pointer; text-align: center; }
 .trackBtn:hover { filter: brightness(1.05); }
 
 /* Charts */
 .chartCard { background: var(--panel); border: 1px solid var(--border); border-radius: 12px; padding: 10px; }
-.chartTitle {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  font-weight: 600;
-  margin-bottom: 8px;
-}
+.chartTitle { display: flex; align-items: center; justify-content: space-between; font-weight: 600; margin-bottom: 8px; }
 .chartLink { font-size: 12px; color: var(--accent); text-decoration: none; }
 .chartSvg { width: 100%; height: 240px; display: block; }
 .chartAxis { stroke: #335; stroke-width: 1; }
@@ -246,12 +169,7 @@
   gap: 10px;
 }
 
-.statCard {
-  background: var(--panel);
-  border: 1px solid var(--border);
-  border-radius: 12px;
-  padding: 12px;
-}
+.statCard { background: var(--panel); border: 1px solid var(--border); border-radius: 12px; padding: 12px; }
 .statLabel { font-size: 12px; color: var(--muted); margin-bottom: 6px; }
 .statValue { font-size: 22px; font-weight: 800; }
 
@@ -281,7 +199,6 @@
 .modalActions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 10px; }
 
 /* -------- Month Overview -------- */
-
 .monthGrid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
@@ -296,38 +213,24 @@
 }
 
 .weekHeader {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 8px;
-  margin-bottom: 6px;
+  display: flex; align-items: baseline; justify-content: space-between;
+  gap: 8px; margin-bottom: 6px;
 }
-
 .weekTitle { font-weight: 700; }
 .weekDates { font-size: 12px; color: var(--muted); }
 
-.daysRow {
-  display: grid;
-  grid-template-columns: repeat(5, 1fr);
-  gap: 8px;
-}
+.daysRow { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; }
 
 .dayPill {
   background: var(--pill);
   border: 1px solid var(--border);
   border-radius: 10px;
   padding: 6px;
-  display: grid;
-  gap: 4px;
+  display: grid; gap: 4px;
 }
-
 .dayPillLabel { font-size: 11px; color: var(--muted); }
-.dayPair {
-  display: grid;
-  grid-auto-flow: column;
-  gap: 6px;
-  justify-content: start;
-}
+
+.dayPair { display: grid; grid-auto-flow: column; gap: 6px; justify-content: start; }
 .dayMini {
   background: var(--panel);
   border: 1px solid var(--border);
@@ -336,12 +239,7 @@
   font-size: 12px;
 }
 
-.weekTotals {
-  margin-top: 8px;
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 6px;
-}
+.weekTotals { margin-top: 8px; display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
 
 /* Small screens */
 @media (max-width: 520px) {
