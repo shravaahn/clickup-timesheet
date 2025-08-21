@@ -3,27 +3,33 @@
 import { useEffect, useMemo, useState } from "react";
 import styles from "./Dashboard.module.css";
 
-/** ---- SSR-safe date helpers ---- */
+/** ---- Date helpers (SSR-safe) ---- */
 const MONTHS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+const DOW = ["Mon","Tue","Wed","Thu","Fri"];
+
 const toMidday = (d = new Date()) => { const x = new Date(d); x.setHours(12,0,0,0); return x; };
 const startOfWeek = (d = new Date()) => { const x = toMidday(d); const dow = (x.getDay()+6)%7; x.setDate(x.getDate()-dow); return toMidday(x); };
 const addDays = (d: Date, n: number) => { const x = new Date(d); x.setDate(x.getDate()+n); return toMidday(x); };
-const fmtMMMdd = (d: Date) => `${MONTHS[d.getMonth()]} ${d.getDate()}`;
 const ymd = (d: Date) => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
-const clamp2 = (n: number) => Math.round(n*100)/100;
+const fmtMMMdd = (d: Date) => `${MONTHS[d.getMonth()]} ${d.getDate()}`;
+const clamp2 = (n: number) => Math.round(n * 100) / 100;
+const parseYmd = (s: string) => {
+  const [y, m, d] = s.split("-").map(Number);
+  return toMidday(new Date(y, (m || 1) - 1, d || 1));
+};
 
-/** ---- Week helpers for Month selector ---- */
+/** ---- Weeks in Month ---- */
 type WeekItem = { start: Date; end: Date; label: string };
 function weeksInMonth(year: number, monthIdx: number): WeekItem[] {
   const firstOfMonth = toMidday(new Date(year, monthIdx, 1));
-  const lastOfMonth  = toMidday(new Date(year, monthIdx + 1, 0));
+  const lastOfMonth = toMidday(new Date(year, monthIdx + 1, 0));
   let curr = startOfWeek(firstOfMonth);
   const items: WeekItem[] = [];
   while (curr <= addDays(lastOfMonth, 6)) {
     const s = curr;
     const e = addDays(s, 4);
     const intersects =
-      (s.getMonth() === monthIdx) || (e.getMonth() === monthIdx) ||
+      s.getMonth() === monthIdx || e.getMonth() === monthIdx ||
       (s <= lastOfMonth && e >= firstOfMonth);
     if (intersects) items.push({ start: s, end: e, label: `${fmtMMMdd(s)} — ${fmtMMMdd(e)}` });
     curr = addDays(curr, 7);
@@ -31,7 +37,7 @@ function weeksInMonth(year: number, monthIdx: number): WeekItem[] {
   return items;
 }
 
-/** ---- types ---- */
+/** ---- Types ---- */
 type Me = { user: { id: string; email: string; username?: string; is_admin?: boolean } };
 type Member = { id: string; username?: string; email?: string };
 type Project = { id: string; name: string };
@@ -42,6 +48,16 @@ type Row = {
   estLockedByDay: boolean[];
   trackedByDay: (number | null)[];
   noteByDay: (string | null)[];
+};
+
+type TimesheetEntry = {
+  task_id: string | number;
+  task_name?: string;
+  date: string; // YYYY-MM-DD
+  estimate_hours?: number | null;
+  estimate_locked?: boolean;
+  tracked_hours?: number | null;
+  tracked_note?: string | null;
 };
 
 /** ---- Tracked type options ---- */
@@ -129,7 +145,7 @@ export default function DashboardPage() {
   const weekCols = useMemo(() => [0,1,2,3,4].map(i => addDays(weekStart, i)), [weekStart]);
   const weekLabel = useMemo(() => `${fmtMMMdd(weekStart)} — ${fmtMMMdd(weekEnd)}`, [weekStart, weekEnd]);
 
-  /** Month / Week selectors */
+  /** Month selectors */
   const [selectedMonth, setSelectedMonth] = useState(() => {
     const d = new Date();
     return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}`;
@@ -158,7 +174,7 @@ export default function DashboardPage() {
     if (w) setWeekStart(w.start);
   }
 
-  /** view toggle (mostly visual) */
+  /** view toggle */
   const [viewMode, setViewMode] = useState<"week" | "month">("week");
 
   /** auth + role */
@@ -174,8 +190,9 @@ export default function DashboardPage() {
   const [projects, setProjects] = useState<Project[]>([]);
   const [rows, setRows] = useState<Row[]>([]);
   const [loading, setLoading] = useState(true);
+  const [projRefresh, setProjRefresh] = useState(0);
 
-  /** modal state for tracked time */
+  /** modal for tracked */
   const [modalOpen, setModalOpen] = useState(false);
   const [modalTaskId, setModalTaskId] = useState("");
   const [modalTaskName, setModalTaskName] = useState("");
@@ -185,6 +202,17 @@ export default function DashboardPage() {
 
   /** admin summary for chart 2 */
   const [overviewRows, setOverviewRows] = useState<{ name: string; est: number; tracked: number }[]>([]);
+
+  /** admin +add project modal */
+  const [addOpen, setAddOpen] = useState(false);
+  const [newProjName, setNewProjName] = useState("");
+  const [newAssigneeId, setNewAssigneeId] = useState<string | null>(null);
+
+  /** month view data */
+  const [monthWeekEst, setMonthWeekEst] = useState<number[]>([]);
+  const [monthWeekTracked, setMonthWeekTracked] = useState<number[]>([]);
+  const [monthDayEst, setMonthDayEst] = useState<number[][]>([]);
+  const [monthDayTracked, setMonthDayTracked] = useState<number[][]>([]);
 
   /** load me + consultants */
   useEffect(() => {
@@ -201,10 +229,11 @@ export default function DashboardPage() {
         setMe(u);
         setIsAdmin(!!u.is_admin);
         setSelectedUserId(u.id);
+        setNewAssigneeId(u.id);
 
         if (u.is_admin) {
           const cs = await fetch("/api/consultants", { cache: "no-store" }).then(r => r.json());
-          const list: Member[] = (cs?.members || []).map((m: any) => ({
+          const list: Member[] = (cs?.members || []).map((m: { id: string; username?: string; email?: string }) => ({
             id: String(m.id), username: m.username || m.email, email: m.email,
           }));
           const sorted = list.filter(m => m.id).sort((a,b)=> (a.username||"").localeCompare(b.username||""));
@@ -221,7 +250,7 @@ export default function DashboardPage() {
     return () => { mounted = false; };
   }, []);
 
-  /** load projects (Lists) for selected user */
+  /** load projects (Lists become Projects) for selected user */
   useEffect(() => {
     if (!selectedUserId) return;
     let mounted = true;
@@ -230,7 +259,9 @@ export default function DashboardPage() {
       try {
         const r = await fetch(`/api/projects/by-user?assigneeId=${selectedUserId}`, { cache: "no-store" });
         const j = await r.json();
-        const list: Project[] = (j?.projects || []).map((p: any) => ({ id: String(p.id), name: String(p.name || p.id) }));
+        const list: Project[] = (j?.projects || []).map((p: { id: string | number; name?: string }) => ({
+          id: String(p.id), name: String(p.name || p.id)
+        }));
         if (!mounted) return;
         setProjects(list);
       } catch (e) {
@@ -240,19 +271,22 @@ export default function DashboardPage() {
       }
     })();
     return () => { mounted = false; };
-  }, [selectedUserId]);
+  }, [selectedUserId, projRefresh]);
 
-  /** merge with timesheet */
+  /** merge weekly timesheet */
   useEffect(() => {
     if (!selectedUserId) return;
     let mounted = true;
     (async () => {
       try {
         const start = ymd(weekStart), end = ymd(weekEnd);
-        const ts = await fetch(`/api/timesheet?userId=${selectedUserId}&start=${start}&end=${end}`, { cache: "no-store" }).then(r => r.json());
-        const entries = ts?.entries || [];
+        const ts = await fetch(
+          `/api/timesheet?userId=${selectedUserId}&start=${start}&end=${end}`,
+          { cache: "no-store" }
+        ).then(r => r.json());
+        const entries: TimesheetEntry[] = (ts?.entries || []) as TimesheetEntry[];
 
-        const byKey = new Map<string, any>();
+        const byKey = new Map<string, TimesheetEntry>();
         const nameFromEntries = new Map<string, string>();
         for (const e of entries) {
           const pid = String(e.task_id);
@@ -262,8 +296,9 @@ export default function DashboardPage() {
 
         const projMap = new Map<string, { id: string; name: string }>();
         for (const p of projects) projMap.set(p.id, { id: p.id, name: p.name });
-        for (const [pid, pname] of nameFromEntries.entries())
+        for (const [pid, pname] of nameFromEntries.entries()) {
           if (!projMap.has(pid)) projMap.set(pid, { id: pid, name: pname || pid });
+        }
         const allProjects = Array.from(projMap.values()).sort((a,b)=> a.name.localeCompare(b.name));
 
         const newRows: Row[] = allProjects.map((p) => {
@@ -285,7 +320,7 @@ export default function DashboardPage() {
           return { taskId: p.id, taskName: p.name, estByDay, estLockedByDay, trackedByDay, noteByDay };
         });
 
-        setRows(newRows);
+        if (mounted) setRows(newRows);
       } catch (e) {
         console.error(e);
       }
@@ -293,7 +328,7 @@ export default function DashboardPage() {
     return () => { mounted = false; };
   }, [projects, selectedUserId, weekStart, weekEnd, weekCols]);
 
-  /** totals */
+  /** totals (week) */
   const totals = useMemo(() => {
     const dayEst = [0,0,0,0,0], dayTracked = [0,0,0,0,0];
     rows.forEach(r => {
@@ -305,6 +340,72 @@ export default function DashboardPage() {
     const delta = clamp2(sumTracked - sumEst);
     return { dayEst, dayTracked, sumEst, sumTracked, delta };
   }, [rows]);
+
+  /** month aggregation */
+  useEffect(() => {
+    if (!selectedUserId) return;
+    if (viewMode !== "month") return;
+
+    const year = monthYear.y;
+    const mIdx = monthYear.mIdx;
+    const wks = weeksInMonth(year, mIdx);
+    const first = ymd(new Date(year, mIdx, 1));
+    const last = ymd(new Date(year, mIdx + 1, 0));
+
+    (async () => {
+      const ts = await fetch(
+        `/api/timesheet?userId=${selectedUserId}&start=${first}&end=${last}`,
+        { cache: "no-store" }
+      ).then(r => r.json());
+      const entries: TimesheetEntry[] = (ts?.entries || []) as TimesheetEntry[];
+
+      const weekEst = Array(wks.length).fill(0);
+      const weekTracked = Array(wks.length).fill(0);
+      const dEst: number[][] = wks.map(()=> [0,0,0,0,0]);
+      const dTrk: number[][] = wks.map(()=> [0,0,0,0,0]);
+
+      for (const e of entries) {
+        const d = parseYmd(e.date);
+        // ignore weekends; map Mon..Fri -> 0..4
+        const dow = (d.getDay()+6)%7;
+        if (dow > 4) continue; // Sat/Sun
+        const wi = wks.findIndex(w => d >= w.start && d <= w.end);
+        if (wi === -1) continue;
+
+        const est = Number(e.estimate_hours || 0);
+        const trk = Number(e.tracked_hours || 0);
+        dEst[wi][dow] += est;
+        dTrk[wi][dow] += trk;
+        weekEst[wi] += est;
+        weekTracked[wi] += trk;
+      }
+
+      setMonthWeekEst(weekEst.map(clamp2));
+      setMonthWeekTracked(weekTracked.map(clamp2));
+      setMonthDayEst(dEst.map(arr => arr.map(clamp2)));
+      setMonthDayTracked(dTrk.map(arr => arr.map(clamp2)));
+    })();
+  }, [viewMode, monthYear, selectedUserId]);
+
+  /** admin summary rows for charts (week or month period) */
+  useEffect(() => {
+    if (!isAdmin) return;
+    const start = viewMode === "week"
+      ? ymd(weekStart)
+      : ymd(new Date(monthYear.y, monthYear.mIdx, 1));
+    const end = viewMode === "week"
+      ? ymd(weekEnd)
+      : ymd(new Date(monthYear.y, monthYear.mIdx + 1, 0));
+
+    (async () => {
+      const r = await fetch(`/api/admin/summary?start=${start}&end=${end}`, { cache: "no-store" });
+      const j = await r.json().catch(()=>({ rows: [] }));
+      const clean = (j.rows || []).map((x: { name: string; est?: number; tracked?: number }) => ({
+        name: x.name, est: Number(x.est || 0), tracked: Number(x.tracked || 0)
+      }));
+      setOverviewRows(clean);
+    })();
+  }, [isAdmin, weekStart, weekEnd, viewMode, monthYear]);
 
   /** actions */
   async function saveEstimate(taskId: string, taskName: string, i: number, val: number) {
@@ -379,8 +480,14 @@ export default function DashboardPage() {
     URL.revokeObjectURL(url);
   }
 
-  const goPrev = () => setWeekStart(d => addDays(d, -7));
-  const goNext = () => setWeekStart(d => addDays(d, 7));
+  const goPrev = () => {
+    if (viewMode === "week") setWeekStart(d => addDays(d, -7));
+    else setSelectedWeekIdx(i => Math.max(0, i - 1));
+  };
+  const goNext = () => {
+    if (viewMode === "week") setWeekStart(d => addDays(d, 7));
+    else setSelectedWeekIdx(i => Math.min(monthWeeks.length - 1, i + 1));
+  };
   const goThis = () => setWeekStart(startOfWeek());
 
   /** modal helpers */
@@ -408,30 +515,46 @@ export default function DashboardPage() {
   /** admin unlock */
   async function unlockAllEstimates() {
     if (!selectedUserId) return;
-    const start = ymd(weekStart), end = ymd(weekEnd);
+    const start = viewMode === "week"
+      ? ymd(weekStart)
+      : ymd(new Date(monthYear.y, monthYear.mIdx, 1));
+    const end = viewMode === "week"
+      ? ymd(weekEnd)
+      : ymd(new Date(monthYear.y, monthYear.mIdx + 1, 0));
+
     const r = await fetch("/api/admin/unlock-estimates", {
       method: "POST", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ userId: selectedUserId, start, end }),
     });
     if (r.ok) {
       setRows(prev => prev.map(row => ({ ...row, estLockedByDay: row.estLockedByDay.map(() => false) })));
-      alert("Estimates unlocked for this week.");
+      alert("Estimates unlocked for this period.");
     } else {
       const j = await r.json().catch(()=>({}));
       alert(`Unlock failed: ${j.error || r.statusText}${j.details ? ` — ${j.details}` : ""}`);
     }
   }
 
-  /** load admin summary rows for chart 2 */
-  useEffect(() => {
-    if (!isAdmin) return;
-    const start = ymd(weekStart), end = ymd(weekEnd);
-    (async () => {
-      const r = await fetch(`/api/admin/summary?start=${start}&end=${end}`, { cache: "no-store" });
-      const j = await r.json().catch(()=>({ rows: [] }));
-      setOverviewRows((j.rows || []).map((x: any)=>({ name: x.name, est: x.est || 0, tracked: x.tracked || 0 })));
-    })();
-  }, [isAdmin, weekStart, weekEnd]);
+  /** admin create project */
+  async function createProject() {
+    if (!newProjName.trim()) { alert("Enter a project name"); return; }
+    const assignee = (newAssigneeId || selectedUserId || "").toString();
+    if (!assignee) { alert("Pick an assignee"); return; }
+
+    const r = await fetch("/api/admin/create-project", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: newProjName.trim(), assigneeId: assignee }),
+    });
+    if (!r.ok) {
+      const j = await r.json().catch(()=>({}));
+      alert(`Create failed: ${j.error || r.statusText}${j.details ? ` — ${j.details}` : ""}`);
+      return;
+    }
+    setAddOpen(false);
+    setNewProjName("");
+    setProjRefresh(x => x + 1); // reload projects
+  }
 
   /** ---- render ---- */
   return (
@@ -444,7 +567,11 @@ export default function DashboardPage() {
             <div className={styles.badge}>TT</div>
             <div>
               <div className={styles.title}>Time Tracking</div>
-              <div className={styles.subtitle}>{weekLabel}</div>
+              <div className={styles.subtitle}>
+                {viewMode === "week"
+                  ? weekLabel
+                  : `${MONTHS[monthYear.mIdx]} ${monthYear.y}`}
+              </div>
             </div>
           </div>
 
@@ -459,6 +586,7 @@ export default function DashboardPage() {
                 className={styles.select}
                 value={selectedUserId ?? ""}
                 onChange={(e)=> setSelectedUserId(e.target.value || me?.id || null)}
+                title="Viewing consultant"
               >
                 {members
                   .filter((v,i,arr)=> v.id && arr.findIndex(x=>x.id===v.id)===i)
@@ -469,6 +597,10 @@ export default function DashboardPage() {
             <button className={styles.btn} onClick={goPrev}>◀ Prev</button>
             <button className={styles.btn} onClick={goThis}>This Week</button>
             <button className={styles.btn} onClick={goNext}>Next ▶</button>
+
+            {isAdmin && (
+              <button className={styles.btn} onClick={()=> setAddOpen(true)}>+ Add Project</button>
+            )}
 
             <button className={`${styles.btn} ${styles.primary}`} onClick={()=> alert("All changes auto-save on blur / Save.")}>Save</button>
             <button className={styles.btn} onClick={exportCsv}>Export CSV</button>
@@ -499,6 +631,7 @@ export default function DashboardPage() {
               className={styles.selectWide}
               value={String(selectedWeekIdx)}
               onChange={(e)=> onChangeWeek(e.target.value)}
+              disabled={viewMode === "month"}
             >
               {monthWeeks.map((w, i) => (
                 <option key={i} value={String(i)}>{`Week ${i+1}: ${w.label}`}</option>
@@ -516,159 +649,228 @@ export default function DashboardPage() {
               <button
                 className={`${styles.btn} ${viewMode === "month" ? styles.selected : ""}`}
                 onClick={()=> setViewMode("month")}
-                title="Month totals coming soon"
               >Month</button>
             </div>
           </div>
         </div>
 
         {/* summary bar */}
-        <div className={styles.summary}>
-          <span className={styles.pill}>Est: {totals.sumEst.toFixed(2)}h</span>
-          <span className={styles.pill}>Tracked: {totals.sumTracked.toFixed(2)}h</span>
-          <span className={styles.pill}>Δ (Tracked–Est): {(totals.delta).toFixed(2)}h</span>
-          <span className={styles.period}>Period: {viewMode === "week" ? "Week" : "Month"}</span>
-        </div>
+        {viewMode === "week" ? (
+          <div className={styles.summary}>
+            <span className={styles.pill}>Est: {totals.sumEst.toFixed(2)}h</span>
+            <span className={styles.pill}>Tracked: {totals.sumTracked.toFixed(2)}h</span>
+            <span className={styles.pill}>Δ (Tracked–Est): {(totals.delta).toFixed(2)}h</span>
+            <span className={styles.period}>Period: Week</span>
+          </div>
+        ) : (
+          <div className={styles.summary}>
+            <span className={styles.pill}>
+              Month Est: {clamp2(monthWeekEst.reduce((a,b)=>a+b,0)).toFixed(2)}h
+            </span>
+            <span className={styles.pill}>
+              Month Tracked: {clamp2(monthWeekTracked.reduce((a,b)=>a+b,0)).toFixed(2)}h
+            </span>
+            <span className={styles.pill}>
+              Δ: {clamp2(monthWeekTracked.reduce((a,b)=>a+b,0) - monthWeekEst.reduce((a,b)=>a+b,0)).toFixed(2)}h
+            </span>
+            <span className={styles.period}>Period: Month</span>
+          </div>
+        )}
 
-        {/* table */}
-        <section className={styles.card}>
-          <div className={styles.tableWrap}>
-            <table className={styles.table}>
-              <thead>
-                <tr>
-                  <th className={styles.thProject}>Project</th>
-                  {["Mon","Tue","Wed","Thu","Fri"].map((d, i) => (
-                    <th key={d}>
-                      <div className={styles.day}>{d} • {fmtMMMdd(weekCols[i])}</div>
+        {/* WEEK VIEW (existing table) */}
+        {viewMode === "week" && (
+          <section className={styles.card}>
+            <div className={styles.tableWrap}>
+              <table className={styles.table}>
+                <thead>
+                  <tr>
+                    <th className={styles.thProject}>Project</th>
+                    {DOW.map((d, i) => (
+                      <th key={d}>
+                        <div className={styles.day}>{d} • {fmtMMMdd(weekCols[i])}</div>
+                        <div className={styles.daySub}>Est | Tracked</div>
+                      </th>
+                    ))}
+                    <th>
+                      <div className={styles.day}>Total (Week)</div>
                       <div className={styles.daySub}>Est | Tracked</div>
                     </th>
-                  ))}
-                  <th>
-                    <div className={styles.day}>Total (Week)</div>
-                    <div className={styles.daySub}>Est | Tracked</div>
-                  </th>
-                </tr>
-              </thead>
+                  </tr>
+                </thead>
 
-              <tbody>
-                {loading && (
-                  <tr><td className={styles.thProject} colSpan={7}>Loading projects…</td></tr>
-                )}
+                <tbody>
+                  {loading && (
+                    <tr><td className={styles.thProject} colSpan={7}>Loading projects…</td></tr>
+                  )}
 
-                {!loading && rows.map((r) => {
-                  // ✅ Explicitly type the accumulator so reduce returns `number`
-                  const tEst = clamp2(r.estByDay.reduce<number>((a, b) => a + (b ?? 0), 0));
-                  const tTracked = clamp2(r.trackedByDay.reduce<number>((a, b) => a + (b ?? 0), 0));
+                  {!loading && rows.map((r) => {
+                   const tEst = clamp2(r.estByDay.map(v => v ?? 0).reduce((a, b) => a + b, 0));
+                    const tTracked = clamp2(r.trackedByDay.map(v => v ?? 0).reduce((a, b) => a + b, 0));
 
-                  return (
-                    <tr key={r.taskId}>
-                      <td className={styles.thProject}>
-                        <div className={styles.projectName} title={r.taskName}>{r.taskName}</div>
-                      </td>
+                    return (
+                      <tr key={r.taskId}>
+                        <td className={styles.thProject}>
+                          <div className={styles.projectName} title={r.taskName}>{r.taskName}</div>
+                        </td>
 
-                      {[0,1,2,3,4].map((i) => (
-                        <td key={i}>
+                        {[0,1,2,3,4].map((i) => (
+                          <td key={i}>
+                            <div className={styles.cellBox}>
+                              <input
+                                className={`${styles.num} ${styles.numWide} ${r.estLockedByDay[i] ? styles.locked : ""}`}
+                                type="number" step="0.25" min="0"
+                                value={r.estByDay[i] ?? ""}
+                                onChange={(e)=> {
+                                  const v = e.currentTarget.value === "" ? null : Number(e.currentTarget.value);
+                                  setRows(prev => prev.map(row => row.taskId===r.taskId ? {
+                                    ...row,
+                                    estByDay: prev.find(rr=>rr.taskId===r.taskId)!.estByDay.map((vv,ii)=> ii===i ? (v as number|null) : vv),
+                                  }: row));
+                                }}
+                                onBlur={(e) => {
+                                  const v = e.currentTarget.value;
+                                  if (v === "" || r.estLockedByDay[i]) return;
+                                  saveEstimate(r.taskId, r.taskName, i, Number(v));
+                                }}
+                                disabled={r.estLockedByDay[i]}
+                                placeholder="Est"
+                              />
+
+                              <button
+                                className={`${styles.trackBtn} ${styles.numWide}`}
+                                onClick={() => openTrackModal(r.taskId, r.taskName, i, r.trackedByDay[i], r.noteByDay[i])}
+                              >
+                                {r.trackedByDay[i] != null ? `${r.trackedByDay[i]}h` : "Track"}
+                              </button>
+                            </div>
+                          </td>
+                        ))}
+
+                        <td>
                           <div className={styles.cellBox}>
-                            <input
-                              className={`${styles.num} ${styles.numWide} ${r.estLockedByDay[i] ? styles.locked : ""}`}
-                              type="number" step="0.25" min="0"
-                              value={r.estByDay[i] ?? ""}
-                              onChange={(e)=> {
-                                const v = e.currentTarget.value === "" ? null : Number(e.currentTarget.value);
-                                setRows(prev => prev.map(row => row.taskId===r.taskId ? {
-                                  ...row, estByDay: prev.find(rr=>rr.taskId===r.taskId)!.estByDay.map((vv,ii)=> ii===i ? (v as any) : vv),
-                                }: row));
-                              }}
-                              onBlur={(e) => {
-                                const v = e.currentTarget.value;
-                                if (v === "" || r.estLockedByDay[i]) return;
-                                saveEstimate(r.taskId, r.taskName, i, Number(v));
-                              }}
-                              disabled={r.estLockedByDay[i]}
-                              placeholder="Est"
-                            />
-
-                            <button
-                              className={`${styles.trackBtn} ${styles.numWide}`}
-                              onClick={() => openTrackModal(r.taskId, r.taskName, i, r.trackedByDay[i], r.noteByDay[i])}
-                            >
-                              {r.trackedByDay[i] != null ? `${r.trackedByDay[i]}h` : "Track"}
-                            </button>
+                            <input className={`${styles.num} ${styles.numWide} ${styles.locked}`} disabled value={tEst.toFixed(2)} />
+                            <input className={`${styles.num} ${styles.numWide}`} disabled value={tTracked.toFixed(2)} />
                           </div>
                         </td>
-                      ))}
+                      </tr>
+                    );
+                  })}
 
-                      <td>
+                  {!loading && rows.length === 0 && (
+                    <tr><td className={styles.thProject} colSpan={7}>No projects found for this consultant.</td></tr>
+                  )}
+                </tbody>
+
+                <tfoot>
+                  <tr>
+                    <td className={styles.thProject}>All Projects Total</td>
+                    {[0,1,2,3,4].map((i) => (
+                      <td key={i}>
                         <div className={styles.cellBox}>
-                          <input className={`${styles.num} ${styles.numWide} ${styles.locked}`} disabled value={tEst.toFixed(2)} />
-                          <input className={`${styles.num} ${styles.numWide}`} disabled value={tTracked.toFixed(2)} />
+                          <input className={`${styles.num} ${styles.numWide} ${styles.locked}`} disabled value={(totals.dayEst[i]||0).toFixed(2)} />
+                          <input className={`${styles.num} ${styles.numWide}`} disabled value={(totals.dayTracked[i]||0).toFixed(2)} />
                         </div>
                       </td>
-                    </tr>
-                  );
-                })}
-
-                {!loading && rows.length === 0 && (
-                  <tr><td className={styles.thProject} colSpan={7}>No projects found for this consultant.</td></tr>
-                )}
-              </tbody>
-
-              <tfoot>
-                <tr>
-                  <td className={styles.thProject}>All Projects Total</td>
-                  {[0,1,2,3,4].map((i) => (
-                    <td key={i}>
+                    ))}
+                    <td>
                       <div className={styles.cellBox}>
-                        <input className={`${styles.num} ${styles.numWide} ${styles.locked}`} disabled value={(totals.dayEst[i]||0).toFixed(2)} />
-                        <input className={`${styles.num} ${styles.numWide}`} disabled value={(totals.dayTracked[i]||0).toFixed(2)} />
+                        <input className={`${styles.num} ${styles.numWide} ${styles.locked}`} disabled value={totals.sumEst.toFixed(2)} />
+                        <input className={`${styles.num} ${styles.numWide}`} disabled value={totals.sumTracked.toFixed(2)} />
                       </div>
                     </td>
-                  ))}
-                  <td>
-                    <div className={styles.cellBox}>
-                      <input className={`${styles.num} ${styles.numWide} ${styles.locked}`} disabled value={totals.sumEst.toFixed(2)} />
-                      <input className={`${styles.num} ${styles.numWide}`} disabled value={totals.sumTracked.toFixed(2)} />
-                    </div>
-                  </td>
-                </tr>
-              </tfoot>
-            </table>
-          </div>
-        </section>
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
+          </section>
+        )}
+
+        {/* MONTH VIEW (overview by week) */}
+        {viewMode === "month" && (
+          <section className={styles.card}>
+            <div className={styles.weekGrid}>
+              {monthWeeks.map((w, wi) => (
+                <div className={styles.weekCard} key={wi}>
+                  <div className={styles.weekHeader}>
+                    <div className={styles.weekTitle}>Week {wi + 1}</div>
+                    <div className={styles.weekRange}>{fmtMMMdd(w.start)} — {fmtMMMdd(w.end)}</div>
+                  </div>
+
+                  <div className={styles.dayDots}>
+                    {DOW.map((d, di) => (
+                      <div className={styles.dotCol} key={d}>
+                        <div className={styles.dotLabel}>{d}</div>
+                        <div className={styles.dotPair}>
+                          <span className={styles.dotA}>{(monthDayEst[wi]?.[di] || 0).toFixed(2)}</span>
+                          <span className={styles.dotB}>{(monthDayTracked[wi]?.[di] || 0).toFixed(2)}</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+
+                  <div className={styles.weekTotals}>
+                    <input className={`${styles.num} ${styles.numWide} ${styles.locked}`} disabled value={(monthWeekEst[wi] || 0).toFixed(2)} />
+                    <input className={`${styles.num} ${styles.numWide}`} disabled value={(monthWeekTracked[wi] || 0).toFixed(2)} />
+                  </div>
+                </div>
+              ))}
+            </div>
+          </section>
+        )}
 
         {/* ===== Admin Tools + Charts ===== */}
         {isAdmin && (
           <section className={styles.adminPanel}>
             <div className={styles.cardsRow}>
               <div className={styles.statCard}>
-                <div className={styles.statLabel}>Total Est Hours (Week)</div>
-                <div className={styles.statValue}>{totals.sumEst.toFixed(2)}h</div>
+                <div className={styles.statLabel}>{viewMode === "week" ? "Total Est Hours (Week)" : "Total Est Hours (Month)"}</div>
+                <div className={styles.statValue}>
+                  {viewMode === "week"
+                    ? totals.sumEst.toFixed(2)
+                    : clamp2(monthWeekEst.reduce((a,b)=>a+b,0)).toFixed(2)}h
+                </div>
               </div>
               <div className={styles.statCard}>
-                <div className={styles.statLabel}>Total Tracked Hours (Week)</div>
-                <div className={styles.statValue}>{totals.sumTracked.toFixed(2)}h</div>
+                <div className={styles.statLabel}>{viewMode === "week" ? "Total Tracked Hours (Week)" : "Total Tracked Hours (Month)"}</div>
+                <div className={styles.statValue}>
+                  {viewMode === "week"
+                    ? totals.sumTracked.toFixed(2)
+                    : clamp2(monthWeekTracked.reduce((a,b)=>a+b,0)).toFixed(2)}h
+                </div>
               </div>
               <div className={styles.statCard}>
                 <div className={styles.statLabel}>Δ Tracked – Est</div>
-                <div className={styles.statValue}>{totals.delta.toFixed(2)}h</div>
+                <div className={styles.statValue}>
+                  {viewMode === "week"
+                    ? totals.delta.toFixed(2)
+                    : clamp2(monthWeekTracked.reduce((a,b)=>a+b,0) - monthWeekEst.reduce((a,b)=>a+b,0)).toFixed(2)}h
+                </div>
               </div>
             </div>
 
             <div className={styles.chartsRow}>
               <div className={styles.chartCard}>
-                <div className={styles.chartTitle}>Daily Totals (Est vs Tracked) — Week</div>
-                <BarsVertical
-                  labels={["Mon","Tue","Wed","Thu","Fri"]}
-                  a={totals.dayEst.map(clamp2)}
-                  b={totals.dayTracked.map(clamp2)}
-                  titleA="Est"
-                  titleB="Tracked"
-                />
+                <div className={styles.chartTitle}>
+                  {viewMode === "week" ? "Daily Totals (Est vs Tracked) — Week" : "Weekly Totals (Est vs Tracked) — Month"}
+                </div>
+                {viewMode === "week" ? (
+                  <BarsVertical
+                    labels={DOW}
+                    a={totals.dayEst.map(clamp2)}
+                    b={totals.dayTracked.map(clamp2)}
+                  />
+                ) : (
+                  <BarsVertical
+                    labels={monthWeeks.map((_, i) => `W${i+1}`)}
+                    a={monthWeekEst.map(clamp2)}
+                    b={monthWeekTracked.map(clamp2)}
+                  />
+                )}
               </div>
 
               <div className={styles.chartCard}>
                 <div className={styles.chartTitle}>
-                  Consultants (Est vs Tracked) — Selected Week
+                  Consultants (Est vs Tracked) — Selected {viewMode === "week" ? "Week" : "Month"}
                   <a className={styles.chartLink} href="/admin/overview">Open Overview</a>
                 </div>
                 <BarsHorizontal
@@ -732,6 +934,49 @@ export default function DashboardPage() {
             <div className={styles.modalActions}>
               <button className={styles.btn} onClick={closeModal}>Cancel</button>
               <button className={`${styles.btn} ${styles.primary}`} onClick={saveModal}>Save</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* --- Modal for Admin Add Project --- */}
+      {addOpen && (
+        <div className={styles.modalBackdrop} onClick={()=> setAddOpen(false)}>
+          <div className={styles.modal} onClick={(e)=> e.stopPropagation()}>
+            <div className={styles.modalHeader}>
+              <div className={styles.modalTitle}>Add Project</div>
+              <div className={styles.modalMeta}>Creates a ClickUp task in the default list</div>
+            </div>
+            <div className={styles.modalBody}>
+              <label className={styles.label}>Project name</label>
+              <input
+                className={styles.input}
+                type="text"
+                placeholder="e.g., NETTTS | L5 Quickstart Lite"
+                value={newProjName}
+                onChange={(e)=> setNewProjName(e.currentTarget.value)}
+              />
+
+              <label className={styles.label} style={{ marginTop: 12 }}>Assign to</label>
+              <select
+                className={styles.selectWide}
+                value={newAssigneeId || ""}
+                onChange={(e)=> setNewAssigneeId(e.target.value)}
+              >
+                {members.map(m => (
+                  <option key={m.id} value={m.id}>
+                    {m.username || m.email || m.id}
+                  </option>
+                ))}
+              </select>
+
+              <div className={styles.help}>
+                Uses <code>CLICKUP_CREATE_LIST_ID</code> to pick the list.
+              </div>
+            </div>
+            <div className={styles.modalActions}>
+              <button className={styles.btn} onClick={()=> setAddOpen(false)}>Cancel</button>
+              <button className={`${styles.btn} ${styles.primary}`} onClick={createProject}>Create</button>
             </div>
           </div>
         </div>
