@@ -1,139 +1,120 @@
-/* src/app/dashboard/Dashboard.module.css */
-/* ------- Colors & base ------- */
-.page { background:#0f141a; color:#e8edf3; min-height:100dvh; }
-.shell { max-width:1400px; margin:0 auto; padding:12px 16px 40px; }
+/* -------- Dashboard.module.css (safe for CSS Modules) --------
+   Note: All tag selectors are scoped under a local class or wrapped in :global(...)
+   so Next.js build won't complain about "pure selector" errors.
+*/
 
-/* ------- Header ------- */
-.header {
-  display:flex; align-items:center; justify-content:space-between;
-  background:#151d27; border:1px solid #223041; border-radius:12px;
-  padding:12px 16px; margin-bottom:12px;
+/* Layout shell */
+.page { background: var(--bg); min-height: 100vh; color: var(--fg); }
+.shell { max-width: 1240px; margin: 0 auto; padding: 16px; }
+
+/* Header bits (kept for compatibility) */
+.header{} .brand{} .badge{} .title{} .subtitle{} .controls{}
+.viewer{} .viewerName{} .roleDot{}
+.btn{} .primary{} .warn{}
+.select{} .selectWide{}
+.selectorsBar{} .selectorCol{} .selectorLabel{} .viewToggle{} .selected{}
+.summary{} .pill{} .period{}
+.card{ background: var(--panel); border: 1px solid var(--border); border-radius: 12px; }
+
+/* ---- Table + scrolling ---- */
+.tableWrap { width: 100%; overflow-x: auto; }
+.table { width: 100%; min-width: 1100px; border-collapse: separate; border-spacing: 0; }
+
+/* Sticky header cells — tag selectors wrapped in :global, still scoped by .table */
+.table :global(thead th) {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background: var(--panel);
+  border-bottom: 1px solid var(--border);
+  padding: 8px;
+  font-weight: 700;
+  text-align: left;
+  font-size: 12px;
+  white-space: nowrap;
 }
-.brand { display:flex; gap:12px; align-items:center; }
-.logo { width:36px; height:36px; border-radius:8px; object-fit:contain; background:#0d1420; }
-.badge { width:36px; height:36px; border-radius:8px; display:grid; place-items:center;
-  background:linear-gradient(180deg,#2d88ff,#0aa2d4); color:#fff; font-weight:700; }
-.title { font-size:16px; font-weight:700; }
-.subtitle { font-size:12px; color:#a8b3c1; }
 
-.controls { display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
-.viewer { display:flex; gap:8px; align-items:center; margin-right:8px; white-space:nowrap; }
-.viewerName { font-weight:600; }
-.roleDot { color:#9bb0c0; }
-
-/* ------- Buttons & selects ------- */
-.btn {
-  background:#1b2532; border:1px solid #2a3a4e; color:#e8edf3;
-  padding:6px 10px; border-radius:8px; font-size:12px; cursor:pointer;
+/* Generic cell padding */
+.table :global(tbody th),
+.table :global(tbody td),
+.table :global(tfoot td),
+.table :global(tfoot th) {
+  padding: 6px;
+  vertical-align: top;
 }
-.btn:hover { background:#213042; }
-.primary { background:#2d88ff; border-color:#2d88ff; }
-.primary:hover { background:#1573f6; }
-.warn { background:#a53e3e; border-color:#a53e3e; }
-.warn:hover { background:#8e3333; }
 
-.select, .selectWide {
-  background:#111821; border:1px solid #2a3a4e; color:#e8edf3;
-  border-radius:8px; padding:6px 8px; font-size:12px;
-}
-.selectWide { min-width:180px; }
-
-/* ------- Selectors row ------- */
-.selectorsBar {
-  display:grid; grid-template-columns:1fr 1fr auto; gap:10px; align-items:center;
-  background:#151d27; border:1px solid #223041; border-radius:12px; padding:10px; margin-bottom:10px;
-}
-.selectorCol { display:flex; align-items:center; gap:8px; }
-.selectorLabel { color:#9bb0c0; font-size:12px; }
-.viewToggle { display:flex; gap:6px; }
-.selected { outline:2px solid #2d88ff; }
-
-/* ------- Summary pills ------- */
-.summary { display:flex; gap:8px; align-items:center; flex-wrap:wrap; margin-bottom:10px; }
-.pill { background:#151d27; border:1px solid #223041; border-radius:999px; padding:6px 10px; font-size:12px; }
-.period { color:#9bb0c0; font-size:12px; }
-
-/* ------- Card ------- */
-.card { background:#151d27; border:1px solid #223041; border-radius:12px; padding:0; }
-
-/* ------- Table (Week View) ------- */
-.tableWrap { width:100%; overflow-x:auto; }
-.table { width:max(1100px, 100%); border-collapse:separate; border-spacing:0; }
-thead th {
-  position:sticky; top:0; z-index:1; background:#151d27; border-bottom:1px solid #223041;
-  padding:8px; font-weight:700; text-align:left; font-size:12px; white-space:nowrap;
-}
+/* Sticky first column (header + body + footer) */
 .thProject {
-  position:sticky; left:0; z-index:2; background:#151d27; border-right:1px solid #223041;
-  min-width:320px; max-width:420px;
+  position: sticky;
+  left: 0;
+  z-index: 3;                  /* above other cells */
+  background: var(--panel);
+  border-right: 1px solid var(--border);
+  width: 380px;
+  min-width: 260px;
+  max-width: 420px;
 }
-tbody td, tfoot td { border-top:1px solid #223041; padding:8px; vertical-align:middle; white-space:nowrap; }
-tbody tr:hover td { background:#101825; }
-.projectName { max-width:380px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-tbody .projectCol, tfoot .projectCol { position:sticky; left:0; z-index:1; background:#151d27; border-right:1px solid #223041; }
+.table :global(thead) .thProject { z-index: 4; } /* above sticky header row */
 
-.day { font-weight:600; font-size:12px; }
-.daySub { font-size:11px; color:#9bb0c0; }
-.cellBox { display:flex; gap:6px; align-items:center; }
-.num { width:78px; padding:6px 8px; border-radius:8px; border:1px solid #2a3a4e; background:#0e1620; color:#e8edf3; font-size:12px; }
-.numWide { width:86px; }
-.locked { opacity:.65; }
-.trackBtn { padding:6px 8px; border-radius:8px; background:#0f1a27; border:1px solid #2a3a4e; color:#cfe2ff; cursor:pointer; font-size:12px; }
-.trackBtn:hover { background:#132235; }
-
-/* ------- Admin panel & charts ------- */
-.adminPanel { margin-top:14px; }
-.cardsRow { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:10px; }
-.statCard { background:#151d27; border:1px solid #223041; border-radius:12px; padding:12px; }
-.statLabel { color:#9bb0c0; font-size:12px; }
-.statValue { font-size:20px; font-weight:700; margin-top:4px; }
-
-.chartsRow { display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-top:10px; }
-.chartCard { background:#151d27; border:1px solid #223041; border-radius:12px; padding:10px; }
-.chartTitle { font-weight:700; font-size:13px; margin-bottom:6px; display:flex; align-items:center; justify-content:space-between; }
-.chartLink { color:#7fb3ff; text-decoration:underline; font-size:12px; }
-.chartSvg { width:100%; height:240px; display:block; }
-.chartAxis, .chartGrid { stroke:#2a3a4e; stroke-width:1; }
-.barA { fill:#2d88ff; opacity:.85; }
-.barB { fill:#00c2a8; opacity:.85; }
-.chartX, .chartY, .leg { fill:#cfe2ff; font-size:11px; }
-
-/* ------- Admin actions ------- */
-.adminActions { margin-top:10px; }
-
-/* ------- Modal ------- */
-.modalBackdrop { position:fixed; inset:0; background:rgba(0,0,0,.5); display:grid; place-items:center; }
-.modal { width:min(560px,96vw); background:#131a24; border:1px solid #223041; border-radius:12px; padding:12px; }
-.modalHeader { display:flex; align-items:baseline; gap:8px; }
-.modalTitle { font-weight:700; font-size:16px; }
-.modalMeta { color:#9bb0c0; font-size:12px; }
-.modalBody { margin-top:10px; display:grid; gap:8px; }
-.label { font-size:12px; color:#9bb0c0; }
-.help { font-size:11px; color:#9bb0c0; }
-.modalActions { display:flex; justify-content:flex-end; gap:8px; margin-top:10px; }
-
-/* ------- Month view ------- */
-.monthBar { display:flex; gap:8px; overflow-x:auto; padding:8px 2px 2px; margin-top:2px; }
-.weekChip { flex:0 0 auto; background:#151d27; border:1px solid #223041; border-radius:10px; padding:6px 10px; font-size:12px; cursor:pointer; white-space:nowrap; }
-.weekChipActive { outline:2px solid #2d88ff; }
-.monthGridNote { color:#9bb0c0; font-size:12px; margin:8px 2px 12px; }
-
-/* Scrollable week cards (month overview) */
-.weeksScroller { display:flex; gap:12px; overflow-x:auto; padding-bottom:6px; }
-.weekCard { flex:0 0 320px; background:#151d27; border:1px solid #223041; border-radius:12px; padding:10px; }
-.weekHeader { display:flex; align-items:baseline; justify-content:space-between; margin-bottom:8px; }
-.weekTitle { font-weight:700; }
-.weekDates { color:#9bb0c0; font-size:12px; }
-.weekRow { display:flex; gap:6px; align-items:center; margin-top:4px; }
-.dayTag { font-size:12px; color:#9bb0c0; width:44px; }
-.box { flex:1; padding:6px 8px; border-radius:8px; border:1px solid #2a3a4e; background:#0e1620; color:#e8edf3; font-size:12px; text-align:center; }
-.weekTotals { display:flex; gap:6px; margin-top:8px; }
-.totalBox { flex:1; padding:8px; border-radius:8px; border:1px solid #2a3a4e; background:#101a27; text-align:center; }
-
-/* ------- Responsive tweaks ------- */
-@media (max-width: 920px) {
-  .thProject { min-width:260px; }
-  .projectName { max-width:260px; }
-  .num, .numWide { width:70px; }
-  .chartsRow { grid-template-columns:1fr; }
+/* Project text clamp */
+.projectName {
+  max-width: 420px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
+
+/* Day labels in header */
+.day { font-weight: 600; }
+.daySub { font-size: 12px; opacity: .85; }
+
+/* Inputs / track button grouping */
+.cellBox { display: flex; gap: 8px; align-items: center; }
+.num {
+  width: 84px;
+  background: #0f1621;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  color: var(--fg);
+  padding: 6px 8px;
+}
+.numWide { width: 100%; max-width: 120px; }
+.locked { opacity: .6; }
+.trackBtn {
+  border: 1px dashed var(--border);
+  border-radius: 10px;
+  padding: 6px 10px;
+  background: #0f1621;
+  cursor: pointer;
+}
+
+/* Charts (tiny SVGs) */
+.chartSvg { width: 100%; height: 240px; display: block; }
+.chartAxis { stroke: #2e3c52; stroke-width: 1; }
+.chartGrid { stroke: #203146; stroke-dasharray: 2 4; }
+.chartX, .chartY, .leg { font-size: 11px; fill: #b9c2cf; }
+.barA { fill: #4da3ff; }
+.barB { fill: #7bd389; }
+
+/* Admin stats + actions (present so class names resolve) */
+.adminPanel {}
+.statCard { background: var(--panel); border: 1px solid var(--border); border-radius: 12px; padding: 14px; }
+.statLabel { font-size: 12px; opacity: .85; }
+.statValue { font-size: 22px; font-weight: 700; margin-top: 4px; }
+.chartsRow { display: grid; gap: 16px; grid-template-columns: 1fr 1fr; }
+.chartCard { background: var(--panel); border: 1px solid var(--border); border-radius: 12px; padding: 14px; }
+.chartTitle { font-weight: 600; margin-bottom: 8px; display:flex; justify-content:space-between; gap:12px; align-items:center; }
+.chartLink { font-size: 12px; opacity: .9; text-decoration: underline; }
+.adminActions { margin-top: 12px; }
+
+/* Modal (present so class names resolve) */
+.modalBackdrop {}
+.modal {}
+.modalHeader {}
+.modalTitle {}
+.modalMeta {}
+.modalBody {}
+.label {}
+.help {}
+.modalActions {}
+.logo {}
