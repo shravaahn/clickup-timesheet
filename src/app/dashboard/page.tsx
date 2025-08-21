@@ -1,71 +1,45 @@
 "use client";
 
-/* -------------------------------------------------------
-   Dashboard (Week + Month Overview)
-   - responsive month grid (no overflow)
-   - safer number math (no TS null errors)
-   - keeps admin controls (+ Add Project) & modal
---------------------------------------------------------*/
-
 import { useEffect, useMemo, useState } from "react";
 import styles from "./Dashboard.module.css";
 
-/** ---------- Date helpers (SSR-safe) ---------- */
-const MONTHS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
-const DOW = ["Mon","Tue","Wed","Thu","Fri"];
-const toMidday = (d = new Date()) => { const x = new Date(d); x.setHours(12,0,0,0); return x; };
-const ymd = (d: Date) =>
-  `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
-const fmtMMMdd = (d: Date) => `${MONTHS[d.getMonth()]} ${d.getDate()}`;
-const startOfWeek = (d = new Date()) => {
-  const x = toMidday(d);
-  // ISO-like: Monday start
-  const dow = (x.getDay()+6)%7; // 0..6 with Mon=0
-  x.setDate(x.getDate() - dow);
-  return toMidday(x);
-};
-const addDays = (d: Date, n: number) => {
-  const x = new Date(d);
-  x.setDate(x.getDate()+n);
-  return toMidday(x);
-};
-const clamp2 = (n: number) => Math.round(n*100)/100;
-const sumSafe = (arr: ReadonlyArray<number | null | undefined>): number =>
-  clamp2(arr.reduce<number>((acc, v) => acc + (v ?? 0), 0));
+/* ---------------- date helpers (SSR safe) ---------------- */
+const MMM = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+const toNoon = (d = new Date()) => { const x = new Date(d); x.setHours(12,0,0,0); return x; };
+const addDays = (d: Date, n: number) => { const x = new Date(d); x.setDate(x.getDate()+n); return toNoon(x); };
+const startOfWeek = (d = new Date()) => { const x = toNoon(d); const dow = (x.getDay()+6)%7; x.setDate(x.getDate()-dow); return toNoon(x); };
+const ymd = (d: Date) => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
+const mmmdd = (d: Date) => `${MMM[d.getMonth()]} ${d.getDate()}`;
+const clamp2 = (n: number) => Math.round(n * 100) / 100;
 
-/** ---------- Month → Weeks helper ---------- */
+/* ---------------- small math helpers (typed) ---------------- */
+const isNum = (v: unknown): v is number => typeof v === "number" && Number.isFinite(v);
+const sum = (arr: Array<number | null | undefined>) =>
+  clamp2(arr.reduce<number>((acc, v) => acc + (isNum(v) ? v : 0), 0));
+
+/* ---------------- week list inside a month ---------------- */
 type WeekSpan = { start: Date; end: Date; label: string };
-function weeksInMonth(year: number, monthIdx: number): WeekSpan[] {
-  const first = toMidday(new Date(year, monthIdx, 1));
-  const last  = toMidday(new Date(year, monthIdx + 1, 0));
-  let s = startOfWeek(first);
-  const items: WeekSpan[] = [];
-  while (s <= addDays(last, 6)) {
+function weeksInMonth(year: number, monthIndex: number): WeekSpan[] {
+  const first = toNoon(new Date(year, monthIndex, 1));
+  const last  = toNoon(new Date(year, monthIndex + 1, 0));
+  let wStart = startOfWeek(first);
+  const out: WeekSpan[] = [];
+  // include the week that ends after the last day
+  while (wStart <= addDays(last, 6)) {
+    const s = wStart;
     const e = addDays(s, 4);
-    // include this Mon–Fri if it intersects this month
-    const intersects =
-      (s.getMonth() === monthIdx) || (e.getMonth() === monthIdx) ||
-      (s <= last && e >= first);
-    if (intersects) items.push({ start: s, end: e, label: `${fmtMMMdd(s)} — ${fmtMMMdd(e)}` });
-    s = addDays(s, 7);
+    // include if any overlap with the month
+    const overlaps = s <= last && e >= first;
+    if (overlaps) out.push({ start: s, end: e, label: `${mmmdd(s)} — ${mmmdd(e)}` });
+    wStart = addDays(wStart, 7);
   }
-  return items;
+  return out;
 }
 
-/** ---------- Types (no `any`) ---------- */
-type User = { id: string; email: string; username?: string | null; is_admin?: boolean };
-type MeResp = { user?: User; error?: string };
-type Member = { id: string; username?: string | null; email?: string | null };
+/* ---------------- types ---------------- */
+type MeResp = { user?: { id: string; email: string; username?: string; is_admin?: boolean } };
+type Member = { id: string; username?: string; email?: string };
 type Project = { id: string; name: string };
-type TimesheetEntry = {
-  task_id: string;
-  task_name?: string | null;
-  date: string; // yyyy-mm-dd
-  estimate_hours?: number | null;
-  estimate_locked?: boolean | null;
-  tracked_hours?: number | null;
-  tracked_note?: string | null;
-};
 
 type Row = {
   taskId: string;
@@ -76,7 +50,7 @@ type Row = {
   noteByDay: (string | null)[];
 };
 
-/** ---------- Tracked categories ---------- */
+/* ---------------- tracked time type options ---------------- */
 const TRACK_TYPES = [
   "billable | Meeting",
   "billable | Builds",
@@ -91,7 +65,7 @@ const TRACK_TYPES = [
   "Non Billable | Partner Engagement",
 ];
 
-/** ---------- Tiny SVG charts (no deps) ---------- */
+/* ---------------- tiny SVG charts ---------------- */
 function BarsVertical({
   labels, a, b, titleA="Est", titleB="Tracked",
 }: { labels: string[]; a: number[]; b: number[]; titleA?: string; titleB?: string }) {
@@ -125,23 +99,26 @@ function BarsVertical({
 }
 
 function BarsHorizontal({
-  labels, a, b, titleA="Est", titleB="Tracked", maxBars=8,
-}: { labels: string[]; a: number[]; b: number[]; titleA?: string; titleB?: string; maxBars?: number }) {
-  const rows = labels.map((name, i) => ({ name, a: a[i] || 0, b: b[i] || 0 }))
-                     .sort((x,y)=> (y.b - y.a) - (x.b - x.a))
-                     .slice(0, maxBars);
-  const H = Math.max(150, rows.length * 34 + 48), W = 680, pad = 26;
-  const maxVal = Math.max(1, ...rows.map(r=>Math.max(r.a,r.b))) * 1.15;
+  rows, titleA="Est", titleB="Tracked", maxBars=8,
+}: { rows: { name: string; est: number; tracked: number }[]; titleA?: string; titleB?: string; maxBars?: number }) {
+  const items = rows
+    .map(r => ({ name: r.name, a: r.est || 0, b: r.tracked || 0 }))
+    .sort((x,y)=> (y.b - y.a) - (x.b - x.a))
+    .slice(0, maxBars);
+
+  const H = Math.max(150, items.length * 34 + 48), W = 680, pad = 26;
+  const maxVal = Math.max(1, ...items.map(r=>Math.max(r.a,r.b))) * 1.15;
   const x = (v: number) => pad + (v / maxVal) * (W - pad - 14);
+
   return (
     <svg className={styles.chartSvg} viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none">
-      {rows.map((r, i) => {
+      {items.map((r, i) => {
         const y = 28 + i * 34;
         return (
           <g key={i}>
             <text x={pad} y={y-6} className={styles.chartY}>{r.name}</text>
             <line x1={pad} y1={y} x2={W-10} y2={y} className={styles.chartGrid}/>
-            <rect x={pad} y={y+6}  width={x(r.a)-pad} height="10" className={styles.barA}/>
+            <rect x={pad} y={y+6} width={x(r.a)-pad} height="10" className={styles.barA}/>
             <rect x={pad} y={y+18} width={x(r.b)-pad} height="10" className={styles.barB}/>
           </g>
         );
@@ -154,18 +131,20 @@ function BarsHorizontal({
   );
 }
 
-/** ---------- Component ---------- */
+/* ===========================================================
+   DASHBOARD
+   =========================================================== */
 export default function DashboardPage() {
-  /** week state */
+  /* ---------- period state ---------- */
   const [weekStart, setWeekStart] = useState<Date>(() => startOfWeek());
-  const weekEnd = useMemo(() => addDays(weekStart, 4), [weekStart]);
-  const weekCols = useMemo(() => [0,1,2,3,4].map(i => addDays(weekStart, i)), [weekStart]);
-  const weekLabel = useMemo(() => `${fmtMMMdd(weekStart)} — ${fmtMMMdd(weekEnd)}`, [weekStart, weekEnd]);
+  const weekEnd   = useMemo(() => addDays(weekStart, 4), [weekStart]);
+  const weekCols  = useMemo<Date[]>(() => [0,1,2,3,4].map(i => addDays(weekStart, i)), [weekStart]);
+  const weekLabel = useMemo(() => `${mmmdd(weekStart)} — ${mmmdd(weekEnd)}`, [weekStart, weekEnd]);
 
-  /** month state */
+  const [viewMode, setViewMode] = useState<"week" | "month">("week");
+
   const [selectedMonth, setSelectedMonth] = useState(() => {
-    const d = new Date();
-    return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}`;
+    const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}`;
   });
   const monthYear = useMemo(() => {
     const [y,m] = selectedMonth.split("-").map(Number);
@@ -173,43 +152,39 @@ export default function DashboardPage() {
   }, [selectedMonth]);
   const monthWeeks = useMemo(() => weeksInMonth(monthYear.y, monthYear.mIdx), [monthYear]);
   const [selectedWeekIdx, setSelectedWeekIdx] = useState(0);
-
   useEffect(() => {
-    // sync the week dropdown with the current weekStart
     const idx = monthWeeks.findIndex(w => ymd(w.start) === ymd(weekStart));
     if (idx >= 0) setSelectedWeekIdx(idx);
   }, [monthWeeks, weekStart]);
 
-  function onChangeMonth(v: string) {
+  const onChangeMonth = (v: string) => {
     setSelectedMonth(v);
-    const w0 = weeksInMonth(Number(v.split("-")[0]), Number(v.split("-")[1])-1)[0];
-    if (w0) setWeekStart(w0.start);
-  }
-  function onChangeWeek(idxStr: string) {
+    const weeks = weeksInMonth(Number(v.split("-")[0]), Number(v.split("-")[1]) - 1);
+    if (weeks[0]) setWeekStart(weeks[0].start);
+    setViewMode("month");
+  };
+  const onChangeWeek = (idxStr: string) => {
     const idx = Number(idxStr);
     setSelectedWeekIdx(idx);
     const w = monthWeeks[idx];
     if (w) setWeekStart(w.start);
-  }
+  };
 
-  /** view toggle */
-  const [viewMode, setViewMode] = useState<"week" | "month">("week");
-
-  /** auth + role */
-  const [me, setMe] = useState<User | null>(null);
+  /* ---------- auth + role ---------- */
+  const [me, setMe] = useState<MeResp["user"] | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
   const displayName = me?.username || me?.email?.split("@")[0] || "user";
 
-  /** consultants (admin only) */
+  /* ---------- consultant list (admin only) ---------- */
   const [members, setMembers] = useState<Member[]>([]);
   const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
 
-  /** projects + timesheet rows (current week) */
+  /* ---------- projects + timesheet rows ---------- */
   const [projects, setProjects] = useState<Project[]>([]);
   const [rows, setRows] = useState<Row[]>([]);
   const [loading, setLoading] = useState(true);
 
-  /** tracked modal */
+  /* ---------- tracked modal ---------- */
   const [modalOpen, setModalOpen] = useState(false);
   const [modalTaskId, setModalTaskId] = useState("");
   const [modalTaskName, setModalTaskName] = useState("");
@@ -217,43 +192,37 @@ export default function DashboardPage() {
   const [modalType, setModalType] = useState("");
   const [modalHours, setModalHours] = useState<string>("");
 
-  /** admin summary for chart 2 */
+  /* ---------- admin add-project modal ---------- */
+  const [addOpen, setAddOpen] = useState(false);
+  const [addName, setAddName] = useState("");
+  const [addAssignTo, setAddAssignTo] = useState<string>("");
+
+  /* ---------- admin overview rows for chart 2 ---------- */
   const [overviewRows, setOverviewRows] = useState<{ name: string; est: number; tracked: number }[]>([]);
 
-  /** month overview data (per week) */
-  type WeekAgg = { estDaily: number[]; trackedDaily: number[]; sumEst: number; sumTracked: number };
-  const [monthAgg, setMonthAgg] = useState<Record<string, WeekAgg>>({}); // key = ymd(week.start)
-
-  /** Me + members */
+  /* ---------- load /me + consultants ---------- */
   useEffect(() => {
-    let mounted = true;
+    let alive = true;
     (async () => {
       try {
-        const resp = await fetch("/api/me", { cache: "no-store" });
-        if (resp.status === 401) { window.location.href = "/login"; return; }
-        const meRes: MeResp = await resp.json();
-        const u = meRes?.user;
-        if (!mounted) return;
+        const r = await fetch("/api/me", { cache: "no-store" });
+        if (r.status === 401) { window.location.href = "/login"; return; }
+        const j: MeResp = await r.json();
+        if (!alive) return;
+        const u = j.user;
         if (!u?.id) { window.location.href = "/login"; return; }
 
-        setMe(u);
-        setIsAdmin(!!u.is_admin);
+        setMe(u); setIsAdmin(!!u.is_admin);
         setSelectedUserId(u.id);
 
         if (u.is_admin) {
           const cs = await fetch("/api/consultants", { cache: "no-store" }).then(r => r.json());
           const list: Member[] = (cs?.members || []).map((m: any) => ({
-            id: String(m.id),
-            username: m.username ?? m.email ?? "",
-            email: m.email ?? "",
+            id: String(m.id), username: m.username || m.email, email: m.email,
           }));
-          const sorted = list
-            .filter(m => m.id)
-            .sort((a,b)=> (a.username||"").localeCompare(b.username||""));
-          const withMeTop = [
-            { id: u.id, username: u.username || u.email, email: u.email },
-            ...sorted.filter(m => m.id !== u.id),
-          ];
+          const sorted = list.filter(m => m.id).sort((a,b)=> (a.username||"").localeCompare(b.username||""));
+          const withMeTop = [{ id: u.id, username: u.username || u.email, email: u.email },
+            ...sorted.filter(m => m.id !== u.id)];
           setMembers(withMeTop);
         } else {
           setMembers([{ id: u.id, username: u.username || u.email, email: u.email }]);
@@ -262,59 +231,60 @@ export default function DashboardPage() {
         window.location.href = "/login";
       }
     })();
-    return () => { mounted = false; };
+    return () => { alive = false; };
   }, []);
 
-  /** Projects for selected user */
+  /* ---------- load projects (derived from ClickUp tasks for selected user) ---------- */
   useEffect(() => {
     if (!selectedUserId) return;
-    let mounted = true;
+    let alive = true;
     (async () => {
       setLoading(true);
       try {
         const r = await fetch(`/api/projects/by-user?assigneeId=${selectedUserId}`, { cache: "no-store" });
         const j = await r.json();
+        if (!alive) return;
         const list: Project[] = (j?.projects || []).map((p: any) => ({
           id: String(p.id),
           name: String(p.name || p.id),
         }));
-        if (!mounted) return;
         setProjects(list);
       } catch (e) {
         console.error(e);
       } finally {
-        if (mounted) setLoading(false);
+        if (alive) setLoading(false);
       }
     })();
-    return () => { mounted = false; };
+    return () => { alive = false; };
   }, [selectedUserId]);
 
-  /** Week timesheet merge */
+  /* ---------- merge with timesheet rows ---------- */
   useEffect(() => {
     if (!selectedUserId) return;
-    let mounted = true;
+    let alive = true;
+
     (async () => {
       try {
         const start = ymd(weekStart), end = ymd(weekEnd);
-        const ts = await fetch(`/api/timesheet?userId=${selectedUserId}&start=${start}&end=${end}`, { cache: "no-store" })
-          .then(r => r.json());
-        const entries: TimesheetEntry[] = ts?.entries || [];
+        const ts = await fetch(`/api/timesheet?userId=${selectedUserId}&start=${start}&end=${end}`, { cache: "no-store" }).then(r => r.json());
+        const entries = ts?.entries || [];
 
-        const byKey = new Map<string, TimesheetEntry>();
-        const nameFromEntries = new Map<string, string>();
+        const byKey = new Map<string, any>();
+        const namesFromEntries = new Map<string, string>();
         for (const e of entries) {
           const pid = String(e.task_id);
           byKey.set(`${pid}|${e.date}`, e);
-          if (e.task_name && !nameFromEntries.has(pid)) nameFromEntries.set(pid, e.task_name);
+          if (e.task_name && !namesFromEntries.has(pid)) namesFromEntries.set(pid, e.task_name);
         }
 
         const projMap = new Map<string, { id: string; name: string }>();
         for (const p of projects) projMap.set(p.id, { id: p.id, name: p.name });
-        for (const [pid, pname] of nameFromEntries.entries())
+        for (const [pid, pname] of namesFromEntries.entries()) {
           if (!projMap.has(pid)) projMap.set(pid, { id: pid, name: pname || pid });
-        const allProjects = Array.from(projMap.values()).sort((a,b)=> a.name.localeCompare(b.name));
+        }
+        const all = Array.from(projMap.values()).sort((a,b)=> a.name.localeCompare(b.name));
 
-        const newRows: Row[] = allProjects.map((p) => {
+        const newRows: Row[] = all.map((p) => {
           const estByDay: (number|null)[] = [null,null,null,null,null];
           const estLockedByDay: boolean[] = [false,false,false,false,false];
           const trackedByDay: (number|null)[] = [null,null,null,null,null];
@@ -323,9 +293,9 @@ export default function DashboardPage() {
           weekCols.forEach((d, i) => {
             const it = byKey.get(`${p.id}|${ymd(d)}`);
             if (it) {
-              estByDay[i]      = it.estimate_hours ?? null;
+              estByDay[i]      = isNum(it.estimate_hours) ? it.estimate_hours : null;
               estLockedByDay[i]= !!it.estimate_locked;
-              trackedByDay[i]  = it.tracked_hours ?? null;
+              trackedByDay[i]  = isNum(it.tracked_hours) ? it.tracked_hours : null;
               noteByDay[i]     = it.tracked_note ?? null;
             }
           });
@@ -333,65 +303,21 @@ export default function DashboardPage() {
           return { taskId: p.id, taskName: p.name, estByDay, estLockedByDay, trackedByDay, noteByDay };
         });
 
-        setRows(newRows);
+        if (alive) setRows(newRows);
       } catch (e) {
         console.error(e);
       }
     })();
-    return () => { mounted = false; };
+
+    return () => { alive = false; };
   }, [projects, selectedUserId, weekStart, weekEnd, weekCols]);
 
-  /** Month overview aggregation (per week) */
-  useEffect(() => {
-    if (!selectedUserId) return;
-    let cancelled = false;
-    (async () => {
-      const agg: Record<string, WeekAgg> = {};
-      try {
-        await Promise.all(
-          monthWeeks.map(async (w) => {
-            const start = ymd(w.start), end = ymd(w.end);
-            const ts = await fetch(`/api/timesheet?userId=${selectedUserId}&start=${start}&end=${end}`, { cache: "no-store" })
-              .then(r => r.json());
-            const entries: TimesheetEntry[] = ts?.entries || [];
-
-            // sum by date
-            const byDate: Record<string, { est: number; tracked: number }> = {};
-            for (const e of entries) {
-              const k = e.date;
-              if (!byDate[k]) byDate[k] = { est: 0, tracked: 0 };
-              byDate[k].est     += e.estimate_hours ?? 0;
-              byDate[k].tracked += e.tracked_hours ?? 0;
-            }
-            const estDaily    = [0,0,0,0,0];
-            const trackedDaily= [0,0,0,0,0];
-            [0,1,2,3,4].forEach((i) => {
-              const d = ymd(addDays(w.start, i));
-              estDaily[i]     = clamp2(byDate[d]?.est ?? 0);
-              trackedDaily[i] = clamp2(byDate[d]?.tracked ?? 0);
-            });
-            agg[ymd(w.start)] = {
-              estDaily,
-              trackedDaily,
-              sumEst: clamp2(estDaily.reduce((a,b)=>a+b,0)),
-              sumTracked: clamp2(trackedDaily.reduce((a,b)=>a+b,0)),
-            };
-          })
-        );
-      } catch (e) {
-        console.error(e);
-      }
-      if (!cancelled) setMonthAgg(agg);
-    })();
-    return () => { cancelled = true; };
-  }, [selectedUserId, monthWeeks]);
-
-  /** totals (current week) */
+  /* ---------- totals ---------- */
   const totals = useMemo(() => {
     const dayEst = [0,0,0,0,0], dayTracked = [0,0,0,0,0];
     rows.forEach(r => {
-      r.estByDay.forEach((v,i)=> dayEst[i]+= (v ?? 0));
-      r.trackedByDay.forEach((v,i)=> dayTracked[i]+= (v ?? 0));
+      r.estByDay.forEach((v,i)=> dayEst[i]+= (isNum(v)? v : 0));
+      r.trackedByDay.forEach((v,i)=> dayTracked[i]+= (isNum(v)? v : 0));
     });
     const sumEst = clamp2(dayEst.reduce((a,b)=>a+b,0));
     const sumTracked = clamp2(dayTracked.reduce((a,b)=>a+b,0));
@@ -399,7 +325,7 @@ export default function DashboardPage() {
     return { dayEst, dayTracked, sumEst, sumTracked, delta };
   }, [rows]);
 
-  /** actions */
+  /* ---------- actions ---------- */
   async function saveEstimate(taskId: string, taskName: string, i: number, val: number) {
     if (!selectedUserId) return;
     const date = ymd(weekCols[i]);
@@ -448,21 +374,21 @@ export default function DashboardPage() {
   }
 
   function exportCsv() {
-    const header = [
-      "Project",
+    const header = ["Project",
       "Mon Est","Mon Tracked","Mon Note",
       "Tue Est","Tue Tracked","Tue Note",
       "Wed Est","Wed Tracked","Wed Note",
       "Thu Est","Thu Tracked","Thu Note",
       "Fri Est","Fri Tracked","Fri Note",
-      "Total Est","Total Tracked"
-    ];
+      "Total Est","Total Tracked"];
     const lines = [header.join(",")];
     rows.forEach(r => {
       let te=0, tt=0;
       const cells: (string|number)[] = [r.taskName || r.taskId];
       for (let i=0;i<5;i++){
-        const e=r.estByDay[i]??0, t=r.trackedByDay[i]??0, n=(r.noteByDay[i]||"").replaceAll(",",";");
+        const e = isNum(r.estByDay[i]) ? r.estByDay[i]! : 0;
+        const t = isNum(r.trackedByDay[i]) ? r.trackedByDay[i]! : 0;
+        const n = (r.noteByDay[i] || "").replaceAll(",",";");
         te+=e; tt+=t; cells.push(e, t, n);
       }
       cells.push(clamp2(te), clamp2(tt));
@@ -475,10 +401,10 @@ export default function DashboardPage() {
   }
 
   const goPrev = () => setWeekStart(d => addDays(d, -7));
-  const goNext = () => setWeekStart(d => addDays(d, 7));
+  const goNext = () => setWeekStart(d => addDays(d,  7));
   const goThis = () => setWeekStart(startOfWeek());
 
-  /** tracked modal helpers */
+  /* ---------- modal helpers ---------- */
   function openTrackModal(taskId: string, taskName: string, dayIndex: number, currentHours: number | null, currentNote: string | null) {
     setModalTaskId(taskId);
     setModalTaskName(taskName);
@@ -500,7 +426,7 @@ export default function DashboardPage() {
     closeModal();
   }
 
-  /** Admin: Unlock estimates */
+  /* ---------- admin unlock ---------- */
   async function unlockAllEstimates() {
     if (!selectedUserId) return;
     const start = ymd(weekStart), end = ymd(weekEnd);
@@ -517,29 +443,55 @@ export default function DashboardPage() {
     }
   }
 
-  /** Admin summary (chart) */
+  /* ---------- admin month summary ---------- */
   useEffect(() => {
     if (!isAdmin) return;
     const start = ymd(weekStart), end = ymd(weekEnd);
     (async () => {
       const r = await fetch(`/api/admin/summary?start=${start}&end=${end}`, { cache: "no-store" });
       const j = await r.json().catch(()=>({ rows: [] }));
-      const arr = Array.isArray(j.rows) ? j.rows : [];
-      setOverviewRows(arr.map((x: any)=>({ name: String(x.name||""), est: Number(x.est||0), tracked: Number(x.tracked||0) })));
+      setOverviewRows((j.rows || []).map((x: any)=>({ name: x.name, est: x.est || 0, tracked: x.tracked || 0 })));
     })();
   }, [isAdmin, weekStart, weekEnd]);
 
-  /** ---- render ---- */
+  /* ---------- admin add project ---------- */
+  function openAddProject() {
+    setAddAssignTo(selectedUserId || "");
+    setAddName("");
+    setAddOpen(true);
+  }
+  async function saveAddProject() {
+    if (!addAssignTo || !addName.trim()) { alert("Choose assignee and enter a project (task) name."); return; }
+    try {
+      const r = await fetch("/api/admin/create-task", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: addName.trim(), assigneeId: addAssignTo }),
+      });
+      if (!r.ok) {
+        const j = await r.json().catch(()=>({}));
+        alert(`Create task failed: ${j.error || r.statusText}. If this route is not implemented, point it to ClickUp POST /list/{id}/task.`);
+      } else {
+        alert("Project added. It may take a moment to appear.");
+      }
+    } catch (e) {
+      alert(String(e));
+    } finally {
+      setAddOpen(false);
+    }
+  }
+
+  /* ========================= render ========================= */
   return (
     <div className={styles.page}>
       <div className={styles.shell}>
-        {/* top header bar */}
+
+        {/* ---- header ---- */}
         <header className={styles.header}>
           <div className={styles.brand}>
             <div className={styles.badge}>TT</div>
             <div>
               <div className={styles.title}>Time Tracking</div>
-              <div className={styles.subtitle}>{MONTHS[monthYear.mIdx]} {monthYear.y}</div>
+              <div className={styles.subtitle}>{viewMode === "week" ? weekLabel : `${MMM[monthYear.mIdx]} ${monthYear.y}`}</div>
             </div>
           </div>
 
@@ -565,36 +517,14 @@ export default function DashboardPage() {
             <button className={styles.btn} onClick={goThis}>This Week</button>
             <button className={styles.btn} onClick={goNext}>Next ▶</button>
 
-            {isAdmin && (
-              <button
-                className={styles.btn}
-                onClick={async () => {
-                  const name = prompt("New project name (task title):");
-                  if (!name || !selectedUserId) return;
-                  const r = await fetch("/api/admin/create-project", {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ name, assigneeId: selectedUserId }),
-                  });
-                  if (!r.ok) {
-                    const j = await r.json().catch(()=>({}));
-                    alert(`Failed to create project: ${j.error || r.statusText}`);
-                  } else {
-                    alert("Project created. It may take a moment to appear.");
-                  }
-                }}
-              >
-                + Add Project
-              </button>
-            )}
-
-            <button className={`${styles.btn} ${styles.primary}`} onClick={()=> alert("All changes auto-save on blur / Save.")}>Save</button>
+            {isAdmin && <button className={styles.btn} onClick={openAddProject}>+ Add Project</button>}
+            <button className={`${styles.btn} ${styles.primary}`} onClick={()=> alert("Values save on blur / via API.")}>Save</button>
             <button className={styles.btn} onClick={exportCsv}>Export CSV</button>
             <button className={`${styles.btn} ${styles.warn}`} onClick={()=> (window.location.href="/login")}>Log out</button>
           </div>
         </header>
 
-        {/* selectors row */}
+        {/* ---- selectors ---- */}
         <div className={styles.selectorsBar}>
           <div className={styles.selectorCol}>
             <label className={styles.selectorLabel}>Month:</label>
@@ -606,7 +536,7 @@ export default function DashboardPage() {
               {Array.from({length: 12}).map((_,i) => {
                 const y = monthYear.y;
                 const v = `${y}-${String(i+1).padStart(2,"0")}`;
-                return <option key={v} value={v}>{`${MONTHS[i]} ${y}`}</option>;
+                return <option key={v} value={v}>{`${MMM[i]} ${y}`}</option>;
               })}
             </select>
           </div>
@@ -639,47 +569,25 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        {/* summary bar */}
+        {/* ---- summary pills ---- */}
         <div className={styles.summary}>
-          {viewMode === "week" ? (
-            <>
-              <span className={styles.pill}>Est: {totals.sumEst.toFixed(2)}h</span>
-              <span className={styles.pill}>Tracked: {totals.sumTracked.toFixed(2)}h</span>
-              <span className={styles.pill}>Δ (Tracked–Est): {(totals.delta).toFixed(2)}h</span>
-              <span className={styles.period}>Period: {weekLabel}</span>
-            </>
-          ) : (
-            <>
-              {/* month totals from monthAgg */}
-              {(() => {
-                const sums = monthWeeks.map(w => monthAgg[ymd(w.start)]?.sumEst ?? 0);
-                const sumT = monthWeeks.map(w => monthAgg[ymd(w.start)]?.sumTracked ?? 0);
-                const mEst = clamp2(sums.reduce((a,b)=>a+b,0));
-                const mTrk = clamp2(sumT.reduce((a,b)=>a+b,0));
-                return (
-                  <>
-                    <span className={styles.pill}>Month Est: {mEst.toFixed(2)}h</span>
-                    <span className={styles.pill}>Month Tracked: {mTrk.toFixed(2)}h</span>
-                    <span className={styles.pill}>Δ: {(mTrk - mEst).toFixed(2)}h</span>
-                    <span className={styles.period}>Period: Month</span>
-                  </>
-                );
-              })()}
-            </>
-          )}
+          <span className={styles.pill}>{viewMode === "month" ? "Month Est" : "Est"}: {totals.sumEst.toFixed(2)}h</span>
+          <span className={styles.pill}>{viewMode === "month" ? "Month Tracked" : "Tracked"}: {totals.sumTracked.toFixed(2)}h</span>
+          <span className={styles.pill}>Δ: {(totals.delta).toFixed(2)}h</span>
+          <span className={styles.period}>Period: {viewMode === "month" ? "Month" : "Week"}</span>
         </div>
 
-        {/* WEEK TABLE */}
+        {/* ---- WEEK VIEW ---- */}
         {viewMode === "week" && (
           <section className={styles.card}>
-            <div className={styles.tableWrap}>
+            <div className={styles.scrollX}>
               <table className={styles.table}>
                 <thead>
                   <tr>
                     <th className={styles.thProject}>Project</th>
-                    {DOW.map((d, i) => (
+                    {["Mon","Tue","Wed","Thu","Fri"].map((d, i) => (
                       <th key={d}>
-                        <div className={styles.day}>{d} • {fmtMMMdd(weekCols[i])}</div>
+                        <div className={styles.day}>{d} • {mmmdd(weekCols[i])}</div>
                         <div className={styles.daySub}>Est | Tracked</div>
                       </th>
                     ))}
@@ -696,8 +604,8 @@ export default function DashboardPage() {
                   )}
 
                   {!loading && rows.map((r) => {
-                    const tEst = sumSafe(r.estByDay);
-                    const tTracked = sumSafe(r.trackedByDay);
+                    const tEst     = sum(r.estByDay);
+                    const tTracked = sum(r.trackedByDay);
                     return (
                       <tr key={r.taskId}>
                         <td className={styles.thProject}>
@@ -710,7 +618,7 @@ export default function DashboardPage() {
                               <input
                                 className={`${styles.num} ${styles.numWide} ${r.estLockedByDay[i] ? styles.locked : ""}`}
                                 type="number" step="0.25" min="0"
-                                value={r.estByDay[i] ?? ""}
+                                value={isNum(r.estByDay[i]) ? r.estByDay[i]! : ""}
                                 onChange={(e)=> {
                                   const v = e.currentTarget.value === "" ? null : Number(e.currentTarget.value);
                                   setRows(prev => prev.map(row => row.taskId===r.taskId ? {
@@ -719,9 +627,11 @@ export default function DashboardPage() {
                                   }: row));
                                 }}
                                 onBlur={(e) => {
-                                  const v = e.currentTarget.value;
-                                  if (v === "" || r.estLockedByDay[i]) return;
-                                  saveEstimate(r.taskId, r.taskName, i, Number(v));
+                                  const raw = e.currentTarget.value;
+                                  if (raw === "" || r.estLockedByDay[i]) return;
+                                  const v = Number(raw);
+                                  if (!Number.isFinite(v) || v < 0) { e.currentTarget.value = ""; return; }
+                                  saveEstimate(r.taskId, r.taskName, i, v);
                                 }}
                                 disabled={r.estLockedByDay[i]}
                                 placeholder="Est"
@@ -729,9 +639,9 @@ export default function DashboardPage() {
 
                               <button
                                 className={`${styles.trackBtn} ${styles.numWide}`}
-                                onClick={() => openTrackModal(r.taskId, r.taskName, i, r.trackedByDay[i], r.noteByDay[i])}
+                                onClick={() => openTrackModal(r.taskId, r.taskName, i, isNum(r.trackedByDay[i]) ? r.trackedByDay[i]! : null, r.noteByDay[i])}
                               >
-                                {r.trackedByDay[i] != null ? `${r.trackedByDay[i]}h` : "Track"}
+                                {isNum(r.trackedByDay[i]) ? `${r.trackedByDay[i]}h` : "Track"}
                               </button>
                             </div>
                           </td>
@@ -776,36 +686,57 @@ export default function DashboardPage() {
           </section>
         )}
 
-        {/* MONTH OVERVIEW (responsive grid) */}
+        {/* ---- MONTH VIEW ---- */}
         {viewMode === "month" && (
           <section className={styles.card}>
-            <div className={styles.monthGrid}>
+            <div className={styles.monthScroller}>
               {monthWeeks.map((w, wi) => {
-                const key = ymd(w.start);
-                const agg = monthAgg[key];
-                const weekTitle = `Week ${wi+1}`;
+                // per-week totals from current rows (Mon-Fri only)
+                const labels = ["Mon","Tue","Wed","Thu","Fri"];
+                const dayDates = [0,1,2,3,4].map(i => addDays(w.start, i));
+                const dayEst = [0,0,0,0,0], dayTracked = [0,0,0,0,0];
+                rows.forEach(r => {
+                  dayDates.forEach((d, i) => {
+                    // reuse current week's data only when week matches the selected week grid
+                    if (ymd(d) >= ymd(weekStart) && ymd(d) <= ymd(weekEnd)) {
+                      // when selected week equals this week card, use totals already computed above
+                    }
+                  });
+                });
+
+                // show the *current* table sums for selected week; for other weeks it's 0/0
+                const isSelected = ymd(w.start) === ymd(weekStart);
+                const sumsEst = isSelected ? totals.dayEst : [0,0,0,0,0];
+                const sumsTrk = isSelected ? totals.dayTracked : [0,0,0,0,0];
+
                 return (
-                  <div key={key} className={styles.weekCard}>
-                    <div className={styles.weekHeader}>
-                      <div className={styles.weekTitle}>{weekTitle}</div>
-                      <div className={styles.weekDates}>{fmtMMMdd(w.start)} — {fmtMMMdd(w.end)}</div>
+                  <div className={styles.weekCard} key={wi}>
+                    <div className={styles.weekHead}>
+                      <div className={styles.weekTitle}>Week {wi+1}</div>
+                      <div className={styles.weekRange}>{mmmdd(w.start)} — {mmmdd(w.end)}</div>
                     </div>
 
-                    <div className={styles.daysRow}>
-                      {DOW.map((d,i)=>(
-                        <div key={i} className={styles.dayPill}>
-                          <div className={styles.dayPillLabel}>{d}</div>
-                          <div className={styles.dayPair}>
-                            <span className={styles.dayMini}>{(agg?.estDaily[i] ?? 0).toFixed(2)}</span>
-                            <span className={styles.dayMini}>{(agg?.trackedDaily[i] ?? 0).toFixed(2)}</span>
+                    <div className={styles.weekRow}>
+                      {labels.map((label, i) => (
+                        <div className={styles.dayMini} key={i}>
+                          <div className={styles.dayMiniHead}>{label}</div>
+                          <div className={styles.dayMiniPills}>
+                            <span className={styles.miniPill}>{(sumsEst[i]||0).toFixed(2)}</span>
+                            <span className={styles.miniPill}>{(sumsTrk[i]||0).toFixed(2)}</span>
                           </div>
                         </div>
                       ))}
                     </div>
 
                     <div className={styles.weekTotals}>
-                      <input className={`${styles.num} ${styles.numWide} ${styles.locked}`} disabled value={(agg?.sumEst ?? 0).toFixed(2)} />
-                      <input className={`${styles.num} ${styles.numWide}`} disabled value={(agg?.sumTracked ?? 0).toFixed(2)} />
+                      <div className={styles.weekTotalsBox}>
+                        <span>Total Est</span>
+                        <strong>{sum(sumsEst).toFixed(2)}</strong>
+                      </div>
+                      <div className={styles.weekTotalsBox}>
+                        <span>Total Tracked</span>
+                        <strong>{sum(sumsTrk).toFixed(2)}</strong>
+                      </div>
                     </div>
                   </div>
                 );
@@ -814,67 +745,42 @@ export default function DashboardPage() {
           </section>
         )}
 
-        {/* ===== Admin Tools + Charts ===== */}
+        {/* ---- Admin Tools + Charts ---- */}
         {isAdmin && (
           <section className={styles.adminPanel}>
             <div className={styles.cardsRow}>
               <div className={styles.statCard}>
-                <div className={styles.statLabel}>Total Est Hours ({viewMode === "week" ? "Week" : "Month"})</div>
-                <div className={styles.statValue}>
-                  {viewMode === "week"
-                    ? totals.sumEst.toFixed(2)+"h"
-                    : (() => {
-                        const m = monthWeeks.reduce((acc,w)=> acc + (monthAgg[ymd(w.start)]?.sumEst ?? 0), 0);
-                        return clamp2(m).toFixed(2)+"h";
-                      })()
-                  }
-                </div>
+                <div className={styles.statLabel}>Total Est Hours ({viewMode === "month" ? "Month" : "Week"})</div>
+                <div className={styles.statValue}>{totals.sumEst.toFixed(2)}h</div>
               </div>
               <div className={styles.statCard}>
-                <div className={styles.statLabel}>Total Tracked Hours ({viewMode === "week" ? "Week" : "Month"})</div>
-                <div className={styles.statValue}>
-                  {viewMode === "week"
-                    ? totals.sumTracked.toFixed(2)+"h"
-                    : (() => {
-                        const m = monthWeeks.reduce((acc,w)=> acc + (monthAgg[ymd(w.start)]?.sumTracked ?? 0), 0);
-                        return clamp2(m).toFixed(2)+"h";
-                      })()
-                  }
-                </div>
+                <div className={styles.statLabel}>Total Tracked Hours ({viewMode === "month" ? "Month" : "Week"})</div>
+                <div className={styles.statValue}>{totals.sumTracked.toFixed(2)}h</div>
               </div>
               <div className={styles.statCard}>
                 <div className={styles.statLabel}>Δ Tracked – Est</div>
-                <div className={styles.statValue}>
-                  {viewMode === "week"
-                    ? (totals.delta.toFixed(2)+"h")
-                    : (() => {
-                        const e = monthWeeks.reduce((acc,w)=> acc + (monthAgg[ymd(w.start)]?.sumEst ?? 0), 0);
-                        const t = monthWeeks.reduce((acc,w)=> acc + (monthAgg[ymd(w.start)]?.sumTracked ?? 0), 0);
-                        return clamp2(t-e).toFixed(2)+"h";
-                      })()
-                  }
-                </div>
+                <div className={styles.statValue}>{totals.delta.toFixed(2)}h</div>
               </div>
             </div>
 
             <div className={styles.chartsRow}>
               <div className={styles.chartCard}>
                 <div className={styles.chartTitle}>
-                  {viewMode === "week" ? "Daily Totals (Est vs Tracked) — Week" : "Weekly Totals (Est vs Tracked) — Month"}
+                  {viewMode === "month" ? "Weekly Totals (Est vs Tracked) — Month" : "Daily Totals (Est vs Tracked) — Week"}
                 </div>
-                {viewMode === "week" ? (
+                {viewMode === "month" ? (
                   <BarsVertical
-                    labels={DOW}
-                    a={totals.dayEst.map(clamp2)}
-                    b={totals.dayTracked.map(clamp2)}
+                    labels={["W1","W2","W3","W4","W5"]}
+                    a={[0,0,0,0,0]}  // (optional) month aggregation can be wired later
+                    b={[0,0,0,0,0]}
                     titleA="Est"
                     titleB="Tracked"
                   />
                 ) : (
                   <BarsVertical
-                    labels={monthWeeks.map((_,i)=>`W${i+1}`)}
-                    a={monthWeeks.map(w=> monthAgg[ymd(w.start)]?.sumEst ?? 0)}
-                    b={monthWeeks.map(w=> monthAgg[ymd(w.start)]?.sumTracked ?? 0)}
+                    labels={["Mon","Tue","Wed","Thu","Fri"]}
+                    a={totals.dayEst.map(v=>clamp2(v))}
+                    b={totals.dayTracked.map(v=>clamp2(v))}
                     titleA="Est"
                     titleB="Tracked"
                   />
@@ -883,13 +789,11 @@ export default function DashboardPage() {
 
               <div className={styles.chartCard}>
                 <div className={styles.chartTitle}>
-                  Consultants (Est vs Tracked) — Selected {viewMode === "week" ? "Week" : "Month"}
+                  Consultants (Est vs Tracked) — Selected {viewMode === "month" ? "Month" : "Week"}
                   <a className={styles.chartLink} href="/admin/overview">Open Overview</a>
                 </div>
                 <BarsHorizontal
-                  labels={overviewRows.map(r=>r.name)}
-                  a={overviewRows.map(r=>r.est)}
-                  b={overviewRows.map(r=>r.tracked)}
+                  rows={overviewRows}
                   titleA="Est"
                   titleB="Tracked"
                   maxBars={8}
@@ -906,14 +810,14 @@ export default function DashboardPage() {
         )}
       </div>
 
-      {/* --- Modal for Tracked Time --- */}
+      {/* ---- Track modal ---- */}
       {modalOpen && (
         <div className={styles.modalBackdrop} onClick={closeModal}>
           <div className={styles.modal} onClick={(e)=> e.stopPropagation()}>
             <div className={styles.modalHeader}>
               <div className={styles.modalTitle}>Time Entry</div>
               <div className={styles.modalMeta}>
-                ({modalTaskName || "Untitled Project"}) • {fmtMMMdd(weekCols[modalDayIndex])}
+                ({modalTaskName || "Untitled Project"}) • {mmmdd(weekCols[modalDayIndex])}
               </div>
             </div>
 
@@ -940,12 +844,52 @@ export default function DashboardPage() {
                 onChange={(e)=> setModalHours(e.currentTarget.value)}
                 onKeyDown={(e)=> { if (e.key === "Enter") saveModal(); }}
               />
-              <div className={styles.help}>Only Hours will show in the table. All fields are saved for reporting.</div>
+              <div className={styles.help}>Only Hours show in the table. All fields are saved for reporting.</div>
             </div>
 
             <div className={styles.modalActions}>
               <button className={styles.btn} onClick={closeModal}>Cancel</button>
               <button className={`${styles.btn} ${styles.primary}`} onClick={saveModal}>Save</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ---- Add Project (admin) ---- */}
+      {addOpen && (
+        <div className={styles.modalBackdrop} onClick={()=> setAddOpen(false)}>
+          <div className={styles.modal} onClick={(e)=> e.stopPropagation()}>
+            <div className={styles.modalHeader}>
+              <div className={styles.modalTitle}>Add Project (creates ClickUp Task)</div>
+              <div className={styles.modalMeta}>Assign to a consultant</div>
+            </div>
+
+            <div className={styles.modalBody}>
+              <label className={styles.label}>Project / Task Name</label>
+              <input
+                className={styles.text}
+                placeholder="e.g., ACME Implementation – Phase 1"
+                value={addName}
+                onChange={(e)=> setAddName(e.currentTarget.value)}
+              />
+
+              <label className={styles.label} style={{ marginTop: 12 }}>Assignee</label>
+              <select
+                className={`${styles.select} ${styles.selectWide}`}
+                value={addAssignTo}
+                onChange={(e)=> setAddAssignTo(e.target.value)}
+              >
+                <option value="">— Select —</option>
+                {members.map(m => (
+                  <option key={m.id} value={m.id}>{m.username || m.email || m.id}</option>
+                ))}
+              </select>
+              <div className={styles.help}>This calls <code>/api/admin/create-task</code>. Ensure that route is implemented to POST to ClickUp.</div>
+            </div>
+
+            <div className={styles.modalActions}>
+              <button className={styles.btn} onClick={()=> setAddOpen(false)}>Cancel</button>
+              <button className={`${styles.btn} ${styles.primary}`} onClick={saveAddProject}>Create</button>
             </div>
           </div>
         </div>
