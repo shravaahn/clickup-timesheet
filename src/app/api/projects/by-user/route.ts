@@ -1,97 +1,106 @@
-// src/app/api/admin/create-task/route.ts
+// src/app/api/projects/by-user/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import { getIronSession } from "iron-session";
 import { sessionOptions, type AppSession, getAuthHeader } from "@/lib/session";
 
-type CreateTaskBody = {
-  name: string;
-  assigneeId?: string;     // ClickUp user id (number-like string is fine)
-  listId?: string;         // Optional override
-  description?: string;    // Optional
+type ClickUpTask = {
+  id: string | number;
+  name?: string;
+  assignees?: Array<{ id?: string | number }>;
+  parent?: string | number | null; // if set, it's usually a subtask
+  status?: { status: string } | string;
 };
 
-export async function POST(req: NextRequest) {
+type ProjectsResponse = { projects: Array<{ id: string; name: string }> };
+
+async function fetchTasksForSpace(
+  baseUrl: string,
+  authHeader: string,
+  spaceId: string,
+  page: number
+): Promise<{ tasks: ClickUpTask[]; hasMore: boolean }> {
+  const url = new URL(`${baseUrl}/space/${spaceId}/task`);
+  url.searchParams.set("include_closed", "false");
+  url.searchParams.set("subtasks", "false");
+  url.searchParams.set("page", String(page)); // ClickUp paginates by "page"
+  // (Optional) If you use Custom Items inside the space, you can whitelist them via env
+  const customIds = (process.env.CLICKUP_CUSTOM_ITEM_IDS || "")
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean);
+  for (const cid of customIds) url.searchParams.append("custom_items[]", cid);
+
+  const resp = await fetch(url.toString(), {
+    headers: { Authorization: authHeader },
+    cache: "no-store",
+  });
+
+  if (!resp.ok) {
+    const body = await resp.text();
+    throw new Error(`ClickUp tasks error [space=${spaceId}]: ${resp.status} ${body}`);
+  }
+
+  const json = await resp.json();
+  const tasks: ClickUpTask[] = Array.isArray(json?.tasks) ? json.tasks : [];
+  // Heuristic: if we got less than 100 tasks, assume no further pages (ClickUp often pages at 100)
+  const hasMore = tasks.length >= 100;
+  return { tasks, hasMore };
+}
+
+export async function GET(req: NextRequest): Promise<NextResponse<ProjectsResponse | { error: string }>> {
   const res = new NextResponse();
-  const session = (await getIronSession(req, res, sessionOptions)) as unknown as AppSession;
-
+  const session = await getIronSession<AppSession>(req, res, sessionOptions);
   const auth = getAuthHeader(session);
-  if (!auth) {
-    return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
+  if (!auth) return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
+
+  const { searchParams } = new URL(req.url);
+  const assigneeId = (searchParams.get("assigneeId") || "").trim();
+  if (!assigneeId) {
+    return NextResponse.json({ error: "Missing assigneeId" }, { status: 400 });
   }
 
-  const body = (await req.json().catch(() => null)) as CreateTaskBody | null;
-  if (!body || !body.name?.trim()) {
-    return NextResponse.json({ error: 'Missing required field "name"' }, { status: 400 });
+  const spaceIds = (process.env.CLICKUP_SPACE_IDS || process.env.CLICKUP_SPACE_ID || "")
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean);
+
+  if (spaceIds.length === 0) {
+    return NextResponse.json({ error: "No CLICKUP_SPACE_IDS configured" }, { status: 500 });
   }
 
-  const listId =
-    body.listId ||
-    process.env.CLICKUP_DEFAULT_LIST_ID ||
-    process.env.CLICKUP_ACTIVE_LIST_ID ||
-    process.env.CLICKUP_ACTIVE_LIST_IDS?.split(",")[0]?.trim();
+  const BASE = "https://api.clickup.com/api/v2";
 
-  if (!listId) {
-    return NextResponse.json(
-      {
-        error:
-          "No List ID configured. Set CLICKUP_DEFAULT_LIST_ID (or CLICKUP_ACTIVE_LIST_ID / CLICKUP_ACTIVE_LIST_IDS) in your environment.",
-      },
-      { status: 500 }
-    );
-  }
-
-  const payload: Record<string, unknown> = {
-    name: body.name.trim(),
-  };
-  if (body.description) payload.description = body.description;
-
-  // ClickUp expects an array of IDs under `assignees`
-  if (body.assigneeId) {
-    const n = Number(body.assigneeId);
-    payload.assignees = [Number.isFinite(n) ? n : body.assigneeId];
-  }
-
+  // Aggregate tasks across spaces
+  const unique = new Map<string, string>(); // id -> name
   try {
-    const cu = await fetch(
-      `https://api.clickup.com/api/v2/list/${encodeURIComponent(listId)}/task`,
-      {
-        method: "POST",
-        headers: {
-          Authorization: auth,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(payload),
+    for (const spaceId of spaceIds) {
+      let page = 0;
+      // Defensive: cap at 20 pages per space
+      for (let i = 0; i < 20; i++) {
+        const { tasks, hasMore } = await fetchTasksForSpace(BASE, auth, spaceId, page);
+        for (const t of tasks) {
+          // filter: only tasks assigned to assigneeId
+          const assigned = (t.assignees || []).some((a) => String(a?.id) === assigneeId);
+          if (!assigned) continue;
+          // filter out subtasks (parent present)
+          if (t.parent) continue;
+
+          const id = String(t.id);
+          const name = t.name?.trim() || id;
+          if (!unique.has(id)) unique.set(id, name);
+        }
+        if (!hasMore) break;
+        page += 1;
       }
-    );
-
-    const text = await cu.text();
-    let data: any = null;
-    try {
-      data = text ? JSON.parse(text) : null;
-    } catch {
-      data = { raw: text };
     }
 
-    if (!cu.ok) {
-      return NextResponse.json(
-        {
-          error: "ClickUp error",
-          status: cu.status,
-          body: data,
-        },
-        { status: 502 }
-      );
-    }
+    const projects = Array.from(unique.entries())
+      .map(([id, name]) => ({ id, name }))
+      .sort((a, b) => a.name.localeCompare(b.name));
 
-    return NextResponse.json({
-      ok: true,
-      taskId: data?.id || data?.task?.id || null,
-      task: data,
-    });
-  } catch (e: any) {
-    return NextResponse.json(
-      { error: e?.message || "Network error" },
-      { status: 500 }
-    );
+    return NextResponse.json({ projects });
+  } catch (e: unknown) {
+    const msg = e instanceof Error ? e.message : "Unknown error";
+    return NextResponse.json({ error: msg }, { status: 500 });
   }
 }
