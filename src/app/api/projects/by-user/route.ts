@@ -3,107 +3,109 @@ import { NextRequest, NextResponse } from "next/server";
 import { getIronSession } from "iron-session";
 import { sessionOptions } from "@/lib/session";
 
-type ClickUpTask = {
+type CUUser = { id?: string | number };
+type CUList = { id?: string | number; name?: string };
+type CUTask = {
   id: string | number;
   name?: string;
   parent?: string | null;
-  list?: { id?: string | number };
-  assignees?: Array<{ id?: string | number }>;
+  assignees?: CUUser[];
+  list?: CUList;
 };
 
-function normalizeAuth(token: string | undefined | null) {
+function bearer(token?: string | null) {
   if (!token) return "";
   const t = token.trim();
   return t.toLowerCase().startsWith("bearer ") ? t : `Bearer ${t}`;
 }
 
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+export const maxDuration = 60;
+
 export async function GET(req: NextRequest) {
   const res = new NextResponse();
   const session = (await getIronSession(req, res, sessionOptions)) as any;
 
-  const auth = normalizeAuth(session?.access_token || session?.accessToken);
+  const auth = bearer(session?.access_token || session?.accessToken);
   if (!auth) {
     return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
   }
 
-  // Query inputs
   const { searchParams } = new URL(req.url);
   const assigneeId = searchParams.get("assigneeId");
   if (!assigneeId) {
     return NextResponse.json({ error: "Missing assigneeId" }, { status: 400 });
   }
 
-  const TEAM_ID = process.env.CLICKUP_TEAM_ID;
-  if (!TEAM_ID) {
-    return NextResponse.json({ error: "Missing CLICKUP_TEAM_ID env" }, { status: 500 });
+  const SPACE_ID = (process.env.CLICKUP_SPACE_ID || "").trim();
+  if (!SPACE_ID) {
+    return NextResponse.json({ error: "Missing CLICKUP_SPACE_ID env" }, { status: 500 });
   }
 
-  // Optional filters from env
-  const SPACE_IDS = (process.env.CLICKUP_SPACE_IDS || "")
-    .split(",")
-    .map(s => s.trim())
-    .filter(Boolean);
+  const includeClosed = searchParams.get("includeClosed") === "1"; // default false
+  const debugMode = searchParams.get("debug") === "1";
 
-  const CUSTOM_ITEM_IDS = (process.env.CLICKUP_CUSTOM_ITEM_IDS || "")
-    .split(",")
-    .map(s => s.trim())
-    .filter(Boolean);
+  const headers = {
+    Authorization: auth,
+    Accept: "application/json",
+  };
 
-  // Build query params
-  // Note: for array params ClickUp expects [] syntax like assignees[] / space_ids[] / custom_items[].
-  const baseParams = new URLSearchParams();
-  baseParams.set("include_closed", "false");
-  baseParams.set("subtasks", "false"); // default excludes subtasks anyway, but this is explicit. :contentReference[oaicite:2]{index=2}
-  baseParams.append("assignees[]", assigneeId);
-
-  SPACE_IDS.forEach(id => baseParams.append("space_ids[]", id));
-  CUSTOM_ITEM_IDS.forEach(id => baseParams.append("custom_items[]", id)); // e.g., 1002/1003 :contentReference[oaicite:3]{index=3}
-
-  // Paginate (100 tasks per page)
-  const projects: { id: string; name: string }[] = [];
   const seen = new Set<string>();
+  const projects: { id: string; name: string }[] = [];
+  const debug: any = { calls: [] as any[], spaceId: SPACE_ID, assigneeId, includeClosed };
 
   let page = 0;
   while (true) {
-    const params = new URLSearchParams(baseParams);
-    params.set("page", String(page));
+    const url = new URL(`https://api.clickup.com/api/v2/space/${SPACE_ID}/task`);
+    // Only top-level tasks
+    url.searchParams.set("subtasks", "false");
+    // Only tasks assigned to this user
+    url.searchParams.append("assignees[]", assigneeId);
+    // Include closed?
+    url.searchParams.set("include_closed", includeClosed ? "true" : "false");
+    // Pagination
+    url.searchParams.set("page", String(page));
 
-    const url = `https://api.clickup.com/api/v2/team/${TEAM_ID}/task?${params.toString()}`;
-    const r = await fetch(url, {
-      headers: { Authorization: auth, Accept: "application/json" },
-      cache: "no-store",
-    });
-
+    const r = await fetch(url.toString(), { headers, cache: "no-store" });
     if (!r.ok) {
-      const txt = await r.text().catch(() => "");
+      const bodyText = await r.text().catch(() => "");
       return NextResponse.json(
-        { error: "ClickUp error", details: txt || r.statusText },
+        { error: "ClickUp error", details: bodyText || r.statusText },
         { status: 502 }
       );
     }
 
-    const json = await r.json();
-    const batch: ClickUpTask[] = Array.isArray(json?.tasks) ? json.tasks : [];
+    const j = await r.json().catch(() => ({} as any));
+    const tasks: CUTask[] = Array.isArray(j?.tasks) ? j.tasks : [];
 
-    // Stop if no data
-    if (batch.length === 0) break;
+    debug.calls.push({ page, count: tasks.length });
 
-    // Collect only top-level tasks (not subtasks) — API should already exclude, but double-check
-    for (const t of batch) {
-      if (t?.parent) continue;
+    if (tasks.length === 0) break;
+
+    for (const t of tasks) {
+      // safety double-check: skip subtasks (API should already exclude when subtasks=false)
+      if (t.parent) continue;
+
       const id = String(t.id);
       if (seen.has(id)) continue;
       seen.add(id);
-      projects.push({ id, name: t?.name || id });
+
+      // “Project” = the task itself (name = task name)
+      const name = (t.name || id).trim();
+      projects.push({ id, name });
     }
 
-    // If returned less than 100, we're done
-    if (batch.length < 100) break;
+    // ClickUp pages are typically 100; if fewer → end
+    if (tasks.length < 100) break;
     page += 1;
   }
 
-  // Sorted by name for nicer UI
+  // sort by name for stable UI
   projects.sort((a, b) => a.name.localeCompare(b.name));
 
-  return NextResponse.json({ projects, source: "team_tasks" });
+  const payload: any = { projects, source: "space_tasks_assignee" };
+  if (debugMode) payload.debug = debug;
+
+  return new NextResponse(JSON.stringify(payload), { headers: res.headers });
 }
