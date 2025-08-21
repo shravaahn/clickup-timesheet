@@ -12,7 +12,7 @@ export type AppUser = {
 
 /** Data we store in the session */
 export type AppSession = {
-  access_token?: string; // we store full "Bearer xxx" here
+  access_token?: string; // store as "Bearer <token>"
   user?: AppUser;
 };
 
@@ -28,10 +28,8 @@ export const sessionOptions: SessionOptions = {
   },
 };
 
-/** Normalize to "Bearer <token>" and return header string or null */
-export function getAuthHeader(
-  s: { access_token?: string } | null | undefined
-): string | null {
+/** Normalize to "Bearer <token>" */
+export function getAuthHeader(s: { access_token?: string } | null | undefined): string | null {
   const t = s?.access_token;
   if (!t) return null;
   return t.startsWith("Bearer ") ? t : `Bearer ${t}`;

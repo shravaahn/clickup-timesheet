@@ -12,29 +12,24 @@ export async function GET(req: NextRequest) {
   const res = new NextResponse();
   const session = await getIronSession<AppSession>(req, res, sessionOptions);
 
-  // If we've already cached the user in session, return it
-  if (session.user?.id) {
-    return NextResponse.json({ user: session.user });
+  // If we already cached user, return it
+  if (session?.user?.id) {
+    return NextResponse.json({ user: session.user }, { headers: res.headers });
   }
 
-  // Otherwise we need an access token to fetch user info
-  const accessToken = session.access_token;
-  if (!accessToken) {
+  // Need token to fetch user
+  const auth = session?.access_token;
+  if (!auth) {
     return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
   }
 
-  // Fetch user from ClickUp
+  // Fetch user from ClickUp and cache
   const meResp = await fetch("https://api.clickup.com/api/v2/user", {
-    headers: { Authorization: accessToken },
+    headers: { Authorization: auth },
     cache: "no-store",
   });
-
   if (!meResp.ok) {
-    const txt = await meResp.text().catch(() => "");
-    return NextResponse.json(
-      { error: "ClickUp /user failed", details: txt || meResp.statusText },
-      { status: 401 }
-    );
+    return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
   }
 
   const meJson = await meResp.json();
@@ -44,12 +39,11 @@ export async function GET(req: NextRequest) {
   session.user = {
     id: String(u?.id),
     email,
-    username: u?.username ?? null,
-    profilePicture: u?.profilePicture ?? null,
+    username: u?.username || null,
+    profilePicture: u?.profilePicture || null,
     is_admin: ADMINS.includes(email),
   };
-
   await session.save();
 
-  return NextResponse.json({ user: session.user });
+  return NextResponse.json({ user: session.user }, { headers: res.headers });
 }

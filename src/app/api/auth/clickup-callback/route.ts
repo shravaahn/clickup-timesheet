@@ -9,66 +9,79 @@ const ADMINS = (process.env.ADMIN_EMAILS || "")
   .filter(Boolean);
 
 export async function GET(req: NextRequest) {
-  const res = new NextResponse();
-  const session = await getIronSession<AppSession>(req, res, sessionOptions);
-
   const url = new URL(req.url);
   const code = url.searchParams.get("code");
+
+  const baseRes = new NextResponse();
+  const session = await getIronSession<AppSession>(req, baseRes, sessionOptions);
+
   if (!code) {
-    return NextResponse.redirect(new URL("/login?err=missing_code", req.url));
+    return NextResponse.redirect(new URL("/login?error=missing_code", req.url));
   }
 
-  // Exchange code for token
-  const tokenResp = await fetch("https://api.clickup.com/api/v2/oauth/token", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      client_id: process.env.CLICKUP_CLIENT_ID,
-      client_secret: process.env.CLICKUP_CLIENT_SECRET,
-      code,
-      redirect_uri: process.env.CLICKUP_REDIRECT_URI,
-    }),
-  });
+  try {
+    // Exchange code for token
+    const tokenResp = await fetch("https://api.clickup.com/api/v2/oauth/token", {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: new URLSearchParams({
+        client_id: process.env.CLICKUP_CLIENT_ID || "",
+        client_secret: process.env.CLICKUP_CLIENT_SECRET || "",
+        code,
+      }),
+      cache: "no-store",
+    });
 
-  if (!tokenResp.ok) {
-    const t = await tokenResp.text();
-    return NextResponse.redirect(
-      new URL(`/login?err=token_${tokenResp.status}`, req.url)
-    );
-  }
+    if (!tokenResp.ok) {
+      const text = await tokenResp.text();
+      return NextResponse.redirect(
+        new URL(`/login?error=oauth&details=${encodeURIComponent(text)}`, req.url)
+      );
+    }
 
-  const tokenJson = await tokenResp.json();
-  // ClickUp returns { access_token: "..." }
-  const accessToken: string = tokenJson?.access_token || tokenJson?.token || "";
+    const tokenJson = await tokenResp.json();
+    const raw = tokenJson?.access_token as string | undefined;
+    if (!raw) {
+      return NextResponse.redirect(new URL("/login?error=no_token", req.url));
+    }
 
-  if (!accessToken) {
-    return NextResponse.redirect(new URL("/login?err=no_token", req.url));
-  }
+    // Store as "Bearer <token>"
+    session.access_token = raw.startsWith("Bearer ") ? raw : `Bearer ${raw}`;
 
-  session.access_token = accessToken.startsWith("Bearer ")
-    ? accessToken
-    : `Bearer ${accessToken}`;
-
-  // Fetch user to cache in session (and determine admin)
-  const meResp = await fetch("https://api.clickup.com/api/v2/user", {
-    headers: { Authorization: session.access_token },
-    cache: "no-store",
-  });
-
-  if (meResp.ok) {
+    // Fetch user
+    const meResp = await fetch("https://api.clickup.com/api/v2/user", {
+      headers: { Authorization: session.access_token },
+      cache: "no-store",
+    });
+    if (!meResp.ok) {
+      const t = await meResp.text();
+      return NextResponse.redirect(
+        new URL(`/login?error=me_fetch&details=${encodeURIComponent(t)}`, req.url)
+      );
+    }
     const meJson = await meResp.json();
     const u = meJson?.user || meJson;
-    const email = (u?.email || "").toLowerCase();
+    const email = String(u?.email || "").toLowerCase();
 
     session.user = {
       id: String(u?.id),
       email,
-      username: u?.username ?? null,
-      profilePicture: u?.profilePicture ?? null,
+      username: u?.username || null,
+      profilePicture: u?.profilePicture || null,
       is_admin: ADMINS.includes(email),
     };
-  }
 
-  await session.save();
-  return NextResponse.redirect(new URL("/dashboard", req.url));
+    await session.save();
+
+    // IMPORTANT: propagate Set-Cookie headers to the redirect response
+    const redirect = NextResponse.redirect(new URL("/dashboard", req.url));
+    baseRes.headers.forEach((v, k) => {
+      if (k.toLowerCase() === "set-cookie") redirect.headers.append(k, v);
+    });
+    return redirect;
+  } catch (e: any) {
+    return NextResponse.redirect(
+      new URL(`/login?error=exception&details=${encodeURIComponent(e?.message || String(e))}`, req.url)
+    );
+  }
 }

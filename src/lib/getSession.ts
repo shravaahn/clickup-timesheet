@@ -1,17 +1,14 @@
 // src/lib/getSession.ts
 import { cookies } from "next/headers";
-import { getIronSession } from "iron-session";
-import { sessionOptions, type SessionData } from "@/lib/session";
+import { getIronSession, type IronSession } from "iron-session";
+import { sessionOptions, type AppSession } from "@/lib/session";
 
 /**
- * Server-side session getter for App Router (no req/res).
- * Works with Next 15 where cookies() is async.
+ * Server-side session getter for the App Router.
+ * Works both locally and on Vercel.
  */
-export async function getSession() {
-  const cookieStore = await cookies(); // <-- await is required on Next 15
-  const session = await getIronSession<SessionData>(cookieStore, sessionOptions);
+export async function getSession(): Promise<IronSession<AppSession>> {
+  const cookieStore = await cookies(); // <-- await fixes the type error
+  const session = await getIronSession<AppSession>(cookieStore, sessionOptions);
   return session;
 }
-
-// optional re-export
-export type { SessionData };
