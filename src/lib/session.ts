@@ -1,6 +1,7 @@
 // src/lib/session.ts
 import type { SessionOptions } from "iron-session";
 
+/** What we cache about the logged-in user */
 export type AppUser = {
   id: string;
   email: string;
@@ -9,13 +10,15 @@ export type AppUser = {
   is_admin?: boolean;
 };
 
+/** Data we store in the session */
 export type AppSession = {
-  access_token?: string; // raw token from ClickUp OAuth
+  access_token?: string; // we store full "Bearer xxx" here
   user?: AppUser;
 };
 
+/** Iron-session config */
 export const sessionOptions: SessionOptions = {
-  password: process.env.SESSION_SECRET!,
+  password: process.env.SESSION_SECRET || "dev_secret_change_me",
   cookieName: "clickup_timesheet",
   cookieOptions: {
     secure: process.env.NODE_ENV === "production",
@@ -25,10 +28,11 @@ export const sessionOptions: SessionOptions = {
   },
 };
 
-export function getAuthHeader(session: AppSession): string | undefined {
-  if (!session?.access_token) return undefined;
-  // ClickUp expects "Bearer <token>"
-  return session.access_token.startsWith("Bearer ")
-    ? session.access_token
-    : `Bearer ${session.access_token}`;
+/** Normalize to "Bearer <token>" and return header string or null */
+export function getAuthHeader(
+  s: { access_token?: string } | null | undefined
+): string | null {
+  const t = s?.access_token;
+  if (!t) return null;
+  return t.startsWith("Bearer ") ? t : `Bearer ${t}`;
 }
