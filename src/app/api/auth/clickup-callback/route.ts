@@ -1,66 +1,93 @@
 // src/app/api/auth/clickup-callback/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import { getIronSession } from "iron-session";
-import { sessionOptions, type SessionData } from "@/lib/session";
-import axios from "axios";
+import { sessionOptions, type AppSession, getAuthHeader } from "@/lib/session";
 
-export const runtime = "nodejs";
-export const dynamic = "force-dynamic";
+/** Admins are decided by email */
+const ADMINS = (process.env.ADMIN_EMAILS || "")
+  .split(",")
+  .map((s) => s.trim().toLowerCase())
+  .filter(Boolean);
 
 export async function GET(req: NextRequest) {
-  const url = new URL(req.url);
-  const code = url.searchParams.get("code");
   const res = new NextResponse();
-
-  if (!code) {
-    // Hitting the route without ?code should still not 404
-    return NextResponse.redirect(new URL("/login?error=missing_code", req.url), {
-      headers: res.headers,
-    });
-  }
+  // ✅ IMPORTANT: type the generic so we get IronSession<AppSession> (has .save())
+  const session = await getIronSession<AppSession>(req, res, sessionOptions);
 
   try {
-    // Exchange authorization code for access token
-    const tokenRes = await axios.post("https://api.clickup.com/api/v2/oauth/token", {
-      client_id: process.env.CLICKUP_CLIENT_ID,
-      client_secret: process.env.CLICKUP_CLIENT_SECRET,
-      code,
-      redirect_uri: process.env.CLICKUP_REDIRECT_URI,
+    const { searchParams } = new URL(req.url);
+    const code = searchParams.get("code");
+    const error = searchParams.get("error");
+
+    if (error) {
+      return NextResponse.redirect(new URL(`/login?error=${encodeURIComponent(error)}`, req.url));
+    }
+    if (!code) {
+      return NextResponse.redirect(new URL(`/login?error=${encodeURIComponent("Missing OAuth code")}`, req.url));
+    }
+
+    const client_id = process.env.CLICKUP_CLIENT_ID!;
+    const client_secret = process.env.CLICKUP_CLIENT_SECRET!;
+
+    // Exchange code for token
+    const tokenResp = await fetch("https://api.clickup.com/api/v2/oauth/token", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ client_id, client_secret, code }),
+      cache: "no-store",
     });
 
-    const accessToken = tokenRes.data?.access_token as string | undefined;
-    if (!accessToken) throw new Error("No access_token returned from ClickUp");
+    if (!tokenResp.ok) {
+      const t = await tokenResp.text();
+      return NextResponse.redirect(
+        new URL(`/login?error=${encodeURIComponent(`Token exchange failed (${tokenResp.status}) ${t}`)}`, req.url)
+      );
+    }
 
-    // Create session and store token + basic user info
-    const session = await getIronSession<SessionData>(req, res, sessionOptions);
-    session.accessToken = accessToken;
+    const tokenJson = await tokenResp.json();
+    const access_token: string | undefined =
+      tokenJson?.access_token || tokenJson?.token || tokenJson?.accessToken;
 
-    const meRes = await axios.get("https://api.clickup.com/api/v2/user", {
-      headers: { Authorization: `Bearer ${accessToken}` },
-    });
-    const me = meRes.data?.user ?? {};
-    const admins = (process.env.ADMIN_EMAILS || "")
-      .split(",")
-      .map((s) => s.trim().toLowerCase())
-      .filter(Boolean);
+    if (!access_token) {
+      return NextResponse.redirect(
+        new URL(`/login?error=${encodeURIComponent("Token response missing access_token")}`, req.url)
+      );
+    }
 
-    session.user = {
-      id: String(me.id || ""),
-      email: String(me.email || "").toLowerCase(),
-      username: me.username || me.email || "",
-      is_admin: admins.includes(String(me.email || "").toLowerCase()),
-    };
-
+    // Persist token and fetch current user
+    session.access_token = access_token;
     await session.save();
 
-    // Important — forward Set-Cookie from iron-session
-    return NextResponse.redirect(new URL("/dashboard", req.url), {
-      headers: res.headers,
+    const meResp = await fetch("https://api.clickup.com/api/v2/user", {
+      headers: { Authorization: getAuthHeader(session)! },
+      cache: "no-store",
     });
-  } catch (err: any) {
-    console.error("OAuth callback error:", err?.response?.data || err?.message || err);
-    return NextResponse.redirect(new URL("/login?error=oauth_failed", req.url), {
-      headers: res.headers,
-    });
+
+    if (!meResp.ok) {
+      const t = await meResp.text();
+      return NextResponse.redirect(
+        new URL(`/login?error=${encodeURIComponent(`Failed to load user (${meResp.status}) ${t}`)}`, req.url)
+      );
+    }
+
+    const meJson = await meResp.json();
+    const user = meJson?.user || meJson;
+    const email = String(user?.email || "").toLowerCase();
+
+    session.user = {
+      id: String(user?.id),
+      email,
+      username: user?.username,
+      profilePicture: user?.profilePicture ?? null,
+      is_admin: ADMINS.includes(email),
+    };
+    await session.save();
+
+    // Done — go to dashboard
+    return NextResponse.redirect(new URL("/dashboard", req.url));
+  } catch (e: any) {
+    return NextResponse.redirect(
+      new URL(`/login?error=${encodeURIComponent(e?.message || "Unknown error")}`, req.url)
+    );
   }
 }

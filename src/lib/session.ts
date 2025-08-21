@@ -1,34 +1,37 @@
 // src/lib/session.ts
 import type { SessionOptions } from "iron-session";
 
-export type SessionData = {
-  // OAuth bearer token for ClickUp
-  accessToken?: string | null;
+/** What we persist in iron-session */
+export type AppSession = {
+  // ClickUp OAuth token (either key supported for backward compat)
+  access_token?: string;   // preferred
+  accessToken?: string;    // legacy
 
-  // Convenience: who’s logged in + role
   user?: {
     id: string;
     email: string;
     username?: string;
+    profilePicture?: string | null;
     is_admin?: boolean;
-  } | null;
-
-  // Optional: selected team/workspace id
-  teamId?: string | null;
+  };
 };
 
+/** Backwards-compat alias. Some files import `SessionData`. */
+export type SessionData = AppSession;
+
 export const sessionOptions: SessionOptions = {
-  cookieName: "timesheet_session",
-  password: process.env.SESSION_SECRET ?? "",
+  cookieName: "clickup_timesheet",
+  password: process.env.SESSION_SECRET!,
   cookieOptions: {
     secure: process.env.NODE_ENV === "production",
     sameSite: "lax",
-    httpOnly: true,
     path: "/",
   },
 };
 
-// Small helper if you need it elsewhere
-export function hasToken(s: SessionData): s is SessionData & { accessToken: string } {
-  return typeof s.accessToken === "string" && s.accessToken.length > 0;
+/** Builds a proper Authorization header from the session token */
+export function getAuthHeader(session: AppSession | SessionData): string | null {
+  const tok = session.access_token ?? (session as AppSession).accessToken;
+  if (!tok) return null;
+  return tok.startsWith("Bearer ") ? tok : `Bearer ${tok}`;
 }
