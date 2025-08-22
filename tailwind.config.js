@@ -1,12 +1,10 @@
-/** @type {import('tailwindcss').Config} */
-module.exports = {
-  content: [
-    "./src/**/*.{ts,tsx,js,jsx}",
-    "./src/app/**/*.{ts,tsx}",
-    "./src/components/**/*.{ts,tsx}",
-  ],
+// tailwind.config.js (optional)
+export default {
+  // v4 does not require `content`
   theme: {
-    extend: {},
+    extend: {
+      // your extensions here
+    },
   },
-  plugins: [],
+  // plugins: [], // if you add any, keep names ESM-compatible
 };

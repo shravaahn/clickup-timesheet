@@ -1,5 +1,16 @@
 @import "tailwindcss";
 
+:root {
+  /* example theme tokens, adjust as you like */
+  --bg: #0b1220;
+  --fg: #e6edf3;
+}
+html, body {
+  background: var(--bg);
+  color: var(--fg);
+}
+
+
 /* === App-wide base (keeps Mantine, adds our theme classes) === */
 :root{
   --bg:#0f1115; --panel:#171a21; --muted:#8b94a7; --text:#e8ecf1;
