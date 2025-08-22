@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { ColorSchemeScript, MantineProvider } from "@mantine/core";
 import "@mantine/core/styles.css";
 import "@mantine/notifications/styles.css";
+import "./globals.css"; // <- your app-wide CSS (Tailwind + custom)
 
 export const metadata: Metadata = {
   title: "ClickUp Timesheet",
@@ -12,7 +13,6 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="en" data-mantine-color-scheme="dark">
       <head>
-        {/* Keeps Mantine’s color scheme in sync during hydration */}
         <ColorSchemeScript defaultColorScheme="dark" />
       </head>
       <body>

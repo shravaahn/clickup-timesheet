@@ -4,61 +4,53 @@ import { getIronSession } from "iron-session";
 import { sessionOptions } from "@/lib/session";
 
 /**
- * Returns ClickUp team members for the configured team.
- * Env required:
- *  - CLICKUP_TEAM_ID
+ * GET /api/consultants
+ * Returns ClickUp members for the configured team/workspace.
  */
 export async function GET(req: NextRequest) {
   const res = new NextResponse();
-  const session: any = await getIronSession(req, res, sessionOptions);
 
-  const rawToken = session?.access_token || session?.accessToken;
-  if (!rawToken) {
+  // Pull the OAuth token from iron-session
+  const session: any = await getIronSession(req, res, sessionOptions);
+  const token = session?.access_token || session?.accessToken;
+  if (!token) {
     return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
   }
-  const Authorization = String(rawToken).startsWith("Bearer ")
-    ? String(rawToken)
-    : `Bearer ${rawToken}`;
 
   const TEAM_ID = process.env.CLICKUP_TEAM_ID;
   if (!TEAM_ID) {
     return NextResponse.json(
-      { error: "Server misconfiguration: CLICKUP_TEAM_ID not set" },
-      { status: 500 },
+      { error: "Missing CLICKUP_TEAM_ID env" },
+      { status: 500 }
     );
   }
 
-  try {
-    // ClickUp: GET /team/{team_id}/member
-    const url = `https://api.clickup.com/api/v2/team/${TEAM_ID}/member`;
-    const r = await fetch(url, {
-      headers: { Authorization, Accept: "application/json" },
-      cache: "no-store",
-    });
+  const auth = String(token).startsWith("Bearer ") ? String(token) : `Bearer ${token}`;
 
-    const text = await r.text();
-    let json: any = null;
-    try { json = text ? JSON.parse(text) : null; } catch {}
+  // ClickUp team endpoint includes members
+  const url = `https://api.clickup.com/api/v2/team/${TEAM_ID}`;
+  const r = await fetch(url, {
+    headers: { Authorization: auth, Accept: "application/json" },
+    cache: "no-store",
+  });
 
-    if (!r.ok) {
-      return NextResponse.json(
-        { error: "ClickUp error", details: json || text },
-        { status: 502 },
-      );
-    }
+  const text = await r.text();
+  let json: any = null;
+  try { json = text ? JSON.parse(text) : null; } catch { /* keep text for debugging */ }
 
-    const members =
-      (json?.members || json?.team_members || []).map((m: any) => ({
-        id: String(m?.user?.id ?? m?.id ?? ""),
-        username: m?.user?.username || m?.user?.email || m?.username || "",
-        email: m?.user?.email || m?.email || "",
-      }));
-
-    return NextResponse.json({ members });
-  } catch (err: any) {
+  if (!r.ok) {
     return NextResponse.json(
-      { error: "Consultants fetch failed", details: err?.message ?? String(err) },
-      { status: 500 },
+      { error: "ClickUp error", details: json ?? text ?? r.statusText },
+      { status: 502 }
     );
   }
+
+  // Normalize members -> { id, username, email }
+  const members = (json?.team?.members ?? []).map((m: any) => ({
+    id: String(m?.user?.id ?? m?.id ?? ""),
+    username: m?.user?.username ?? m?.user?.email ?? "",
+    email: m?.user?.email ?? null,
+  })).filter((m: any) => m.id);
+
+  return NextResponse.json({ members });
 }
