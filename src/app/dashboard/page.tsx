@@ -1,9 +1,7 @@
-// src/app/dashboard/page.tsx
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import styles from "./Dashboard.module.css";
-
 
 /** ---- SSR-safe date helpers ---- */
 const MONTHS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
@@ -436,6 +434,9 @@ export default function DashboardPage() {
   }, [isAdmin, weekStart, weekEnd]);
 
   /** ---- render ---- */
+  const logoImgRef = useRef<HTMLImageElement>(null);
+  const onLogoError = () => { if (logoImgRef.current) logoImgRef.current.style.display = "none"; };
+
   return (
     <div className={styles.page}>
       <div className={styles.shell}>
@@ -443,7 +444,12 @@ export default function DashboardPage() {
         {/* top header bar */}
         <header className={styles.header}>
           <div className={styles.brand}>
-            <div className={styles.badge}>TT</div>
+            <div className={styles.logoWrap}>
+              {/* Put your file at /public/company-logo.png */}
+              <img ref={logoImgRef} src="/company-logo.png" alt="Company" className={styles.logoImg} onError={onLogoError}/>
+              {/* Fallback if logo missing */}
+              <span className={styles.badge}>TT</span>
+            </div>
             <div>
               <div className={styles.title}>Time Tracking</div>
               <div className={styles.subtitle}>{weekLabel}</div>
@@ -474,7 +480,7 @@ export default function DashboardPage() {
 
             {isAdmin && (
               <button
-                className={`${styles.btn}`}
+                className={styles.btn}
                 onClick={()=> (document.getElementById("addProjectModal") as HTMLDialogElement)?.showModal()}
                 title="Create a new task (project) in the configured ClickUp list"
               >
@@ -541,7 +547,7 @@ export default function DashboardPage() {
           <span className={styles.period}>Period: {viewMode === "week" ? "Week" : "Month"}</span>
         </div>
 
-        {/* ====== WEEK VIEW (original table) ====== */}
+        {/* ====== WEEK VIEW ====== */}
         {viewMode === "week" && (
           <section className={styles.card}>
             <div className={styles.tableWrap}>
@@ -600,7 +606,7 @@ export default function DashboardPage() {
                               />
 
                               <button
-                                className={`${styles.trackBtn} ${styles.numWide}`}
+                                className={styles.trackBtn}
                                 onClick={() => openTrackModal(r.taskId, r.taskName, i, r.trackedByDay[i], r.noteByDay[i])}
                               >
                                 {r.trackedByDay[i] != null ? `${r.trackedByDay[i]}h` : "Track"}
@@ -611,8 +617,8 @@ export default function DashboardPage() {
 
                         <td>
                           <div className={styles.cellBox}>
-                            <input className={`${styles.num} ${styles.numWide} ${styles.locked}`} disabled value={tEst.toFixed(2)} />
-                            <input className={`${styles.num} ${styles.numWide}`} disabled value={tTracked.toFixed(2)} />
+                            <input className={`${styles.num} ${styles.locked}`} disabled value={tEst.toFixed(2)} />
+                            <input className={styles.num} disabled value={tTracked.toFixed(2)} />
                           </div>
                         </td>
                       </tr>
@@ -630,15 +636,15 @@ export default function DashboardPage() {
                     {[0,1,2,3,4].map((i) => (
                       <td key={i}>
                         <div className={styles.cellBox}>
-                          <input className={`${styles.num} ${styles.numWide} ${styles.locked}`} disabled value={(totals.dayEst[i]||0).toFixed(2)} />
-                          <input className={`${styles.num} ${styles.numWide}`} disabled value={(totals.dayTracked[i]||0).toFixed(2)} />
+                          <input className={`${styles.num} ${styles.locked}`} disabled value={(totals.dayEst[i]||0).toFixed(2)} />
+                          <input className={styles.num} disabled value={(totals.dayTracked[i]||0).toFixed(2)} />
                         </div>
                       </td>
                     ))}
                     <td>
                       <div className={styles.cellBox}>
-                        <input className={`${styles.num} ${styles.numWide} ${styles.locked}`} disabled value={totals.sumEst.toFixed(2)} />
-                        <input className={`${styles.num} ${styles.numWide}`} disabled value={totals.sumTracked.toFixed(2)} />
+                        <input className={`${styles.num} ${styles.locked}`} disabled value={totals.sumEst.toFixed(2)} />
+                        <input className={styles.num} disabled value={totals.sumTracked.toFixed(2)} />
                       </div>
                     </td>
                   </tr>
@@ -648,7 +654,7 @@ export default function DashboardPage() {
           </section>
         )}
 
-        {/* ====== MONTH VIEW (cards + scroller) ====== */}
+        {/* ====== MONTH VIEW (cards + scroller placeholders) ====== */}
         {viewMode === "month" && (
           <>
             <div className={styles.summary} style={{ marginTop: 0 }}>
@@ -658,16 +664,16 @@ export default function DashboardPage() {
             <div className={styles.weekScroller}>
               {monthWeeks.map((w, idx) => (
                 <section key={idx} className={styles.weekCard}>
-                  <div className="flex items-center justify-between mb-2">
-                    <h3 className="font-semibold">Week {idx + 1}</h3>
-                    <div className="text-xs text-white/60">{fmtMMMdd(w.start)} — {fmtMMMdd(w.end)}</div>
+                  <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:8}}>
+                    <div style={{fontWeight:700}}>Week {idx + 1}</div>
+                    <div className={styles.subtitle}>{fmtMMMdd(w.start)} — {fmtMMMdd(w.end)}</div>
                   </div>
-                  <div className="flex gap-2">
+                  <div style={{display:"flex",gap:8}}>
                     {["Mon","Tue","Wed","Thu","Fri"].map((d) => (
-                      <div key={d} className={styles.day}>
-                        <div className="text-xs text-white/70 mb-1">{d}</div>
-                        <div className="text-white/80 text-sm">0.00</div>
-                        <div className="text-white/60 text-xs">0.00</div>
+                      <div key={d} style={{flex:"1 1 0", background:"#101725", border:"1px solid #20304a", borderRadius:10, padding:10}}>
+                        <div className="text-xs" style={{opacity:.8, marginBottom:6}}>{d}</div>
+                        <div style={{opacity:.9}}>0.00</div>
+                        <div style={{opacity:.6, fontSize:12}}>0.00</div>
                       </div>
                     ))}
                   </div>
@@ -675,7 +681,7 @@ export default function DashboardPage() {
               ))}
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-6">
+            <div style={{display:"grid",gridTemplateColumns:"repeat(3, minmax(0,1fr))",gap:12, marginTop:16}}>
               <div className={styles.metric}>Total Est Hours (Month): 0.00h</div>
               <div className={styles.metric}>Total Tracked Hours (Month): 0.00h</div>
               <div className={styles.metric}>Δ Tracked – Est (Month): 0.00h</div>
@@ -753,7 +759,7 @@ export default function DashboardPage() {
             <div className={styles.modalBody}>
               <label className={styles.label}>Type</label>
               <select
-                className={`${styles.select} ${styles.selectWide}`}
+                className={styles.selectWide}
                 value={modalType}
                 onChange={(e)=> setModalType(e.target.value)}
               >
@@ -784,49 +790,47 @@ export default function DashboardPage() {
         </div>
       )}
 
-      {/* --- Admin: Add Project modal (admins only) --- */}
-      {isAdmin && (
-        <dialog id="addProjectModal" className="rounded-xl p-0 bg-[#151d27] text-white">
-          <form method="dialog" className="p-5 space-y-4 min-w-[360px]">
-            <h2 className="text-lg font-semibold">Add Project (Create Task)</h2>
-            <label className="grid gap-1">
-              <span className="text-sm text-white/70">Task name</span>
-              <input id="ap_name" className="bg-[#0f141a] border border-[#223041] rounded px-2 py-1" />
-            </label>
-            <label className="grid gap-1">
-              <span className="text-sm text-white/70">Assign to</span>
-              <select id="ap_assignee" className="bg-[#0f141a] border border-[#223041] rounded px-2 py-1" defaultValue={selectedUserId ?? ""}>
-                {members.map(c => <option key={c.id} value={c.id}>{c.username || c.email}</option>)}
-              </select>
-            </label>
-            <div className="flex gap-2 justify-end pt-2">
-              <button className="px-3 py-1 rounded bg-[#223041]">Cancel</button>
-              <button
-                className="px-3 py-1 rounded bg-indigo-600 hover:bg-indigo-500"
-                onClick={async (e) => {
-                  e.preventDefault();
-                  const name = (document.getElementById("ap_name") as HTMLInputElement).value.trim();
-                  const assigneeId = (document.getElementById("ap_assignee") as HTMLSelectElement).value;
-                  const r = await fetch("/api/admin/create-project", {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ name, assigneeId })
-                  });
-                  const j = await r.json().catch(()=> ({}));
-                  alert(r.ok ? "Created!" : `Create task failed: ${j?.error || ""}`);
-                  (document.getElementById("addProjectModal") as HTMLDialogElement).close();
-                  // refresh projects for the selected user
-                  try {
-                    const rr = await fetch(`/api/projects/by-user?assigneeId=${assigneeId}`, { cache: "no-store" });
-                    const jj = await rr.json();
-                    setProjects((jj?.projects || []).map((p: any)=>({ id: String(p.id), name: String(p.name || p.id) })));
-                  } catch {}
-                }}
-              >Create</button>
-            </div>
-          </form>
-        </dialog>
-      )}
+      {/* --- Admin: Add Project modal (uses your existing API) --- */}
+      <dialog id="addProjectModal" className="rounded-xl p-0 bg-[#151d27] text-white">
+        <form method="dialog" className="p-5 space-y-4 min-w-[360px]">
+          <h2 className="text-lg font-semibold">Add Project (Create Task)</h2>
+          <label className="grid gap-1">
+            <span className="text-sm text-white/70">Task name</span>
+            <input id="ap_name" className="bg-[#0f141a] border border-[#223041] rounded px-2 py-1" />
+          </label>
+          <label className="grid gap-1">
+            <span className="text-sm text-white/70">Assign to</span>
+            <select id="ap_assignee" className="bg-[#0f141a] border border-[#223041] rounded px-2 py-1" defaultValue={selectedUserId ?? ""}>
+              {members.map(c => <option key={c.id} value={c.id}>{c.username || c.email}</option>)}
+            </select>
+          </label>
+          <div className="flex gap-2 justify-end pt-2">
+            <button className="px-3 py-1 rounded bg-[#223041]">Cancel</button>
+            <button
+              className="px-3 py-1 rounded bg-indigo-600 hover:bg-indigo-500"
+              onClick={async (e) => {
+                e.preventDefault();
+                const name = (document.getElementById("ap_name") as HTMLInputElement).value.trim();
+                const assigneeId = (document.getElementById("ap_assignee") as HTMLSelectElement).value;
+                const r = await fetch("/api/admin/create-project", {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({ name, assigneeId })
+                });
+                const j = await r.json().catch(()=> ({}));
+                alert(r.ok ? "Created!" : `Create task failed: ${j?.error || ""}`);
+                (document.getElementById("addProjectModal") as HTMLDialogElement).close();
+                // refresh projects for the selected user
+                try {
+                  const rr = await fetch(`/api/projects/by-user?assigneeId=${assigneeId}`, { cache: "no-store" });
+                  const jj = await rr.json();
+                  setProjects((jj?.projects || []).map((p: any)=>({ id: String(p.id), name: String(p.name || p.id) })));
+                } catch {}
+              }}
+            >Create</button>
+          </div>
+        </form>
+      </dialog>
     </div>
   );
 }
