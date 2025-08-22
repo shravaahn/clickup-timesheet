@@ -3,178 +3,161 @@ import { NextRequest, NextResponse } from "next/server";
 import { getIronSession } from "iron-session";
 import { sessionOptions } from "@/lib/session";
 
-// Helper: fetch one page from ClickUp Team "Tasks" search
-async function fetchTeamTasksPage(opts: {
-  baseAuth: string;
-  teamId: string;
-  spaceId: string;
-  assigneeId: string;
-  page: number;
-}) {
-  const { baseAuth, teamId, spaceId, assigneeId, page } = opts;
+/**
+ * GET /api/projects/by-user?assigneeId=XXXX
+ * Returns tasks-as-projects from one or more Spaces, assigned to the assignee, excluding subtasks.
+ *
+ * ENV:
+ *   CLICKUP_SPACE_IDS  = comma-separated space ids (e.g. "32299969,33333333")
+ *   CLICKUP_SPACE_ID   = (optional fallback) single space id
+ *   CLICKUP_CUSTOM_ITEM_IDS = (optional) comma separated custom item type ids to include
+ *   CLICKUP_PERSONAL_TOKEN  = (optional) pk_xxx personal token for local testing
+ */
+type CUTask = {
+  id: string | number;
+  name?: string;
+  parent?: string | null;
+  list?: { id?: string | number; name?: string };
+  assignees?: Array<{ id?: string | number }>;
+};
 
-  const url = new URL(`https://api.clickup.com/api/v2/team/${teamId}/task`);
-  // Filters:
-  url.searchParams.set("include_closed", "false"); // only open tasks
-  url.searchParams.set("subtasks", "false");       // exclude subtasks
-  url.searchParams.set("order_by", "created");
-  url.searchParams.set("page", String(page));
-
-  // Arrays must be []-suffixed for ClickUp:
-  url.searchParams.append("space_ids[]", spaceId);
-  url.searchParams.append("assignees[]", assigneeId);
-
-  const r = await fetch(url.toString(), {
-    headers: { Authorization: baseAuth, Accept: "application/json" },
-    // never cache auth queries
-    cache: "no-store",
-  });
-
-  const text = await r.text();
-  let json: any = null;
-  try { json = text ? JSON.parse(text) : null; } catch { /* keep as text */ }
-
-  return { ok: r.ok, status: r.status, json, text, url: url.toString() };
-}
-
-// Fallback: some workspaces prefer the space endpoint
-async function fetchSpaceTasksPage(opts: {
-  baseAuth: string;
-  spaceId: string;
-  assigneeId: string;
-  page: number;
-}) {
-  const { baseAuth, spaceId, assigneeId, page } = opts;
-  const url = new URL(`https://api.clickup.com/api/v2/space/${spaceId}/task`);
-  url.searchParams.set("include_closed", "false");
-  url.searchParams.set("subtasks", "false");
-  url.searchParams.set("order_by", "created");
-  url.searchParams.set("page", String(page));
-  url.searchParams.append("assignees[]", assigneeId);
-
-  const r = await fetch(url.toString(), {
-    headers: { Authorization: baseAuth, Accept: "application/json" },
-    cache: "no-store",
-  });
-
-  const text = await r.text();
-  let json: any = null;
-  try { json = text ? JSON.parse(text) : null; } catch {}
-
-  return { ok: r.ok, status: r.status, json, text, url: url.toString() };
-}
+export const dynamic = "force-dynamic";
+export const maxDuration = 60;
 
 export async function GET(req: NextRequest) {
   const res = new NextResponse();
+  const session = (await getIronSession(req, res, sessionOptions)) as any;
 
-  // Session & token
-  const session: any = await getIronSession(req, res, sessionOptions);
-  const auth = session?.access_token || session?.accessToken;
-  if (!auth) {
-    return NextResponse.json({ error: "Not logged in" }, { status: 401 });
+  // Try OAuth token first, then personal token (pk_...)
+  const rawToken: string | undefined =
+    session?.access_token ||
+    session?.accessToken ||
+    process.env.CLICKUP_PERSONAL_TOKEN;
+
+  if (!rawToken) {
+    return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
   }
-  // NOTE: in our app we store the full "Bearer XXX" string as access_token.
-  const authHeader = String(auth).startsWith("Bearer") ? String(auth) : `Bearer ${auth}`;
 
-  // Inputs
-  const sp = req.nextUrl.searchParams;
-  const assigneeId = sp.get("assigneeId") || "";
-  const debug = sp.get("debug") === "1";
+  // Normalize Authorization header
+  const tokenHeader = rawToken.startsWith("Bearer ")
+    ? rawToken
+    : rawToken.startsWith("pk_")
+    ? rawToken // ClickUp accepts pk_ token without "Bearer "
+    : `Bearer ${rawToken}`;
 
-  const TEAM_ID = process.env.CLICKUP_TEAM_ID || "";
-  const SPACE_ID = process.env.CLICKUP_SPACE_ID || "";
+  const { searchParams } = new URL(req.url);
+  const assigneeId = searchParams.get("assigneeId");
+  const debugMode = searchParams.get("debug") === "1";
 
   if (!assigneeId) {
-    return NextResponse.json({ error: "Missing assigneeId" }, { status: 400 });
+    return NextResponse.json(
+      { error: "Missing assigneeId" },
+      { status: 400 }
+    );
   }
-  if (!SPACE_ID) {
-    return NextResponse.json({ error: "Missing CLICKUP_SPACE_ID env" }, { status: 500 });
+
+  // Spaces to scan (comma-separated)
+  const spacesEnv =
+    process.env.CLICKUP_SPACE_IDS || process.env.CLICKUP_SPACE_ID || "";
+  const spaceIds = spacesEnv
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean);
+
+  if (spaceIds.length === 0) {
+    return NextResponse.json(
+      { error: "Missing CLICKUP_SPACE_IDS / CLICKUP_SPACE_ID env" },
+      { status: 500 }
+    );
   }
 
-  // Page through tasks (team endpoint first; fallback to space endpoint on 404)
-  const projectsMap = new Map<string, string>();
-  const debugInfo: any = { used: "team", calls: [] as any[] };
-  let page = 0;
-  let maxPages = 15; // safety cap
+  // Optional: only include certain custom item types
+  const customItemIds = (process.env.CLICKUP_CUSTOM_ITEM_IDS || "")
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean);
 
-  // Try Team Tasks search
-  while (page < maxPages) {
-    const out = await fetchTeamTasksPage({
-      baseAuth: authHeader,
-      teamId: TEAM_ID,
-      spaceId: SPACE_ID,
-      assigneeId,
-      page,
-    });
-    debugInfo.calls.push({ url: out.url, status: out.status });
+  const allTasks: CUTask[] = [];
+  const debug: any = { pages: [] };
 
-    if (!out.ok) {
-      // If ClickUp says "Route not found" or similar, switch to fallback
-      if (out.status === 404 || String(out.text || "").includes("Route not found")) {
-        debugInfo.used = "space_fallback";
-        break;
+  // Fetch tasks directly from each SPACE (across all folders/lists), excluding subtasks
+  for (const sid of spaceIds) {
+    let page = 0;
+    while (true) {
+      const url = new URL(`https://api.clickup.com/api/v2/space/${sid}/task`);
+      url.searchParams.set("include_closed", "false");
+      url.searchParams.set("subtasks", "false");
+      url.searchParams.set("page", String(page));
+      url.searchParams.set("page_size", "100");
+      // filter by assignee on the server side
+      url.searchParams.append("assignees[]", assigneeId);
+      if (customItemIds.length) {
+        // ClickUp allows repeating custom_items params
+        for (const id of customItemIds) url.searchParams.append("custom_items", id);
       }
-      // Another error—return it so we can see what's wrong
-      return NextResponse.json(
-        { error: "ClickUp error", details: out.text || out.json, from: "team", urlTried: out.url },
-        { status: 502 }
-      );
-    }
 
-    const items = Array.isArray(out.json?.tasks) ? out.json.tasks : [];
-    for (const t of items) {
-      // Just in case, ensure no subtasks: ClickUp returns parent=null for top-level tasks
-      if (t?.parent) continue;
-      const id = String(t.id);
-      const name = String(t.name || id);
-      projectsMap.set(id, name);
-    }
-
-    if (items.length === 0) break; // no more pages
-    page += 1;
-  }
-
-  // If we didn't get anything and switched to fallback:
-  if (debugInfo.used === "space_fallback" && projectsMap.size === 0) {
-    page = 0;
-    while (page < maxPages) {
-      const out = await fetchSpaceTasksPage({
-        baseAuth: authHeader,
-        spaceId: SPACE_ID,
-        assigneeId,
-        page,
+      const r = await fetch(url.toString(), {
+        headers: { Authorization: tokenHeader, "Content-Type": "application/json" },
+        cache: "no-store",
       });
-      debugInfo.calls.push({ url: out.url, status: out.status });
 
-      if (!out.ok) {
+      if (!r.ok) {
+        const bodyText = await r.text().catch(() => "");
         return NextResponse.json(
-          { error: "ClickUp error", details: out.text || out.json, from: "space", urlTried: out.url },
-          { status: 502 }
+          {
+            error: "Failed to fetch tasks",
+            status: r.status,
+            spaceId: sid,
+            body: bodyText,
+          },
+          { status: 500 }
         );
       }
-      const items = Array.isArray(out.json?.tasks) ? out.json.tasks : [];
-      for (const t of items) {
-        if (t?.parent) continue;
-        const id = String(t.id);
-        const name = String(t.name || id);
-        projectsMap.set(id, name);
+
+      const data = (await r.json()) as { tasks?: CUTask[]; last_page?: boolean };
+      const batch = (data.tasks || []).filter((t) => !t.parent); // safety: ensure no subtasks
+
+      allTasks.push(...batch);
+
+      if (debugMode) {
+        debug.pages.push({
+          spaceId: sid,
+          page,
+          count: batch.length,
+          last_page: data.last_page ?? null,
+        });
       }
-      if (items.length === 0) break;
+
+      // Stop when fewer than page_size returned, or last_page hints done
+      if (!data.tasks || data.tasks.length < 100 || data.last_page === true) break;
       page += 1;
+      if (page > 30) break; // hard stop to avoid infinite loop
     }
   }
 
-  const projects = Array.from(projectsMap.entries())
-    .map(([id, name]) => ({ id, name }))
-    .sort((a, b) => a.name.localeCompare(b.name));
-
-  if (debug) {
-    return NextResponse.json({
-      projects,
-      count: projects.length,
-      debug: debugInfo,
-    });
+  // De-duplicate by task id (in case a task appears more than once)
+  const byId = new Map<string, CUTask>();
+  for (const t of allTasks) {
+    byId.set(String(t.id), t);
   }
 
-  return NextResponse.json({ projects });
+  // Return a simple "projects" array (tasks == projects)
+  const projects = Array.from(byId.values()).map((t) => ({
+    id: String(t.id),
+    name: t.name || "(Untitled)",
+    listId: t.list?.id ? String(t.list.id) : undefined,
+    listName: t.list?.name,
+  }));
+
+  const payload: any = {
+    projects,
+    count: projects.length,
+    source: "space_tasks_api",
+  };
+  if (debugMode) payload.debug = debug;
+
+  // Use res.headers so iron-session can set cookies if needed
+  return new NextResponse(JSON.stringify(payload), {
+    headers: { ...(res.headers as any), "Content-Type": "application/json" },
+  });
 }
