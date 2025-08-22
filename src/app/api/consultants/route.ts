@@ -1,108 +1,64 @@
 // src/app/api/consultants/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import { getIronSession } from "iron-session";
-import { sessionOptions, type SessionData } from "@/lib/session";
+import { sessionOptions } from "@/lib/session";
 
-type CUUser = {
-  id?: string | number;
-  email?: string;
-  username?: string;
-  profilePicture?: string | null;
-};
-
-type MemberOut = {
-  id: string;
-  email: string;
-  username: string;
-  profilePicture: string | null;
-};
-
-export const runtime = "nodejs";
-export const dynamic = "force-dynamic";
-
+/**
+ * Returns ClickUp team members for the configured team.
+ * Env required:
+ *  - CLICKUP_TEAM_ID
+ */
 export async function GET(req: NextRequest) {
   const res = new NextResponse();
-  const session = await getIronSession<SessionData>(req, res, sessionOptions);
-  const token = session.accessToken;
+  const session: any = await getIronSession(req, res, sessionOptions);
 
-  if (!token) {
+  const rawToken = session?.access_token || session?.accessToken;
+  if (!rawToken) {
     return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
   }
+  const Authorization = String(rawToken).startsWith("Bearer ")
+    ? String(rawToken)
+    : `Bearer ${rawToken}`;
 
-  const headers = { Authorization: `Bearer ${token}` };
-  const debugMode = req.nextUrl.searchParams.get("debug") === "1";
-
-  // Fetch teams. We'll read members directly from the /team response.
-  const byId: Record<string, MemberOut> = {};
-  let teamsFetchInfo: any = undefined;
+  const TEAM_ID = process.env.CLICKUP_TEAM_ID;
+  if (!TEAM_ID) {
+    return NextResponse.json(
+      { error: "Server misconfiguration: CLICKUP_TEAM_ID not set" },
+      { status: 500 },
+    );
+  }
 
   try {
-    const teamsResp = await fetch("https://api.clickup.com/api/v2/team", {
-      headers,
+    // ClickUp: GET /team/{team_id}/member
+    const url = `https://api.clickup.com/api/v2/team/${TEAM_ID}/member`;
+    const r = await fetch(url, {
+      headers: { Authorization, Accept: "application/json" },
       cache: "no-store",
     });
 
-    if (!teamsResp.ok) {
-      const body = await teamsResp.text().catch(() => "");
-      teamsFetchInfo = { ok: false, status: teamsResp.status, body };
-    } else {
-      const teamsJson = await teamsResp.json().catch(() => ({} as any));
-      teamsFetchInfo = { ok: true, status: 200, body: debugMode ? teamsJson : undefined };
+    const text = await r.text();
+    let json: any = null;
+    try { json = text ? JSON.parse(text) : null; } catch {}
 
-      const teams = Array.isArray(teamsJson?.teams) ? teamsJson.teams : [];
-      for (const t of teams) {
-        const membersArr = Array.isArray(t?.members) ? t.members : [];
-        for (const m of membersArr) {
-          // ClickUp puts the person on m.user
-          const u: CUUser = m?.user ?? m ?? {};
-          const id = String(u?.id ?? "");
-          if (!id) continue;
-
-          const email = String(u?.email ?? "");
-          const username = String(u?.username ?? email ?? id);
-          const profilePicture = (u?.profilePicture as string) ?? null;
-
-          byId[id] = { id, email, username, profilePicture };
-        }
-      }
+    if (!r.ok) {
+      return NextResponse.json(
+        { error: "ClickUp error", details: json || text },
+        { status: 502 },
+      );
     }
-  } catch (e) {
-    teamsFetchInfo = { ok: false, status: 0, body: String(e) };
+
+    const members =
+      (json?.members || json?.team_members || []).map((m: any) => ({
+        id: String(m?.user?.id ?? m?.id ?? ""),
+        username: m?.user?.username || m?.user?.email || m?.username || "",
+        email: m?.user?.email || m?.email || "",
+      }));
+
+    return NextResponse.json({ members });
+  } catch (err: any) {
+    return NextResponse.json(
+      { error: "Consultants fetch failed", details: err?.message ?? String(err) },
+      { status: 500 },
+    );
   }
-
-  // Fallback: if nothing yet, at least return current user
-  if (Object.keys(byId).length === 0) {
-    try {
-      const meResp = await fetch("https://api.clickup.com/api/v2/user", {
-        headers,
-        cache: "no-store",
-      });
-      if (meResp.ok) {
-        const meJson = await meResp.json().catch(() => ({} as any));
-        const u: CUUser = meJson?.user ?? meJson ?? {};
-        const id = String(u?.id ?? "");
-        if (id) {
-          byId[id] = {
-            id,
-            email: String(u?.email ?? ""),
-            username: String(u?.username ?? u?.email ?? id),
-            profilePicture: (u?.profilePicture as string) ?? null,
-          };
-        }
-      }
-    } catch {
-      // ignore
-    }
-  }
-
-  const members = Object.values(byId).sort((a, b) =>
-    (a.username || a.email).localeCompare(b.username || b.email)
-  );
-
-  const payload: any = { members, source: "teams_inline" };
-  if (debugMode) payload.debug = { teamsFetch: teamsFetchInfo, count: members.length };
-
-  return new NextResponse(JSON.stringify(payload), {
-    headers: res.headers, // forward Set-Cookie if session changed
-  });
 }

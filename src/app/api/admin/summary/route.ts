@@ -1,15 +1,21 @@
+// src/app/api/admin/summary/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/db";
 
+/**
+ * Returns rows like: [{ name, est, tracked }]
+ * For now, we group by user_id and synthesize a name as user_id (you can join to a users table if you have one).
+ */
 export async function GET(req: NextRequest) {
   try {
-    const { searchParams } = new URL(req.url);
-    const start = searchParams.get("start");
-    const end = searchParams.get("end");
+    const sp = new URL(req.url).searchParams;
+    const start = sp.get("start");
+    const end = sp.get("end");
     if (!start || !end) {
       return NextResponse.json({ error: "Missing start/end" }, { status: 400 });
     }
 
+    // Pull the week’s entries and aggregate in memory (portable & simple).
     const { data, error } = await supabaseAdmin
       .from("timesheet_entries")
       .select("user_id, estimate_hours, tracked_hours")
@@ -18,25 +24,19 @@ export async function GET(req: NextRequest) {
 
     if (error) throw error;
 
-    const map = new Map<string, { est: number; tracked: number }>();
-    for (const r of data || []) {
-      const k = r.user_id as string;
-      if (!map.has(k)) map.set(k, { est: 0, tracked: 0 });
-      map.get(k)!.est += Number(r.estimate_hours || 0);
-      map.get(k)!.tracked += Number(r.tracked_hours || 0);
-    }
+    const map = new Map<string, { name: string; est: number; tracked: number }>();
+    (data || []).forEach((r) => {
+      const id = String(r.user_id);
+      if (!map.has(id)) map.set(id, { name: id, est: 0, tracked: 0 });
+      const row = map.get(id)!;
+      row.est += r.estimate_hours ?? 0;
+      row.tracked += r.tracked_hours ?? 0;
+    });
 
-    const rows = Array.from(map.entries()).map(([id, v]) => ({
-      id,
-      name: id, // UI will map to display name using /api/consultants
-      est: Number((v.est || 0).toFixed(2)),
-      tracked: Number((v.tracked || 0).toFixed(2)),
-    }));
-
-    return NextResponse.json({ rows });
+    return NextResponse.json({ rows: Array.from(map.values()) });
   } catch (err: any) {
     return NextResponse.json(
-      { error: "DB error (summary)", details: err?.message },
+      { error: "Summary failed", details: err?.message ?? String(err) },
       { status: 500 }
     );
   }

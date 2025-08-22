@@ -1,3 +1,4 @@
+// src/app/api/admin/unlock-estimates/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/db";
 
@@ -5,7 +6,10 @@ export async function POST(req: NextRequest) {
   try {
     const { userId, start, end } = await req.json();
     if (!userId || !start || !end) {
-      return NextResponse.json({ error: "Missing userId/start/end" }, { status: 400 });
+      return NextResponse.json(
+        { error: "Missing userId/start/end" },
+        { status: 400 }
+      );
     }
 
     const { error } = await supabaseAdmin
@@ -16,11 +20,10 @@ export async function POST(req: NextRequest) {
       .lte("date", end);
 
     if (error) throw error;
-
     return NextResponse.json({ ok: true });
   } catch (err: any) {
     return NextResponse.json(
-      { error: "DB error (unlock)", details: err?.message },
+      { error: "Unlock failed", details: err?.message ?? String(err) },
       { status: 500 }
     );
   }
