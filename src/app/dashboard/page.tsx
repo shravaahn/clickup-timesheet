@@ -175,7 +175,7 @@ export default function DashboardPage() {
   const [rows, setRows] = useState<Row[]>([]);
   const [loading, setLoading] = useState(true);
 
-  /** modal state for tracked time */
+  /** tracked modal */
   const [modalOpen, setModalOpen] = useState(false);
   const [modalTaskId, setModalTaskId] = useState("");
   const [modalTaskName, setModalTaskName] = useState("");
@@ -183,7 +183,7 @@ export default function DashboardPage() {
   const [modalType, setModalType] = useState("");
   const [modalHours, setModalHours] = useState<string>("");
 
-  /** modal state for Add Project (prettier, centered) */
+  /** Add Project modal (centered) */
   const [addOpen, setAddOpen] = useState(false);
   const [addName, setAddName] = useState("");
   const [addAssignee, setAddAssignee] = useState<string | null>(null);
@@ -253,7 +253,7 @@ export default function DashboardPage() {
     return () => { mounted = false; };
   }, [selectedUserId]);
 
-  /** merge with timesheet */
+  /** merge with timesheet (current week) */
   useEffect(() => {
     if (!selectedUserId) return;
     let mounted = true;
@@ -394,7 +394,7 @@ export default function DashboardPage() {
   const goNext = () => setWeekStart(d => addDays(d, 7));
   const goThis = () => setWeekStart(startOfWeek());
 
-  /** modal helpers (tracked) */
+  /** tracked modal helpers */
   function openTrackModal(taskId: string, taskName: string, dayIndex: number, currentHours: number | null, currentNote: string | null) {
     setModalTaskId(taskId);
     setModalTaskName(taskName);
@@ -430,7 +430,6 @@ export default function DashboardPage() {
       if (!r.ok) {
         alert(`Create task failed: ${j?.error || r.statusText}`);
       } else {
-        // refresh projects for the selected user
         try {
           const rr = await fetch(`/api/projects/by-user?assigneeId=${addAssignee}`, { cache: "no-store" });
           const jj = await rr.json();
@@ -464,22 +463,20 @@ export default function DashboardPage() {
         <header className={styles.header}>
           <div className={styles.brand}>
             {/* Logo (fallback to TT) */}
-            <img
-              src="/company-logo.png"
-              alt="Company"
-              width={34}
-              height={34}
-              style={{ borderRadius: 8, objectFit: "contain", background: "transparent" }}
-              onError={(e) => {
-                // fallback text badge
-                const el = e.currentTarget;
-                el.style.display = "none";
-                const sib = document.createElement("div");
-                sib.className = styles.badge;
-                sib.textContent = "TT";
-                el.parentElement?.insertBefore(sib, el);
-              }}
-            />
+            <div className={styles.logoWrap}>
+              <img
+                className={styles.logoImg}
+                src="/company-logo.png"
+                alt="Company"
+                onError={(e) => {
+                  e.currentTarget.style.display = "none";
+                  const sib = document.createElement("div");
+                  sib.className = styles.badge;
+                  sib.textContent = "TT";
+                  (e.currentTarget.parentElement as HTMLElement).appendChild(sib);
+                }}
+              />
+            </div>
             <div>
               <div className={styles.title}>Time Tracking</div>
               <div className={styles.subtitle}>{weekLabel}</div>
@@ -684,48 +681,55 @@ export default function DashboardPage() {
           </section>
         )}
 
-        {/* ====== MONTH VIEW (responsive grid, no overlap) ====== */}
+        {/* ====== MONTH VIEW (responsive, no overlap; shows live data for selected week) ====== */}
         {viewMode === "month" && (
           <>
             <div className={styles.summary} style={{ marginTop: 0 }}>
               <span className={styles.period}>Period: Month</span>
             </div>
 
-            {/* Responsive grid for weeks */}
-            <div
-              className={styles.weekScroller}
-              style={{
-                display: "grid",
-                gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))",
-                gap: 12,
-                overflow: "visible",
-              }}
-            >
-              {monthWeeks.map((w, idx) => (
-                <section key={idx} className={styles.weekCard}>
-                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
-                    <h3 style={{ fontWeight: 600, margin: 0 }}>Week {idx + 1}</h3>
-                    <div className={styles.subtitle}>{fmtMMMdd(w.start)} — {fmtMMMdd(w.end)}</div>
-                  </div>
+            <div className={styles.weekGrid}>
+              {monthWeeks.map((w, idx) => {
+                const isSelected = ymd(w.start) === ymd(weekStart);
+                const dayEst = isSelected ? totals.dayEst : [0,0,0,0,0];
+                const dayTracked = isSelected ? totals.dayTracked : [0,0,0,0,0];
 
-                  {/* 5 weekdays (labels + zeroed figures to match design) */}
-                  <div style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: 8 }}>
-                    {["Mon","Tue","Wed","Thu","Fri"].map((d) => (
-                      <div key={d} className={styles.day} style={{ borderRadius: 10 }}>
-                        <div className="text-xs" style={{ color: "rgba(255,255,255,.7)", marginBottom: 4 }}>{d}</div>
-                        <div style={{ color: "rgba(255,255,255,.85)", fontSize: 13 }}>0.00</div>
-                        <div className="text-xs" style={{ color: "rgba(255,255,255,.6)" }}>0.00</div>
-                      </div>
-                    ))}
-                  </div>
-                </section>
-              ))}
+                return (
+                  <section
+                    key={idx}
+                    className={`${styles.weekCard} ${isSelected ? styles.weekCardSelected : ""}`}
+                  >
+                    <div className={styles.weekHead}>
+                      <h3 className={styles.weekTitle}>Week {idx + 1}</h3>
+                      <div className={styles.subtitle}>{fmtMMMdd(w.start)} — {fmtMMMdd(w.end)}</div>
+                    </div>
+
+                    <div className={styles.weekDays}>
+                      {["Mon","Tue","Wed","Thu","Fri"].map((d, i) => (
+                        <div key={d} className={styles.dayCard}>
+                          <div className={styles.dayLabel}>{d}</div>
+                          <div className={styles.dayEst}>{clamp2(dayEst[i] || 0).toFixed(2)}</div>
+                          <div className={styles.dayTracked}>{clamp2(dayTracked[i] || 0).toFixed(2)}</div>
+                        </div>
+                      ))}
+                    </div>
+
+                    <div className={styles.weekTotals}>
+                      <span>Est:</span>
+                      <strong>{clamp2(dayEst.reduce((a,b)=>a+(b||0),0)).toFixed(2)}h</strong>
+                      <span className={styles.dot}>•</span>
+                      <span>Tracked:</span>
+                      <strong>{clamp2(dayTracked.reduce((a,b)=>a+(b||0),0)).toFixed(2)}h</strong>
+                    </div>
+                  </section>
+                );
+              })}
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-6">
-              <div className={styles.metric}>Total Est Hours (Month): 0.00h</div>
-              <div className={styles.metric}>Total Tracked Hours (Month): 0.00h</div>
-              <div className={styles.metric}>Δ Tracked – Est (Month): 0.00h</div>
+            <div className={styles.monthKpis}>
+              <div className={styles.metric}>Total Est Hours (Selected Week): {totals.sumEst.toFixed(2)}h</div>
+              <div className={styles.metric}>Total Tracked Hours (Selected Week): {totals.sumTracked.toFixed(2)}h</div>
+              <div className={styles.metric}>Δ Tracked – Est (Selected Week): {totals.delta.toFixed(2)}h</div>
             </div>
           </>
         )}
@@ -873,7 +877,7 @@ export default function DashboardPage() {
                   <option key={c.id} value={c.id}>{c.username || c.email}</option>
                 ))}
               </select>
-              <div className={styles.help}>This will create a new ClickUp task in your configured List.</div>
+              <div className={styles.help}>Creates a new ClickUp task in your configured List.</div>
             </div>
 
             <div className={styles.modalActions}>
