@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import styles from "./Dashboard.module.css";
 
 /** ---- SSR-safe date helpers ---- */
@@ -183,6 +183,12 @@ export default function DashboardPage() {
   const [modalType, setModalType] = useState("");
   const [modalHours, setModalHours] = useState<string>("");
 
+  /** modal state for Add Project (prettier, centered) */
+  const [addOpen, setAddOpen] = useState(false);
+  const [addName, setAddName] = useState("");
+  const [addAssignee, setAddAssignee] = useState<string | null>(null);
+  const [addBusy, setAddBusy] = useState(false);
+
   /** admin summary for chart 2 */
   const [overviewRows, setOverviewRows] = useState<{ name: string; est: number; tracked: number }[]>([]);
 
@@ -220,6 +226,11 @@ export default function DashboardPage() {
     })();
     return () => { mounted = false; };
   }, []);
+
+  /** keep Add Project assignee in sync with selected user */
+  useEffect(() => {
+    if (selectedUserId) setAddAssignee(selectedUserId);
+  }, [selectedUserId]);
 
   /** load projects (Lists) for selected user */
   useEffect(() => {
@@ -383,7 +394,7 @@ export default function DashboardPage() {
   const goNext = () => setWeekStart(d => addDays(d, 7));
   const goThis = () => setWeekStart(startOfWeek());
 
-  /** modal helpers */
+  /** modal helpers (tracked) */
   function openTrackModal(taskId: string, taskName: string, dayIndex: number, currentHours: number | null, currentNote: string | null) {
     setModalTaskId(taskId);
     setModalTaskName(taskName);
@@ -392,33 +403,44 @@ export default function DashboardPage() {
     setModalHours(currentHours != null ? String(currentHours) : "");
     setModalOpen(true);
   }
-  function closeModal() {
+  function closeTrackModal() {
     setModalOpen(false);
     setModalType("");
     setModalHours("");
   }
-  function saveModal() {
+  function saveTrackModal() {
     const hoursNum = Number(modalHours);
     if (!modalType) { alert("Please select a Type"); return; }
     if (!Number.isFinite(hoursNum) || hoursNum <= 0) { alert("Please enter hours > 0"); return; }
     saveTracked(modalTaskId, modalTaskName, modalDayIndex, hoursNum, modalType);
-    closeModal();
+    closeTrackModal();
   }
 
-  /** admin unlock */
-  async function unlockAllEstimates() {
-    if (!selectedUserId) return;
-    const start = ymd(weekStart), end = ymd(weekEnd);
-    const r = await fetch("/api/admin/unlock-estimates", {
-      method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ userId: selectedUserId, start, end }),
-    });
-    if (r.ok) {
-      setRows(prev => prev.map(row => ({ ...row, estLockedByDay: row.estLockedByDay.map(() => false) })));
-      alert("Estimates unlocked for this week.");
-    } else {
-      const j = await r.json().catch(()=>({}));
-      alert(`Unlock failed: ${j.error || r.statusText}${j.details ? ` — ${j.details}` : ""}`);
+  /** Add Project modal helpers */
+  async function createProject() {
+    if (!addName.trim() || !addAssignee) return;
+    setAddBusy(true);
+    try {
+      const r = await fetch("/api/admin/create-project", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: addName.trim(), assigneeId: addAssignee })
+      });
+      const j = await r.json().catch(()=> ({}));
+      if (!r.ok) {
+        alert(`Create task failed: ${j?.error || r.statusText}`);
+      } else {
+        // refresh projects for the selected user
+        try {
+          const rr = await fetch(`/api/projects/by-user?assigneeId=${addAssignee}`, { cache: "no-store" });
+          const jj = await rr.json();
+          setProjects((jj?.projects || []).map((p: any)=>({ id: String(p.id), name: String(p.name || p.id) })));
+        } catch {}
+        setAddOpen(false);
+        setAddName("");
+      }
+    } finally {
+      setAddBusy(false);
     }
   }
 
@@ -434,9 +456,6 @@ export default function DashboardPage() {
   }, [isAdmin, weekStart, weekEnd]);
 
   /** ---- render ---- */
-  const logoImgRef = useRef<HTMLImageElement>(null);
-  const onLogoError = () => { if (logoImgRef.current) logoImgRef.current.style.display = "none"; };
-
   return (
     <div className={styles.page}>
       <div className={styles.shell}>
@@ -444,12 +463,23 @@ export default function DashboardPage() {
         {/* top header bar */}
         <header className={styles.header}>
           <div className={styles.brand}>
-            <div className={styles.logoWrap}>
-              {/* Put your file at /public/company-logo.png */}
-              <img ref={logoImgRef} src="/company-logo.png" alt="Company" className={styles.logoImg} onError={onLogoError}/>
-              {/* Fallback if logo missing */}
-              <span className={styles.badge}>TT</span>
-            </div>
+            {/* Logo (fallback to TT) */}
+            <img
+              src="/company-logo.png"
+              alt="Company"
+              width={34}
+              height={34}
+              style={{ borderRadius: 8, objectFit: "contain", background: "transparent" }}
+              onError={(e) => {
+                // fallback text badge
+                const el = e.currentTarget;
+                el.style.display = "none";
+                const sib = document.createElement("div");
+                sib.className = styles.badge;
+                sib.textContent = "TT";
+                el.parentElement?.insertBefore(sib, el);
+              }}
+            />
             <div>
               <div className={styles.title}>Time Tracking</div>
               <div className={styles.subtitle}>{weekLabel}</div>
@@ -481,7 +511,7 @@ export default function DashboardPage() {
             {isAdmin && (
               <button
                 className={styles.btn}
-                onClick={()=> (document.getElementById("addProjectModal") as HTMLDialogElement)?.showModal()}
+                onClick={()=> setAddOpen(true)}
                 title="Create a new task (project) in the configured ClickUp list"
               >
                 + Add Project
@@ -606,7 +636,7 @@ export default function DashboardPage() {
                               />
 
                               <button
-                                className={styles.trackBtn}
+                                className={`${styles.trackBtn} ${styles.numWide}`}
                                 onClick={() => openTrackModal(r.taskId, r.taskName, i, r.trackedByDay[i], r.noteByDay[i])}
                               >
                                 {r.trackedByDay[i] != null ? `${r.trackedByDay[i]}h` : "Track"}
@@ -617,8 +647,8 @@ export default function DashboardPage() {
 
                         <td>
                           <div className={styles.cellBox}>
-                            <input className={`${styles.num} ${styles.locked}`} disabled value={tEst.toFixed(2)} />
-                            <input className={styles.num} disabled value={tTracked.toFixed(2)} />
+                            <input className={`${styles.num} ${styles.numWide} ${styles.locked}`} disabled value={tEst.toFixed(2)} />
+                            <input className={`${styles.num} ${styles.numWide}`} disabled value={tTracked.toFixed(2)} />
                           </div>
                         </td>
                       </tr>
@@ -636,15 +666,15 @@ export default function DashboardPage() {
                     {[0,1,2,3,4].map((i) => (
                       <td key={i}>
                         <div className={styles.cellBox}>
-                          <input className={`${styles.num} ${styles.locked}`} disabled value={(totals.dayEst[i]||0).toFixed(2)} />
-                          <input className={styles.num} disabled value={(totals.dayTracked[i]||0).toFixed(2)} />
+                          <input className={`${styles.num} ${styles.numWide} ${styles.locked}`} disabled value={(totals.dayEst[i]||0).toFixed(2)} />
+                          <input className={`${styles.num} ${styles.numWide}`} disabled value={(totals.dayTracked[i]||0).toFixed(2)} />
                         </div>
                       </td>
                     ))}
                     <td>
                       <div className={styles.cellBox}>
-                        <input className={`${styles.num} ${styles.locked}`} disabled value={totals.sumEst.toFixed(2)} />
-                        <input className={styles.num} disabled value={totals.sumTracked.toFixed(2)} />
+                        <input className={`${styles.num} ${styles.numWide} ${styles.locked}`} disabled value={totals.sumEst.toFixed(2)} />
+                        <input className={`${styles.num} ${styles.numWide}`} disabled value={totals.sumTracked.toFixed(2)} />
                       </div>
                     </td>
                   </tr>
@@ -654,26 +684,37 @@ export default function DashboardPage() {
           </section>
         )}
 
-        {/* ====== MONTH VIEW (cards + scroller placeholders) ====== */}
+        {/* ====== MONTH VIEW (responsive grid, no overlap) ====== */}
         {viewMode === "month" && (
           <>
             <div className={styles.summary} style={{ marginTop: 0 }}>
               <span className={styles.period}>Period: Month</span>
             </div>
 
-            <div className={styles.weekScroller}>
+            {/* Responsive grid for weeks */}
+            <div
+              className={styles.weekScroller}
+              style={{
+                display: "grid",
+                gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))",
+                gap: 12,
+                overflow: "visible",
+              }}
+            >
               {monthWeeks.map((w, idx) => (
                 <section key={idx} className={styles.weekCard}>
-                  <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:8}}>
-                    <div style={{fontWeight:700}}>Week {idx + 1}</div>
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
+                    <h3 style={{ fontWeight: 600, margin: 0 }}>Week {idx + 1}</h3>
                     <div className={styles.subtitle}>{fmtMMMdd(w.start)} — {fmtMMMdd(w.end)}</div>
                   </div>
-                  <div style={{display:"flex",gap:8}}>
+
+                  {/* 5 weekdays (labels + zeroed figures to match design) */}
+                  <div style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: 8 }}>
                     {["Mon","Tue","Wed","Thu","Fri"].map((d) => (
-                      <div key={d} style={{flex:"1 1 0", background:"#101725", border:"1px solid #20304a", borderRadius:10, padding:10}}>
-                        <div className="text-xs" style={{opacity:.8, marginBottom:6}}>{d}</div>
-                        <div style={{opacity:.9}}>0.00</div>
-                        <div style={{opacity:.6, fontSize:12}}>0.00</div>
+                      <div key={d} className={styles.day} style={{ borderRadius: 10 }}>
+                        <div className="text-xs" style={{ color: "rgba(255,255,255,.7)", marginBottom: 4 }}>{d}</div>
+                        <div style={{ color: "rgba(255,255,255,.85)", fontSize: 13 }}>0.00</div>
+                        <div className="text-xs" style={{ color: "rgba(255,255,255,.6)" }}>0.00</div>
                       </div>
                     ))}
                   </div>
@@ -681,7 +722,7 @@ export default function DashboardPage() {
               ))}
             </div>
 
-            <div style={{display:"grid",gridTemplateColumns:"repeat(3, minmax(0,1fr))",gap:12, marginTop:16}}>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-6">
               <div className={styles.metric}>Total Est Hours (Month): 0.00h</div>
               <div className={styles.metric}>Total Tracked Hours (Month): 0.00h</div>
               <div className={styles.metric}>Δ Tracked – Est (Month): 0.00h</div>
@@ -736,7 +777,21 @@ export default function DashboardPage() {
             </div>
 
             <div className={styles.adminActions}>
-              <button className={styles.btn} onClick={unlockAllEstimates}>
+              <button className={styles.btn} onClick={async () => {
+                if (!selectedUserId) return;
+                const start = ymd(weekStart), end = ymd(weekEnd);
+                const r = await fetch("/api/admin/unlock-estimates", {
+                  method: "POST", headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({ userId: selectedUserId, start, end }),
+                });
+                if (r.ok) {
+                  setRows(prev => prev.map(row => ({ ...row, estLockedByDay: row.estLockedByDay.map(() => false) })));
+                  alert("Estimates unlocked for this week.");
+                } else {
+                  const j = await r.json().catch(()=>({}));
+                  alert(`Unlock failed: ${j.error || r.statusText}${j.details ? ` — ${j.details}` : ""}`);
+                }
+              }}>
                 Unlock all estimates (visible period)
               </button>
             </div>
@@ -747,7 +802,7 @@ export default function DashboardPage() {
 
       {/* --- Modal for Tracked Time --- */}
       {modalOpen && (
-        <div className={styles.modalBackdrop} onClick={closeModal}>
+        <div className={styles.modalBackdrop} onClick={closeTrackModal}>
           <div className={styles.modal} onClick={(e)=> e.stopPropagation()}>
             <div className={styles.modalHeader}>
               <div className={styles.modalTitle}>Time Entry</div>
@@ -759,7 +814,7 @@ export default function DashboardPage() {
             <div className={styles.modalBody}>
               <label className={styles.label}>Type</label>
               <select
-                className={styles.selectWide}
+                className={`${styles.select} ${styles.selectWide}`}
                 value={modalType}
                 onChange={(e)=> setModalType(e.target.value)}
               >
@@ -777,60 +832,63 @@ export default function DashboardPage() {
                 placeholder="e.g., 1.5"
                 value={modalHours}
                 onChange={(e)=> setModalHours(e.currentTarget.value)}
-                onKeyDown={(e)=> { if (e.key === "Enter") saveModal(); }}
+                onKeyDown={(e)=> { if (e.key === "Enter") saveTrackModal(); }}
               />
               <div className={styles.help}>Only Hours will show in the table. All fields are saved for reporting.</div>
             </div>
 
             <div className={styles.modalActions}>
-              <button className={styles.btn} onClick={closeModal}>Cancel</button>
-              <button className={`${styles.btn} ${styles.primary}`} onClick={saveModal}>Save</button>
+              <button className={styles.btn} onClick={closeTrackModal}>Cancel</button>
+              <button className={`${styles.btn} ${styles.primary}`} onClick={saveTrackModal}>Save</button>
             </div>
           </div>
         </div>
       )}
 
-      {/* --- Admin: Add Project modal (uses your existing API) --- */}
-      <dialog id="addProjectModal" className="rounded-xl p-0 bg-[#151d27] text-white">
-        <form method="dialog" className="p-5 space-y-4 min-w-[360px]">
-          <h2 className="text-lg font-semibold">Add Project (Create Task)</h2>
-          <label className="grid gap-1">
-            <span className="text-sm text-white/70">Task name</span>
-            <input id="ap_name" className="bg-[#0f141a] border border-[#223041] rounded px-2 py-1" />
-          </label>
-          <label className="grid gap-1">
-            <span className="text-sm text-white/70">Assign to</span>
-            <select id="ap_assignee" className="bg-[#0f141a] border border-[#223041] rounded px-2 py-1" defaultValue={selectedUserId ?? ""}>
-              {members.map(c => <option key={c.id} value={c.id}>{c.username || c.email}</option>)}
-            </select>
-          </label>
-          <div className="flex gap-2 justify-end pt-2">
-            <button className="px-3 py-1 rounded bg-[#223041]">Cancel</button>
-            <button
-              className="px-3 py-1 rounded bg-indigo-600 hover:bg-indigo-500"
-              onClick={async (e) => {
-                e.preventDefault();
-                const name = (document.getElementById("ap_name") as HTMLInputElement).value.trim();
-                const assigneeId = (document.getElementById("ap_assignee") as HTMLSelectElement).value;
-                const r = await fetch("/api/admin/create-project", {
-                  method: "POST",
-                  headers: { "Content-Type": "application/json" },
-                  body: JSON.stringify({ name, assigneeId })
-                });
-                const j = await r.json().catch(()=> ({}));
-                alert(r.ok ? "Created!" : `Create task failed: ${j?.error || ""}`);
-                (document.getElementById("addProjectModal") as HTMLDialogElement).close();
-                // refresh projects for the selected user
-                try {
-                  const rr = await fetch(`/api/projects/by-user?assigneeId=${assigneeId}`, { cache: "no-store" });
-                  const jj = await rr.json();
-                  setProjects((jj?.projects || []).map((p: any)=>({ id: String(p.id), name: String(p.name || p.id) })));
-                } catch {}
-              }}
-            >Create</button>
+      {/* --- Admin: Add Project modal (centered & smooth) --- */}
+      {isAdmin && addOpen && (
+        <div className={styles.modalBackdrop} onClick={()=> setAddOpen(false)}>
+          <div className={styles.modal} onClick={(e)=> e.stopPropagation()}>
+            <div className={styles.modalHeader}>
+              <div className={styles.modalTitle}>Add Project (Create Task)</div>
+              <div className={styles.modalMeta}>Assign a task to a consultant</div>
+            </div>
+
+            <div className={styles.modalBody}>
+              <label className={styles.label}>Task name</label>
+              <input
+                className={styles.num}
+                placeholder="e.g., Website Revamp"
+                value={addName}
+                onChange={(e)=> setAddName(e.currentTarget.value)}
+              />
+
+              <label className={styles.label} style={{ marginTop: 12 }}>Assign to</label>
+              <select
+                className={`${styles.select} ${styles.selectWide}`}
+                value={addAssignee ?? ""}
+                onChange={(e)=> setAddAssignee(e.target.value)}
+              >
+                {(members || []).map(c => (
+                  <option key={c.id} value={c.id}>{c.username || c.email}</option>
+                ))}
+              </select>
+              <div className={styles.help}>This will create a new ClickUp task in your configured List.</div>
+            </div>
+
+            <div className={styles.modalActions}>
+              <button className={styles.btn} onClick={()=> setAddOpen(false)}>Cancel</button>
+              <button
+                className={`${styles.btn} ${styles.primary}`}
+                onClick={createProject}
+                disabled={!addName.trim() || !addAssignee || addBusy}
+              >
+                {addBusy ? "Creating…" : "Create"}
+              </button>
+            </div>
           </div>
-        </form>
-      </dialog>
+        </div>
+      )}
     </div>
   );
 }
