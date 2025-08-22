@@ -1,3 +1,4 @@
+// src/app/dashboard/page.tsx
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
@@ -158,7 +159,7 @@ export default function DashboardPage() {
     if (w) setWeekStart(w.start);
   }
 
-  /** view toggle (mostly visual) */
+  /** view toggle */
   const [viewMode, setViewMode] = useState<"week" | "month">("week");
 
   /** auth + role */
@@ -293,7 +294,7 @@ export default function DashboardPage() {
     return () => { mounted = false; };
   }, [projects, selectedUserId, weekStart, weekEnd, weekCols]);
 
-  /** totals */
+  /** totals (week) */
   const totals = useMemo(() => {
     const dayEst = [0,0,0,0,0], dayTracked = [0,0,0,0,0];
     rows.forEach(r => {
@@ -470,6 +471,16 @@ export default function DashboardPage() {
             <button className={styles.btn} onClick={goThis}>This Week</button>
             <button className={styles.btn} onClick={goNext}>Next ▶</button>
 
+            {isAdmin && (
+              <button
+                className={`${styles.btn}`}
+                onClick={()=> (document.getElementById("addProjectModal") as HTMLDialogElement)?.showModal()}
+                title="Create a new task (project) in the configured ClickUp list"
+              >
+                + Add Project
+              </button>
+            )}
+
             <button className={`${styles.btn} ${styles.primary}`} onClick={()=> alert("All changes auto-save on blur / Save.")}>Save</button>
             <button className={styles.btn} onClick={exportCsv}>Export CSV</button>
             <button className={`${styles.btn} ${styles.warn}`} onClick={()=> (window.location.href="/login")}>Log out</button>
@@ -516,7 +527,6 @@ export default function DashboardPage() {
               <button
                 className={`${styles.btn} ${viewMode === "month" ? styles.selected : ""}`}
                 onClick={()=> setViewMode("month")}
-                title="Month totals coming soon"
               >Month</button>
             </div>
           </div>
@@ -530,114 +540,150 @@ export default function DashboardPage() {
           <span className={styles.period}>Period: {viewMode === "week" ? "Week" : "Month"}</span>
         </div>
 
-        {/* table */}
-        <section className={styles.card}>
-          <div className={styles.tableWrap}>
-            <table className={styles.table}>
-              <thead>
-                <tr>
-                  <th className={styles.thProject}>Project</th>
-                  {["Mon","Tue","Wed","Thu","Fri"].map((d, i) => (
-                    <th key={d}>
-                      <div className={styles.day}>{d} • {fmtMMMdd(weekCols[i])}</div>
+        {/* ====== WEEK VIEW (original table) ====== */}
+        {viewMode === "week" && (
+          <section className={styles.card}>
+            <div className={styles.tableWrap}>
+              <table className={styles.table}>
+                <thead>
+                  <tr>
+                    <th className={styles.thProject}>Project</th>
+                    {["Mon","Tue","Wed","Thu","Fri"].map((d, i) => (
+                      <th key={d}>
+                        <div className={styles.day}>{d} • {fmtMMMdd(weekCols[i])}</div>
+                        <div className={styles.daySub}>Est | Tracked</div>
+                      </th>
+                    ))}
+                    <th>
+                      <div className={styles.day}>Total (Week)</div>
                       <div className={styles.daySub}>Est | Tracked</div>
                     </th>
-                  ))}
-                  <th>
-                    <div className={styles.day}>Total (Week)</div>
-                    <div className={styles.daySub}>Est | Tracked</div>
-                  </th>
-                </tr>
-              </thead>
+                  </tr>
+                </thead>
 
-              <tbody>
-                {loading && (
-                  <tr><td className={styles.thProject} colSpan={7}>Loading projects…</td></tr>
-                )}
+                <tbody>
+                  {loading && (
+                    <tr><td className={styles.thProject} colSpan={7}>Loading projects…</td></tr>
+                  )}
 
-                {!loading && rows.map((r) => {
-                  // ✅ Explicitly type the accumulator so reduce returns `number`
-                  const tEst = clamp2(r.estByDay.reduce<number>((a, b) => a + (b ?? 0), 0));
-                  const tTracked = clamp2(r.trackedByDay.reduce<number>((a, b) => a + (b ?? 0), 0));
+                  {!loading && rows.map((r) => {
+                    const tEst = clamp2(r.estByDay.reduce<number>((a, b) => a + (b ?? 0), 0));
+                    const tTracked = clamp2(r.trackedByDay.reduce<number>((a, b) => a + (b ?? 0), 0));
 
-                  return (
-                    <tr key={r.taskId}>
-                      <td className={styles.thProject}>
-                        <div className={styles.projectName} title={r.taskName}>{r.taskName}</div>
-                      </td>
+                    return (
+                      <tr key={r.taskId}>
+                        <td className={styles.thProject}>
+                          <div className={styles.projectName} title={r.taskName}>{r.taskName}</div>
+                        </td>
 
-                      {[0,1,2,3,4].map((i) => (
-                        <td key={i}>
+                        {[0,1,2,3,4].map((i) => (
+                          <td key={i}>
+                            <div className={styles.cellBox}>
+                              <input
+                                className={`${styles.num} ${styles.numWide} ${r.estLockedByDay[i] ? styles.locked : ""}`}
+                                type="number" step="0.25" min="0"
+                                value={r.estByDay[i] ?? ""}
+                                onChange={(e)=> {
+                                  const v = e.currentTarget.value === "" ? null : Number(e.currentTarget.value);
+                                  setRows(prev => prev.map(row => row.taskId===r.taskId ? {
+                                    ...row, estByDay: prev.find(rr=>rr.taskId===r.taskId)!.estByDay.map((vv,ii)=> ii===i ? (v as any) : vv),
+                                  }: row));
+                                }}
+                                onBlur={(e) => {
+                                  const v = e.currentTarget.value;
+                                  if (v === "" || r.estLockedByDay[i]) return;
+                                  saveEstimate(r.taskId, r.taskName, i, Number(v));
+                                }}
+                                disabled={r.estLockedByDay[i]}
+                                placeholder="Est"
+                              />
+
+                              <button
+                                className={`${styles.trackBtn} ${styles.numWide}`}
+                                onClick={() => openTrackModal(r.taskId, r.taskName, i, r.trackedByDay[i], r.noteByDay[i])}
+                              >
+                                {r.trackedByDay[i] != null ? `${r.trackedByDay[i]}h` : "Track"}
+                              </button>
+                            </div>
+                          </td>
+                        ))}
+
+                        <td>
                           <div className={styles.cellBox}>
-                            <input
-                              className={`${styles.num} ${styles.numWide} ${r.estLockedByDay[i] ? styles.locked : ""}`}
-                              type="number" step="0.25" min="0"
-                              value={r.estByDay[i] ?? ""}
-                              onChange={(e)=> {
-                                const v = e.currentTarget.value === "" ? null : Number(e.currentTarget.value);
-                                setRows(prev => prev.map(row => row.taskId===r.taskId ? {
-                                  ...row, estByDay: prev.find(rr=>rr.taskId===r.taskId)!.estByDay.map((vv,ii)=> ii===i ? (v as any) : vv),
-                                }: row));
-                              }}
-                              onBlur={(e) => {
-                                const v = e.currentTarget.value;
-                                if (v === "" || r.estLockedByDay[i]) return;
-                                saveEstimate(r.taskId, r.taskName, i, Number(v));
-                              }}
-                              disabled={r.estLockedByDay[i]}
-                              placeholder="Est"
-                            />
-
-                            <button
-                              className={`${styles.trackBtn} ${styles.numWide}`}
-                              onClick={() => openTrackModal(r.taskId, r.taskName, i, r.trackedByDay[i], r.noteByDay[i])}
-                            >
-                              {r.trackedByDay[i] != null ? `${r.trackedByDay[i]}h` : "Track"}
-                            </button>
+                            <input className={`${styles.num} ${styles.numWide} ${styles.locked}`} disabled value={tEst.toFixed(2)} />
+                            <input className={`${styles.num} ${styles.numWide}`} disabled value={tTracked.toFixed(2)} />
                           </div>
                         </td>
-                      ))}
+                      </tr>
+                    );
+                  })}
 
-                      <td>
+                  {!loading && rows.length === 0 && (
+                    <tr><td className={styles.thProject} colSpan={7}>No projects found for this consultant.</td></tr>
+                  )}
+                </tbody>
+
+                <tfoot>
+                  <tr>
+                    <td className={styles.thProject}>All Projects Total</td>
+                    {[0,1,2,3,4].map((i) => (
+                      <td key={i}>
                         <div className={styles.cellBox}>
-                          <input className={`${styles.num} ${styles.numWide} ${styles.locked}`} disabled value={tEst.toFixed(2)} />
-                          <input className={`${styles.num} ${styles.numWide}`} disabled value={tTracked.toFixed(2)} />
+                          <input className={`${styles.num} ${styles.numWide} ${styles.locked}`} disabled value={(totals.dayEst[i]||0).toFixed(2)} />
+                          <input className={`${styles.num} ${styles.numWide}`} disabled value={(totals.dayTracked[i]||0).toFixed(2)} />
                         </div>
                       </td>
-                    </tr>
-                  );
-                })}
-
-                {!loading && rows.length === 0 && (
-                  <tr><td className={styles.thProject} colSpan={7}>No projects found for this consultant.</td></tr>
-                )}
-              </tbody>
-
-              <tfoot>
-                <tr>
-                  <td className={styles.thProject}>All Projects Total</td>
-                  {[0,1,2,3,4].map((i) => (
-                    <td key={i}>
+                    ))}
+                    <td>
                       <div className={styles.cellBox}>
-                        <input className={`${styles.num} ${styles.numWide} ${styles.locked}`} disabled value={(totals.dayEst[i]||0).toFixed(2)} />
-                        <input className={`${styles.num} ${styles.numWide}`} disabled value={(totals.dayTracked[i]||0).toFixed(2)} />
+                        <input className={`${styles.num} ${styles.numWide} ${styles.locked}`} disabled value={totals.sumEst.toFixed(2)} />
+                        <input className={`${styles.num} ${styles.numWide}`} disabled value={totals.sumTracked.toFixed(2)} />
                       </div>
                     </td>
-                  ))}
-                  <td>
-                    <div className={styles.cellBox}>
-                      <input className={`${styles.num} ${styles.numWide} ${styles.locked}`} disabled value={totals.sumEst.toFixed(2)} />
-                      <input className={`${styles.num} ${styles.numWide}`} disabled value={totals.sumTracked.toFixed(2)} />
-                    </div>
-                  </td>
-                </tr>
-              </tfoot>
-            </table>
-          </div>
-        </section>
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
+          </section>
+        )}
 
-        {/* ===== Admin Tools + Charts ===== */}
-        {isAdmin && (
+        {/* ====== MONTH VIEW (cards + scroller) ====== */}
+        {viewMode === "month" && (
+          <>
+            <div className={styles.summary} style={{ marginTop: 0 }}>
+              <span className={styles.period}>Period: Month</span>
+            </div>
+
+            <div className={styles.weekScroller}>
+              {monthWeeks.map((w, idx) => (
+                <section key={idx} className={styles.weekCard}>
+                  <div className="flex items-center justify-between mb-2">
+                    <h3 className="font-semibold">Week {idx + 1}</h3>
+                    <div className="text-xs text-white/60">{fmtMMMdd(w.start)} — {fmtMMMdd(w.end)}</div>
+                  </div>
+                  <div className="flex gap-2">
+                    {["Mon","Tue","Wed","Thu","Fri"].map((d) => (
+                      <div key={d} className={styles.day}>
+                        <div className="text-xs text-white/70 mb-1">{d}</div>
+                        <div className="text-white/80 text-sm">0.00</div>
+                        <div className="text-white/60 text-xs">0.00</div>
+                      </div>
+                    ))}
+                  </div>
+                </section>
+              ))}
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-6">
+              <div className={styles.metric}>Total Est Hours (Month): 0.00h</div>
+              <div className={styles.metric}>Total Tracked Hours (Month): 0.00h</div>
+              <div className={styles.metric}>Δ Tracked – Est (Month): 0.00h</div>
+            </div>
+          </>
+        )}
+
+        {/* ===== Admin Tools + Charts (week-based) ===== */}
+        {isAdmin && viewMode === "week" && (
           <section className={styles.adminPanel}>
             <div className={styles.cardsRow}>
               <div className={styles.statCard}>
@@ -735,6 +781,50 @@ export default function DashboardPage() {
             </div>
           </div>
         </div>
+      )}
+
+      {/* --- Admin: Add Project modal (admins only) --- */}
+      {isAdmin && (
+        <dialog id="addProjectModal" className="rounded-xl p-0 bg-[#151d27] text-white">
+          <form method="dialog" className="p-5 space-y-4 min-w-[360px]">
+            <h2 className="text-lg font-semibold">Add Project (Create Task)</h2>
+            <label className="grid gap-1">
+              <span className="text-sm text-white/70">Task name</span>
+              <input id="ap_name" className="bg-[#0f141a] border border-[#223041] rounded px-2 py-1" />
+            </label>
+            <label className="grid gap-1">
+              <span className="text-sm text-white/70">Assign to</span>
+              <select id="ap_assignee" className="bg-[#0f141a] border border-[#223041] rounded px-2 py-1" defaultValue={selectedUserId ?? ""}>
+                {members.map(c => <option key={c.id} value={c.id}>{c.username || c.email}</option>)}
+              </select>
+            </label>
+            <div className="flex gap-2 justify-end pt-2">
+              <button className="px-3 py-1 rounded bg-[#223041]">Cancel</button>
+              <button
+                className="px-3 py-1 rounded bg-indigo-600 hover:bg-indigo-500"
+                onClick={async (e) => {
+                  e.preventDefault();
+                  const name = (document.getElementById("ap_name") as HTMLInputElement).value.trim();
+                  const assigneeId = (document.getElementById("ap_assignee") as HTMLSelectElement).value;
+                  const r = await fetch("/api/admin/create-project", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ name, assigneeId })
+                  });
+                  const j = await r.json().catch(()=> ({}));
+                  alert(r.ok ? "Created!" : `Create task failed: ${j?.error || ""}`);
+                  (document.getElementById("addProjectModal") as HTMLDialogElement).close();
+                  // refresh projects for the selected user
+                  try {
+                    const rr = await fetch(`/api/projects/by-user?assigneeId=${assigneeId}`, { cache: "no-store" });
+                    const jj = await rr.json();
+                    setProjects((jj?.projects || []).map((p: any)=>({ id: String(p.id), name: String(p.name || p.id) })));
+                  } catch {}
+                }}
+              >Create</button>
+            </div>
+          </form>
+        </dialog>
       )}
     </div>
   );
