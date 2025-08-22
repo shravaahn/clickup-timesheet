@@ -1,22 +1,39 @@
-import type { Metadata } from "next";
-import { ColorSchemeScript, MantineProvider } from "@mantine/core";
-import "@mantine/core/styles.css";
-import "@mantine/notifications/styles.css";
-import "./globals.css"; // <- your app-wide CSS (Tailwind + custom)
+// src/app/layout.tsx
+import type { ReactNode } from 'react';
+import { ColorSchemeScript, MantineProvider } from '@mantine/core';
+import '@mantine/core/styles.css';
+import './globals.css';
 
-export const metadata: Metadata = {
-  title: "ClickUp Timesheet",
-  description: "Internal timesheet dashboard for ClickUp",
+export const metadata = {
+  title: 'ClickUp Timesheet',
+  description: 'Internal time tracking',
+  // Put your logo file in /src/app/icon.png or /public/icon.png (512x512 recommended)
+  icons: {
+    icon: '/icon.png',
+    shortcut: '/icon.png',
+    apple: '/apple-touch-icon.png',
+  },
 };
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+export default function RootLayout({ children }: { children: ReactNode }) {
   return (
-    <html lang="en" data-mantine-color-scheme="dark">
+    <html lang="en">
       <head>
-        <ColorSchemeScript defaultColorScheme="dark" />
+        <ColorSchemeScript />
       </head>
-      <body>
-        <MantineProvider defaultColorScheme="dark">
+      <body className="bg-surface text-foreground antialiased">
+        <MantineProvider
+          defaultColorScheme="dark"
+          theme={{
+            fontFamily: 'Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial',
+            components: {
+              Modal: {
+                defaultProps: { radius: 'lg', shadow: 'xl', transitionProps: { transition: 'pop', duration: 180 } },
+              },
+              Button: { defaultProps: { radius: 'md' } },
+            },
+          }}
+        >
           {children}
         </MantineProvider>
       </body>
