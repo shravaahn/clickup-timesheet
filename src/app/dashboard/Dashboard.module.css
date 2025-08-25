@@ -1,7 +1,12 @@
 /* =========================
-   THEME TOKENS (dark / light)
+   THEME TOKENS (scoped)
    ========================= */
-:global(:root) {
+/* NOTE:
+   These variables are now scoped to a local wrapper (.dashboardRoot)
+   to satisfy CSS Modules' "pure selector" rule. Wrap your page content
+   with: <div className={styles.dashboardRoot}>…</div>
+*/
+.dashboardRoot {
   /* dark */
   --bg-grad-a: #121826;
   --bg-grad-b: #0d1117;
@@ -32,7 +37,7 @@
   --accent: #e63946; /* used for light and highlights too */
 }
 
-:global(:root[data-theme="light"]) {
+.dashboardRoot[data-theme="light"] {
   /* light (brandable) */
   --bg-grad-a: #f6f7fb;
   --bg-grad-b: #eef1f6;
