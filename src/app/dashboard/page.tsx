@@ -1,10 +1,10 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import styles from "./Dashboard.module.css";
 
 /** ---- SSR-safe date helpers ---- */
-const MONTHS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+const MONTHS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"] as const;
 const toMidday = (d = new Date()) => { const x = new Date(d); x.setHours(12,0,0,0); return x; };
 const startOfWeek = (d = new Date()) => { const x = toMidday(d); const dow = (x.getDay()+6)%7; x.setDate(x.getDate()-dow); return toMidday(x); };
 const addDays = (d: Date, n: number) => { const x = new Date(d); x.setDate(x.getDate()+n); return toMidday(x); };
@@ -21,7 +21,7 @@ function weeksInMonth(year: number, monthIdx: number): WeekItem[] {
   const items: WeekItem[] = [];
   while (curr <= addDays(lastOfMonth, 6)) {
     const s = curr;
-    const e = addDays(s, 4);
+    const e = addDays(s, 4); // Mon–Fri
     const intersects =
       (s.getMonth() === monthIdx) || (e.getMonth() === monthIdx) ||
       (s <= lastOfMonth && e >= firstOfMonth);
@@ -57,70 +57,13 @@ const TRACK_TYPES = [
   "Non Billable | PreSales/Sales",
   "Non Billable | Client Research",
   "Non Billable | Partner Engagement",
-];
+] as const;
 
-/** ---- Tiny SVG charts (no deps) ---- */
-function BarsVertical({
-  labels, a, b, titleA = "Est", titleB = "Tracked",
-}: { labels: string[]; a: number[]; b: number[]; titleA?: string; titleB?: string }) {
-  const H = 220, pad = 26, W = Math.max(340, labels.length * 92);
-  const maxVal = Math.max(1, ...a, ...b) * 1.2;
-  const y = (v: number) => H - pad - (v / maxVal) * (H - pad - 30);
-  const band = (W - pad * 2) / labels.length;
-  return (
-    <svg className={styles.chartSvg} viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none">
-      <line x1={pad} y1={H-pad} x2={W-pad} y2={H-pad} className={styles.chartAxis}/>
-      <line x1={pad} y1={H-pad} x2={pad} y2={20} className={styles.chartAxis}/>
-      {labels.map((_, i) => {
-        const x0 = pad + i * band;
-        const bw = Math.min(28, band/3);
-        const xA = x0 + band/2 - bw - 3;
-        const xB = x0 + band/2 + 3;
-        return (
-          <g key={i}>
-            <rect x={xA} y={y(a[i])} width={bw} height={H-pad - y(a[i])} className={styles.barA}/>
-            <rect x={xB} y={y(b[i])} width={bw} height={H-pad - y(b[i])} className={styles.barB}/>
-            <text x={x0 + band/2} y={H-8} className={styles.chartX} textAnchor="middle">{labels[i]}</text>
-          </g>
-        );
-      })}
-      <g>
-        <rect x={W - 160} y={10} width="10" height="10" className={styles.barA}/><text x={W-144} y={19} className={styles.leg}>{titleA}</text>
-        <rect x={W - 90} y={10} width="10" height="10" className={styles.barB}/><text x={W-74} y={19} className={styles.leg}>{titleB}</text>
-      </g>
-    </svg>
-  );
-}
-
-function BarsHorizontal({
-  labels, a, b, titleA="Est", titleB="Tracked", maxBars=8,
-}: { labels: string[]; a: number[]; b: number[]; titleA?: string; titleB?: string; maxBars?: number }) {
-  const rows = labels.map((name, i) => ({ name, a: a[i] || 0, b: b[i] || 0 }))
-                     .sort((x,y)=> (y.b - y.a) - (x.b - x.a))
-                     .slice(0, maxBars);
-  const H = Math.max(150, rows.length * 34 + 48), W = 680, pad = 26;
-  const maxVal = Math.max(1, ...rows.map(r=>Math.max(r.a,r.b))) * 1.15;
-  const x = (v: number) => pad + (v / maxVal) * (W - pad - 14);
-  return (
-    <svg className={styles.chartSvg} viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none">
-      {rows.map((r, i) => {
-        const y = 28 + i * 34;
-        return (
-          <g key={i}>
-            <text x={pad} y={y-6} className={styles.chartY}>{r.name}</text>
-            <line x1={pad} y1={y} x2={W-10} y2={y} className={styles.chartGrid}/>
-            <rect x={pad} y={y+6} width={x(r.a)-pad} height="10" className={styles.barA}/>
-            <rect x={pad} y={y+18} width={x(r.b)-pad} height="10" className={styles.barB}/>
-          </g>
-        );
-      })}
-      <g>
-        <rect x={W - 160} y={10} width="10" height="10" className={styles.barA}/><text x={W-144} y={19} className={styles.leg}>{titleA}</text>
-        <rect x={W - 90} y={10} width="10" height="10" className={styles.barB}/><text x={W-74} y={19} className={styles.leg}>{titleB}</text>
-      </g>
-    </svg>
-  );
-}
+/** ---- Small helpers ---- */
+const safeNum = (v: unknown, min = 0) => {
+  const n = typeof v === "number" ? v : Number(v);
+  return Number.isFinite(n) ? Math.max(min, n) : 0;
+};
 
 export default function DashboardPage() {
   /** week state */
@@ -141,14 +84,22 @@ export default function DashboardPage() {
   const monthWeeks = useMemo(() => weeksInMonth(monthYear.y, monthYear.mIdx), [monthYear]);
   const [selectedWeekIdx, setSelectedWeekIdx] = useState(0);
 
+  // keep dropdown Week in sync when weekStart changes (via prev/next buttons)
   useEffect(() => {
     const idx = monthWeeks.findIndex(w => ymd(w.start) === ymd(weekStart));
-    if (idx >= 0) setSelectedWeekIdx(idx);
-  }, [monthWeeks, weekStart]);
+    if (idx >= 0) {
+      setSelectedWeekIdx(idx);
+      // If weekStart moved to a different month, keep Month dropdown in sync
+      const d = weekStart;
+      const v = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}`;
+      if (v !== selectedMonth) setSelectedMonth(v);
+    }
+  }, [monthWeeks, weekStart]); // eslint-disable-line react-hooks/exhaustive-deps
 
   function onChangeMonth(v: string) {
     setSelectedMonth(v);
-    const w0 = weeksInMonth(Number(v.split("-")[0]), Number(v.split("-")[1])-1)[0];
+    const [yy, mm] = v.split("-").map(Number);
+    const w0 = weeksInMonth(yy, mm-1)[0];
     if (w0) setWeekStart(w0.start);
   }
   function onChangeWeek(idxStr: string) {
@@ -174,6 +125,7 @@ export default function DashboardPage() {
   const [projects, setProjects] = useState<Project[]>([]);
   const [rows, setRows] = useState<Row[]>([]);
   const [loading, setLoading] = useState(true);
+  const [errorText, setErrorText] = useState<string | null>(null);
 
   /** tracked modal */
   const [modalOpen, setModalOpen] = useState(false);
@@ -182,6 +134,7 @@ export default function DashboardPage() {
   const [modalDayIndex, setModalDayIndex] = useState(0);
   const [modalType, setModalType] = useState("");
   const [modalHours, setModalHours] = useState<string>("");
+  const modalRef = useRef<HTMLDivElement>(null);
 
   /** Add Project modal (centered) */
   const [addOpen, setAddOpen] = useState(false);
@@ -199,6 +152,7 @@ export default function DashboardPage() {
       try {
         const resp = await fetch("/api/me", { cache: "no-store" });
         if (resp.status === 401) { window.location.href = "/login"; return; }
+        if (!resp.ok) throw new Error(`Failed /api/me: ${resp.statusText}`);
         const meRes: Me = await resp.json();
         const u = meRes?.user;
         if (!mounted) return;
@@ -209,7 +163,8 @@ export default function DashboardPage() {
         setSelectedUserId(u.id);
 
         if (u.is_admin) {
-          const cs = await fetch("/api/consultants", { cache: "no-store" }).then(r => r.json());
+          const csR = await fetch("/api/consultants", { cache: "no-store" });
+          const cs = await csR.json().catch(()=> ({}));
           const list: Member[] = (cs?.members || []).map((m: any) => ({
             id: String(m.id), username: m.username || m.email, email: m.email,
           }));
@@ -220,8 +175,8 @@ export default function DashboardPage() {
         } else {
           setMembers([{ id: u.id, username: u.username || u.email, email: u.email }]);
         }
-      } catch {
-        window.location.href = "/login";
+      } catch (e: any) {
+        if (mounted) setErrorText(e?.message || "Failed to load account.");
       }
     })();
     return () => { mounted = false; };
@@ -238,14 +193,16 @@ export default function DashboardPage() {
     let mounted = true;
     (async () => {
       setLoading(true);
+      setErrorText(null);
       try {
         const r = await fetch(`/api/projects/by-user?assigneeId=${selectedUserId}`, { cache: "no-store" });
+        if (!r.ok) throw new Error(await r.text().catch(()=> r.statusText));
         const j = await r.json();
         const list: Project[] = (j?.projects || []).map((p: any) => ({ id: String(p.id), name: String(p.name || p.id) }));
         if (!mounted) return;
         setProjects(list);
-      } catch (e) {
-        console.error(e);
+      } catch (e: any) {
+        if (mounted) setErrorText(e?.message || "Failed to load projects.");
       } finally {
         if (mounted) setLoading(false);
       }
@@ -260,7 +217,9 @@ export default function DashboardPage() {
     (async () => {
       try {
         const start = ymd(weekStart), end = ymd(weekEnd);
-        const ts = await fetch(`/api/timesheet?userId=${selectedUserId}&start=${start}&end=${end}`, { cache: "no-store" }).then(r => r.json());
+        const r = await fetch(`/api/timesheet?userId=${selectedUserId}&start=${start}&end=${end}`, { cache: "no-store" });
+        if (!r.ok) throw new Error(await r.text().catch(()=> r.statusText));
+        const ts = await r.json();
         const entries = ts?.entries || [];
 
         const byKey = new Map<string, any>();
@@ -296,9 +255,10 @@ export default function DashboardPage() {
           return { taskId: p.id, taskName: p.name, estByDay, estLockedByDay, trackedByDay, noteByDay };
         });
 
+        if (!mounted) return;
         setRows(newRows);
-      } catch (e) {
-        console.error(e);
+      } catch (e: any) {
+        if (mounted) setErrorText(e?.message || "Failed to load timesheet.");
       }
     })();
     return () => { mounted = false; };
@@ -320,48 +280,63 @@ export default function DashboardPage() {
   /** actions */
   async function saveEstimate(taskId: string, taskName: string, i: number, val: number) {
     if (!selectedUserId) return;
+    const hours = clamp2(safeNum(val));
     const date = ymd(weekCols[i]);
+    // optimistic
     setRows(prev => prev.map(row => {
       if (row.taskId !== taskId) return row;
       const est = [...row.estByDay]; const lock = [...row.estLockedByDay];
-      est[i] = Number(val); lock[i] = true; return { ...row, estByDay: est, estLockedByDay: lock };
+      est[i] = hours; lock[i] = true; return { ...row, estByDay: est, estLockedByDay: lock };
     }));
-    const r = await fetch("/api/timesheet", {
-      method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ type: "estimate", userId: selectedUserId, taskId, taskName, date, hours: Number(val) }),
-    });
-    if (!r.ok) {
+    try {
+      const r = await fetch("/api/timesheet", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ type: "estimate", userId: selectedUserId, taskId, taskName, date, hours }),
+      });
+      if (!r.ok) {
+        const j = await r.json().catch(()=> ({}));
+        throw new Error(`Failed to save estimate: ${j.error || r.statusText}${j.details ? ` — ${j.details}` : ""}`);
+      }
+    } catch (e: any) {
+      // revert
       setRows(prev => prev.map(row => {
         if (row.taskId !== taskId) return row;
         const est = [...row.estByDay]; const lock = [...row.estLockedByDay];
         est[i] = null; lock[i] = false; return { ...row, estByDay: est, estLockedByDay: lock };
       }));
-      const j = await r.json().catch(()=>({}));
-      alert(`Failed to save estimate: ${j.error || r.statusText}${j.details ? ` — ${j.details}` : ""}`);
+      alert(e?.message || "Failed to save estimate.");
     }
   }
 
   async function saveTracked(taskId: string, taskName: string, i: number, val: number, note: string) {
     if (!selectedUserId) return;
+    const hours = clamp2(safeNum(val));
     if (!note || !note.trim()) { alert("Please choose a Type."); return; }
+    if (!(hours > 0)) { alert("Please enter hours > 0"); return; }
     const date = ymd(weekCols[i]);
+    // optimistic
     setRows(prev => prev.map(row => {
       if (row.taskId !== taskId) return row;
       const tr = [...row.trackedByDay]; const nt = [...row.noteByDay];
-      tr[i] = Number(val); nt[i] = note; return { ...row, trackedByDay: tr, noteByDay: nt };
+      tr[i] = hours; nt[i] = note; return { ...row, trackedByDay: tr, noteByDay: nt };
     }));
-    const r = await fetch("/api/timesheet", {
-      method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ type: "tracked", userId: selectedUserId, taskId, taskName, date, hours: Number(val), note }),
-    });
-    if (!r.ok) {
+    try {
+      const r = await fetch("/api/timesheet", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ type: "tracked", userId: selectedUserId, taskId, taskName, date, hours, note }),
+      });
+      if (!r.ok) {
+        const j = await r.json().catch(()=> ({}));
+        throw new Error(`Failed to save tracked: ${j.error || r.statusText}${j.details ? ` — ${j.details}` : ""}`);
+      }
+    } catch (e: any) {
+      // revert
       setRows(prev => prev.map(row => {
         if (row.taskId !== taskId) return row;
         const tr = [...row.trackedByDay]; const nt = [...row.noteByDay];
         tr[i] = null; nt[i] = ""; return { ...row, trackedByDay: tr, noteByDay: nt };
       }));
-      const j = await r.json().catch(()=>({}));
-      alert(`Failed to save tracked: ${j.error || r.statusText}${j.details ? ` — ${j.details}` : ""}`);
+      alert(e?.message || "Failed to save tracked.");
     }
   }
 
@@ -378,15 +353,15 @@ export default function DashboardPage() {
       let te=0, tt=0;
       const cells: (string|number)[] = [r.taskName || r.taskId];
       for (let i=0;i<5;i++){
-        const e=r.estByDay[i]||0, t=r.trackedByDay[i]||0, n=(r.noteByDay[i]||"").replaceAll(",",";");
-        te+=e; tt+=t; cells.push(e, t, n);
+        const e=r.estByDay[i]||0, t=r.trackedByDay[i]||0, n=(r.noteByDay[i]||"").replaceAll(",",";").trim();
+        te+=e; tt+=t; cells.push(clamp2(e), clamp2(t), n);
       }
       cells.push(clamp2(te), clamp2(tt));
       lines.push(cells.join(","));
     });
     const csv = lines.join("\n");
     const url = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" }));
-    const a = document.createElement("a"); a.href = url; a.download = `timesheet_${ymd(weekStart)}_${selectedUserId}.csv`; a.click();
+    const a = document.createElement("a"); a.href = url; a.download = `timesheet_${ymd(weekStart)}_${selectedUserId||"user"}.csv`; a.click();
     URL.revokeObjectURL(url);
   }
 
@@ -415,6 +390,22 @@ export default function DashboardPage() {
     saveTracked(modalTaskId, modalTaskName, modalDayIndex, hoursNum, modalType);
     closeTrackModal();
   }
+
+  // ESC closes any open modal
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        if (modalOpen) closeTrackModal();
+        if (addOpen) setAddOpen(false);
+      }
+      // Quick nav
+      if (e.altKey && e.key === "ArrowLeft") goPrev();
+      if (e.altKey && e.key === "ArrowRight") goNext();
+      if (e.altKey && (e.key.toLowerCase?.() === "t")) goThis();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [modalOpen, addOpen]);
 
   /** Add Project modal helpers */
   async function createProject() {
@@ -454,6 +445,69 @@ export default function DashboardPage() {
     })();
   }, [isAdmin, weekStart, weekEnd]);
 
+  /** ---- Tiny SVG charts (no deps) ---- */
+  function BarsVertical({
+    labels, a, b, titleA = "Est", titleB = "Tracked",
+  }: { labels: string[]; a: number[]; b: number[]; titleA?: string; titleB?: string }) {
+    const H = 220, pad = 26, W = Math.max(340, labels.length * 92);
+    const maxVal = Math.max(1, ...a, ...b) * 1.2;
+    const y = (v: number) => H - pad - (v / maxVal) * (H - pad - 30);
+    const band = (W - pad * 2) / labels.length;
+    return (
+      <svg className={styles.chartSvg} viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" role="img" aria-label="Daily totals bar chart">
+        <line x1={pad} y1={H-pad} x2={W-pad} y2={H-pad} className={styles.chartAxis}/>
+        <line x1={pad} y1={H-pad} x2={pad} y2={20} className={styles.chartAxis}/>
+        {labels.map((_, i) => {
+          const x0 = pad + i * band;
+          const bw = Math.min(28, band/3);
+          const xA = x0 + band/2 - bw - 3;
+          const xB = x0 + band/2 + 3;
+          return (
+            <g key={i}>
+              <rect x={xA} y={y(a[i])} width={bw} height={H-pad - y(a[i])} className={styles.barA}/>
+              <rect x={xB} y={y(b[i])} width={bw} height={H-pad - y(b[i])} className={styles.barB}/>
+              <text x={x0 + band/2} y={H-8} className={styles.chartX} textAnchor="middle">{labels[i]}</text>
+            </g>
+          );
+        })}
+        <g>
+          <rect x={W - 160} y={10} width="10" height="10" className={styles.barA}/><text x={W-144} y={19} className={styles.leg}>{titleA}</text>
+          <rect x={W - 90} y={10} width="10" height="10" className={styles.barB}/><text x={W-74} y={19} className={styles.leg}>{titleB}</text>
+        </g>
+      </svg>
+    );
+  }
+
+  function BarsHorizontal({
+    labels, a, b, titleA="Est", titleB="Tracked", maxBars=8,
+  }: { labels: string[]; a: number[]; b: number[]; titleA?: string; titleB?: string; maxBars?: number }) {
+    const rowsLocal = labels.map((name, i) => ({ name, a: a[i] || 0, b: b[i] || 0 }))
+                       .sort((x,y)=> (y.b - y.a) - (x.b - x.a))
+                       .slice(0, maxBars);
+    const H = Math.max(150, rowsLocal.length * 34 + 48), W = 680, pad = 26;
+    const maxVal = Math.max(1, ...rowsLocal.map(r=>Math.max(r.a,r.b))) * 1.15;
+    const x = (v: number) => pad + (v / maxVal) * (W - pad - 14);
+    return (
+      <svg className={styles.chartSvg} viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" role="img" aria-label="Consultants comparison bar chart">
+        {rowsLocal.map((r, i) => {
+          const y = 28 + i * 34;
+          return (
+            <g key={i}>
+              <text x={pad} y={y-6} className={styles.chartY}>{r.name}</text>
+              <line x1={pad} y1={y} x2={W-10} y2={y} className={styles.chartGrid}/>
+              <rect x={pad} y={y+6} width={x(r.a)-pad} height="10" className={styles.barA}/>
+              <rect x={pad} y={y+18} width={x(r.b)-pad} height="10" className={styles.barB}/>
+            </g>
+          );
+        })}
+        <g>
+          <rect x={W - 160} y={10} width="10" height="10" className={styles.barA}/><text x={W-144} y={19} className={styles.leg}>{titleA}</text>
+          <rect x={W - 90} y={10} width="10" height="10" className={styles.barB}/><text x={W-74} y={19} className={styles.leg}>{titleB}</text>
+        </g>
+      </svg>
+    );
+  }
+
   /** ---- render ---- */
   return (
     <div className={styles.page}>
@@ -491,6 +545,7 @@ export default function DashboardPage() {
 
             {isAdmin && (
               <select
+                aria-label="Select consultant"
                 className={styles.select}
                 value={selectedUserId ?? ""}
                 onChange={(e)=> setSelectedUserId(e.target.value || me?.id || null)}
@@ -501,9 +556,9 @@ export default function DashboardPage() {
               </select>
             )}
 
-            <button className={styles.btn} onClick={goPrev}>◀ Prev</button>
-            <button className={styles.btn} onClick={goThis}>This Week</button>
-            <button className={styles.btn} onClick={goNext}>Next ▶</button>
+            <button className={styles.btn} onClick={goPrev} title="Alt+←">◀ Prev</button>
+            <button className={styles.btn} onClick={goThis} title="Alt+T">This Week</button>
+            <button className={styles.btn} onClick={goNext} title="Alt+→">Next ▶</button>
 
             {isAdmin && (
               <button
@@ -520,6 +575,13 @@ export default function DashboardPage() {
             <button className={`${styles.btn} ${styles.warn}`} onClick={()=> (window.location.href="/login")}>Log out</button>
           </div>
         </header>
+
+        {/* error bar */}
+        {errorText && (
+          <div role="alert" className={styles.errorBar}>
+            {errorText}
+          </div>
+        )}
 
         {/* selectors row */}
         <div className={styles.selectorsBar}>
@@ -553,14 +615,18 @@ export default function DashboardPage() {
 
           <div className={styles.selectorCol}>
             <label className={styles.selectorLabel}>View:</label>
-            <div className={styles.viewToggle}>
+            <div className={styles.viewToggle} role="tablist" aria-label="View mode">
               <button
                 className={`${styles.btn} ${viewMode === "week" ? styles.selected : ""}`}
                 onClick={()=> setViewMode("week")}
+                role="tab"
+                aria-selected={viewMode === "week"}
               >Week</button>
               <button
                 className={`${styles.btn} ${viewMode === "month" ? styles.selected : ""}`}
                 onClick={()=> setViewMode("month")}
+                role="tab"
+                aria-selected={viewMode === "month"}
               >Month</button>
             </div>
           </div>
@@ -615,26 +681,31 @@ export default function DashboardPage() {
                             <div className={styles.cellBox}>
                               <input
                                 className={`${styles.num} ${styles.numWide} ${r.estLockedByDay[i] ? styles.locked : ""}`}
-                                type="number" step="0.25" min="0"
+                                type="number" step="0.25" min="0" inputMode="decimal"
                                 value={r.estByDay[i] ?? ""}
                                 onChange={(e)=> {
-                                  const v = e.currentTarget.value === "" ? null : Number(e.currentTarget.value);
+                                  const raw = e.currentTarget.value;
+                                  const v = raw === "" ? null : clamp2(safeNum(raw));
                                   setRows(prev => prev.map(row => row.taskId===r.taskId ? {
                                     ...row, estByDay: prev.find(rr=>rr.taskId===r.taskId)!.estByDay.map((vv,ii)=> ii===i ? (v as any) : vv),
                                   }: row));
                                 }}
                                 onBlur={(e) => {
-                                  const v = e.currentTarget.value;
-                                  if (v === "" || r.estLockedByDay[i]) return;
-                                  saveEstimate(r.taskId, r.taskName, i, Number(v));
+                                  const vStr = e.currentTarget.value;
+                                  if (vStr === "" || r.estLockedByDay[i]) return;
+                                  const v = clamp2(safeNum(vStr));
+                                  if (v === 0) return; // don't save 0
+                                  saveEstimate(r.taskId, r.taskName, i, v);
                                 }}
                                 disabled={r.estLockedByDay[i]}
                                 placeholder="Est"
+                                aria-label={`Estimate hours for ${r.taskName} on ${fmtMMMdd(weekCols[i])}`}
                               />
 
                               <button
                                 className={`${styles.trackBtn} ${styles.numWide}`}
                                 onClick={() => openTrackModal(r.taskId, r.taskName, i, r.trackedByDay[i], r.noteByDay[i])}
+                                aria-label={`Add tracked time for ${r.taskName} on ${fmtMMMdd(weekCols[i])}`}
                               >
                                 {r.trackedByDay[i] != null ? `${r.trackedByDay[i]}h` : "Track"}
                               </button>
@@ -644,8 +715,8 @@ export default function DashboardPage() {
 
                         <td>
                           <div className={styles.cellBox}>
-                            <input className={`${styles.num} ${styles.numWide} ${styles.locked}`} disabled value={tEst.toFixed(2)} />
-                            <input className={`${styles.num} ${styles.numWide}`} disabled value={tTracked.toFixed(2)} />
+                            <input className={`${styles.num} ${styles.numWide} ${styles.locked}`} disabled value={tEst.toFixed(2)} aria-label={`Total estimate for ${r.taskName}`} />
+                            <input className={`${styles.num} ${styles.numWide}`} disabled value={tTracked.toFixed(2)} aria-label={`Total tracked for ${r.taskName}`} />
                           </div>
                         </td>
                       </tr>
@@ -663,15 +734,15 @@ export default function DashboardPage() {
                     {[0,1,2,3,4].map((i) => (
                       <td key={i}>
                         <div className={styles.cellBox}>
-                          <input className={`${styles.num} ${styles.numWide} ${styles.locked}`} disabled value={(totals.dayEst[i]||0).toFixed(2)} />
-                          <input className={`${styles.num} ${styles.numWide}`} disabled value={(totals.dayTracked[i]||0).toFixed(2)} />
+                          <input className={`${styles.num} ${styles.numWide} ${styles.locked}`} disabled value={(totals.dayEst[i]||0).toFixed(2)} aria-label={`Total estimate on ${fmtMMMdd(weekCols[i])}`} />
+                          <input className={`${styles.num} ${styles.numWide}`} disabled value={(totals.dayTracked[i]||0).toFixed(2)} aria-label={`Total tracked on ${fmtMMMdd(weekCols[i])}`} />
                         </div>
                       </td>
                     ))}
                     <td>
                       <div className={styles.cellBox}>
-                        <input className={`${styles.num} ${styles.numWide} ${styles.locked}`} disabled value={totals.sumEst.toFixed(2)} />
-                        <input className={`${styles.num} ${styles.numWide}`} disabled value={totals.sumTracked.toFixed(2)} />
+                        <input className={`${styles.num} ${styles.numWide} ${styles.locked}`} disabled value={totals.sumEst.toFixed(2)} aria-label="Total estimate for all projects" />
+                        <input className={`${styles.num} ${styles.numWide}`} disabled value={totals.sumTracked.toFixed(2)} aria-label="Total tracked for all projects" />
                       </div>
                     </td>
                   </tr>
@@ -698,6 +769,7 @@ export default function DashboardPage() {
                   <section
                     key={idx}
                     className={`${styles.weekCard} ${isSelected ? styles.weekCardSelected : ""}`}
+                    aria-current={isSelected ? "true" : "false"}
                   >
                     <div className={styles.weekHead}>
                       <h3 className={styles.weekTitle}>Week {idx + 1}</h3>
@@ -806,10 +878,17 @@ export default function DashboardPage() {
 
       {/* --- Modal for Tracked Time --- */}
       {modalOpen && (
-        <div className={styles.modalBackdrop} onClick={closeTrackModal}>
-          <div className={styles.modal} onClick={(e)=> e.stopPropagation()}>
+        <div className={styles.modalBackdrop} onClick={closeTrackModal} aria-hidden="true">
+          <div
+            className={styles.modal}
+            ref={modalRef}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="trackTitle"
+            onClick={(e)=> e.stopPropagation()}
+          >
             <div className={styles.modalHeader}>
-              <div className={styles.modalTitle}>Time Entry</div>
+              <div className={styles.modalTitle} id="trackTitle">Time Entry</div>
               <div className={styles.modalMeta}>
                 ({modalTaskName || "Untitled Project"}) • {fmtMMMdd(weekCols[modalDayIndex])}
               </div>
@@ -851,10 +930,16 @@ export default function DashboardPage() {
 
       {/* --- Admin: Add Project modal (centered & smooth) --- */}
       {isAdmin && addOpen && (
-        <div className={styles.modalBackdrop} onClick={()=> setAddOpen(false)}>
-          <div className={styles.modal} onClick={(e)=> e.stopPropagation()}>
+        <div className={styles.modalBackdrop} onClick={()=> setAddOpen(false)} aria-hidden="true">
+          <div
+            className={styles.modal}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="addTitle"
+            onClick={(e)=> e.stopPropagation()}
+          >
             <div className={styles.modalHeader}>
-              <div className={styles.modalTitle}>Add Project (Create Task)</div>
+              <div className={styles.modalTitle} id="addTitle">Add Project (Create Task)</div>
               <div className={styles.modalMeta}>Assign a task to a consultant</div>
             </div>
 
