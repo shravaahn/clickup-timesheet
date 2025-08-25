@@ -24,11 +24,8 @@
 .brand { display:flex; align-items:center; gap:12px; }
 
 /* Logo area */
-.logoWrap {
-  width:34px; height:34px; border-radius:8px; overflow:hidden;
-  display:grid; place-items:center; border:1px solid rgba(255,255,255,0.08); background:#0c121b;
-}
-.logoImg { width:100%; height:100%; object-fit:contain; display:block; }
+.logoWrap { width:34px; height:34px; border-radius:8px; overflow:hidden; display:grid; place-items:center; border:1px solid rgba(255,255,255,0.08); background:#0c121b; }
+.logoImg { width:100%; height:100%; object-fit:cover; display:block; }
 .badge {
   width:34px; height:34px; border-radius:8px; display:grid; place-items:center;
   font-weight:800; font-size:13px;
@@ -56,7 +53,7 @@
 }
 .selectorCol { display:flex; flex-direction:column; gap:6px; }
 .selectorLabel { font-size:12px; color:#9aa5b4; }
-.selectWide { height:36px; background:#0e1320; color:#dbe4ee; border:1px solid #283142; border-radius:10px; padding:0 10px; min-width: 220px; }
+.selectWide { height:36px; background:#0e1320; color:#dbe4ee; border:1px solid #283142; border-radius:10px; padding:0 10px; min-width: 260px; }
 .viewToggle { display:flex; gap:8px; }
 
 /* === Summary bar === */
@@ -126,72 +123,14 @@
 .barB { fill:#22c55e; }   /* Tracked */
 .leg { dominant-baseline: hanging; }
 
-/* === Month view (responsive cards; no overlap) === */
-.weekGrid {
-  display:grid;
-  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
-  gap:12px;
-}
-.weekCard {
-  background:#0e1320;
-  border:1px solid #1f2736;
-  border-radius:12px;
-  padding:12px;
-  transition:transform .18s ease, box-shadow .18s ease, border-color .18s ease;
-}
-.weekCard:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 8px 26px rgba(0,0,0,.35);
-  border-color:#2a3b58;
-}
-.weekCardSelected {
-  outline:2px solid #3b82f6;
-}
-.weekHead {
-  display:flex; align-items:center; justify-content:space-between; margin-bottom:8px;
-}
-.weekTitle { font-size:14px; font-weight:700; margin:0; }
-.weekDays {
-  display:grid; grid-template-columns: repeat(5, 1fr); gap:8px;
-}
-.dayCard {
-  background:#0f1420;
-  border:1px solid #1f2736;
-  border-radius:10px;
-  padding:8px;
-}
-.dayLabel { font-size:12px; color:rgba(255,255,255,.7); margin-bottom:4px; }
-.dayEst { color:rgba(255,255,255,.9); font-size:13px; }
-.dayTracked { color:rgba(255,255,255,.7); font-size:12px; }
-.weekTotals {
-  margin-top:10px; font-size:12px; color:#b9c2cf; display:flex; gap:6px; align-items:center;
-}
-.dot { opacity:.6 }
+/* === Month view (cards) === */
+.weekScroller { display:grid; grid-template-columns: repeat(12, minmax(260px,1fr)); gap:12px; overflow-x:auto; padding-bottom:4px; }
+.weekCard { min-width: 360px; background:#0e1320; border:1px solid #1f2736; border-radius:12px; padding:12px; }
+.metric { background:#0e1320; border:1px solid #1f2736; border-radius:12px; padding:10px 12px; }
 
-/* Month KPIs row */
-.monthKpis {
-  display:grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap:12px;
-  margin-top: 12px;
-}
-.metric {
-  background:#0e1320; border:1px solid #1f2736; border-radius:12px; padding:10px 12px;
-}
-
-/* === Modal (shared) === */
-.modalBackdrop {
-  position:fixed; inset:0; background:rgba(0,0,0,0.5);
-  display:grid; place-items:center; z-index:50;
-  animation: fadeIn .18s ease;
-}
-.modal {
-  width:520px; max-width:calc(100vw - 32px);
-  background:#0f1420; border:1px solid #1f2736; border-radius:14px;
-  box-shadow:0 20px 60px rgba(0,0,0,0.45);
-  transform: translateY(-6px);
-  animation: popIn .18s ease forwards;
-}
+/* === Modal (tracked time) === */
+.modalBackdrop { position:fixed; inset:0; background:rgba(0,0,0,0.5); display:grid; place-items:center; z-index:50; }
+.modal { width:520px; max-width:calc(100vw - 32px); background:#0f1420; border:1px solid #1f2736; border-radius:14px; box-shadow:0 20px 60px rgba(0,0,0,0.45); }
 .modalHeader { display:flex; align-items:center; justify-content:space-between; padding:14px 16px; border-bottom:1px solid #1f2736; }
 .modalTitle { font-weight:700; }
 .modalMeta { font-size:12px; color:#9aa5b4; }
@@ -200,15 +139,118 @@
 .help { margin-top:8px; font-size:12px; color:#9aa5b4; }
 .modalActions { display:flex; justify-content:flex-end; gap:8px; padding:12px 16px; border-top:1px solid #1f2736; }
 
-@keyframes fadeIn { from { opacity: 0 } to { opacity: 1 } }
-@keyframes popIn { from { opacity: 0; transform: translateY(8px) } to { opacity: 1; transform: translateY(0) } }
-
 /* === Responsive tweaks === */
 @media (max-width: 1024px) {
   .thProject { width: 420px; min-width: 360px; }
   .select { min-width: 220px; }
-  .selectWide { min-width: 200px; }
+  .selectWide { min-width: 220px; }
   .chartsRow { grid-template-columns: 1fr; }
   .cardsRow { grid-template-columns: 1fr; }
-  .monthKpis { grid-template-columns: 1fr; }
 }
+
+/* =========================================================
+   LIGHT THEME OVERRIDES — matches company light/white + red accents
+   Applied when <html data-theme="light"> …
+   ========================================================= */
+
+:global([data-theme="light"]) .page {
+  background: radial-gradient(1100px 560px at 50% -10%, #ffffff 0%, #f7f9fc 55%, #eef2f9 100%);
+  color: #0c1220;
+}
+
+:global([data-theme="light"]) .header {
+  background: #ffffff;
+  border-color: #e8ecf4;
+}
+:global([data-theme="light"]) .subtitle { color:#5a6475; }
+
+:global([data-theme="light"]) .viewer {
+  background:#f6f8fd; border-color:#e3e8f3; color:#0c1220;
+}
+:global([data-theme="light"]) .select {
+  background:#fbfcff; color:#0c1220; border-color:#dfe6f2;
+}
+:global([data-theme="light"]) .btn {
+  background:#fbfcff; color:#0c1220; border-color:#e3e8f3;
+}
+:global([data-theme="light"]) .btn:hover { filter:brightness(1.02); }
+:global([data-theme="light"]) .primary {
+  background:#ff2d2d; border-color:#ff2d2d; color:#fff;
+}
+:global([data-theme="light"]) .warn {
+  background:#f97316; border-color:#f97316; color:#fff;
+}
+:global([data-theme="light"]) .selected { outline:2px solid #ff4b4b; }
+
+/* selectors row */
+:global([data-theme="light"]) .selectorsBar {
+  background:#ffffff; border-color:#e8ecf4;
+}
+:global([data-theme="light"]) .selectWide {
+  background:#fbfcff; color:#0c1220; border-color:#dfe6f2;
+}
+:global([data-theme="light"]) .selectorLabel { color:#647082; }
+
+/* summary */
+:global([data-theme="light"]) .summary {
+  background:#ffffff; border-color:#e8ecf4;
+}
+:global([data-theme="light"]) .pill {
+  background:#f8fafc; border-color:#e6ebf5; color:#1f2b3a;
+}
+:global([data-theme="light"]) .period { color:#647082; }
+
+/* table & cells */
+:global([data-theme="light"]) .card {
+  background:#ffffff; border-color:#e8ecf4;
+}
+:global([data-theme="light"]) .table thead th { color:#334155; }
+:global([data-theme="light"]) .table thead th:first-child,
+:global([data-theme="light"]) .table tbody td:first-child,
+:global([data-theme="light"]) .table tfoot td:first-child {
+  background:#ffffff; box-shadow:6px 0 10px rgba(0,0,0,0.05);
+}
+:global([data-theme="light"]) .projectName {
+  background:#fbfcff; border-color:#e6ebf5; color:#0c1220;
+}
+:global([data-theme="light"]) .num {
+  background:#fbfcff; border-color:#e6ebf5; color:#0c1220;
+}
+:global([data-theme="light"]) .locked {
+  background:#f4f7ff; border-color:#d6def5; color:#3b4a66;
+}
+:global([data-theme="light"]) .trackBtn {
+  background:#fbfcff; border-color:#e6ebf5; color:#0c1220;
+}
+
+/* charts */
+:global([data-theme="light"]) .chartCard {
+  background:#ffffff; border-color:#e8ecf4;
+}
+:global([data-theme="light"]) .chartSvg {
+  background:#ffffff; border-color:#eef2f9;
+}
+:global([data-theme="light"]) .chartAxis { stroke:#d7deeb; }
+:global([data-theme="light"]) .chartGrid { stroke:#edf1f7; }
+:global([data-theme="light"]) .chartX,
+:global([data-theme="light"]) .chartY,
+:global([data-theme="light"]) .leg { fill:#3b4a66; }
+/* Use company red accent alongside blue/green */
+:global([data-theme="light"]) .barA { fill:#ff4b4b; } /* Est = red */
+:global([data-theme="light"]) .barB { fill:#3b82f6; } /* Tracked = blue */
+
+/* month cards */
+:global([data-theme="light"]) .weekCard,
+:global([data-theme="light"]) .metric {
+  background:#ffffff; border-color:#e8ecf4;
+}
+
+/* modals */
+:global([data-theme="light"]) .modalBackdrop { background:rgba(0,0,0,0.35); }
+:global([data-theme="light"]) .modal {
+  background:#ffffff; border-color:#e8ecf4; box-shadow:0 24px 60px rgba(0,0,0,.15);
+}
+:global([data-theme="light"]) .modalHeader { border-bottom-color:#eef2f9; }
+:global([data-theme="light"]) .modalMeta,
+:global([data-theme="light"]) .help,
+:global([data-theme="light"]) .label { color:#647082; }

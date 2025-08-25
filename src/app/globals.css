@@ -135,3 +135,15 @@ tfoot td{ background:#10131a; color:#d7dfef; font-weight:600 }
 .modal footer{ display:flex; gap:10px; justify-content:flex-end; margin-top:8px }
 .help{ font-size:12px; color:var(--muted) }
 .badge{ display:inline-flex; font-size:11px; padding:2px 8px; border:1px solid var(--border); border-radius:999px; color:#cbd5e1 }
+
+/* ===== Global light vs dark surface tweaks (non-dashboard pages too) ===== */
+html[data-theme="dark"] body {
+  background: radial-gradient(900px 480px at 50% -8%, #121826 0%, #0d1117 60%, #0b0f14 100%);
+  color: #e6edf3;
+}
+
+html[data-theme="light"] body {
+  /* Company-inspired light surface: subtle off-white with a red accent hint */
+  background: radial-gradient(1100px 560px at 50% -10%, #ffffff 0%, #f7f9fc 55%, #eef2f9 100%);
+  color: #0b1220;
+}
