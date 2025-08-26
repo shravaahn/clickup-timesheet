@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import "./globals.css"; // keep your global if you have it (or remove if unused)
 import ThemeSwitch from "@/components/ThemeSwitch";
+import '@/styles/theme.css';
 
 export const metadata: Metadata = {
   title: "ClickUp Timesheet",

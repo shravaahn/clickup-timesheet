@@ -252,3 +252,168 @@
   .chartsRow { grid-template-columns: 1fr; }
   .cardsRow { grid-template-columns: 1fr; }
 }
+
+/* src/app/dashboard/Dashboard.module.css */
+
+/* Layout wrappers */
+.container {
+  padding: 20px clamp(16px, 2.5vw, 28px);
+  background: var(--bg);
+  color: var(--text);
+}
+
+.header {
+  display: grid;
+  gap: 12px;
+  align-items: center;
+  grid-template-columns: 1fr auto;
+  margin-bottom: 16px;
+}
+
+.title {
+  font-size: clamp(18px, 1.6vw, 22px);
+  font-weight: 700;
+  letter-spacing: 0.2px;
+  color: var(--text);
+}
+
+/* Controls row */
+.controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.button {
+  background: var(--panel);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 8px 14px;
+  font-weight: 600;
+  transition: transform .05s ease, background .2s ease, border-color .2s ease;
+}
+.buttonPrimary {
+  background: var(--accent);
+  color: var(--accent-contrast);
+  border-color: transparent;
+}
+.button:hover { transform: translateY(-1px); }
+
+/* Summary cards */
+.kpis {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(3, minmax(180px, 1fr));
+  margin: 14px 0 18px;
+}
+.card {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-1);
+  padding: 14px 16px;
+}
+.cardTitle {
+  font-size: 12px;
+  color: var(--subtle);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: .4px;
+  margin-bottom: 8px;
+}
+.cardValue {
+  font-size: clamp(18px, 2.2vw, 24px);
+  font-weight: 800;
+}
+
+/* Timesheet table */
+.tableWrap {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-1);
+  overflow: hidden;
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.thead th {
+  background: linear-gradient(0deg, var(--panel-elev), var(--panel-elev));
+  color: var(--text);
+  font-weight: 700;
+  text-align: left;
+  padding: 14px 14px;
+  border-bottom: 1px solid var(--border);
+  white-space: nowrap;
+}
+
+/* a thin brand line on header for L5 feel */
+.thead th:first-child {
+  position: relative;
+}
+.thead th:first-child::before {
+  content: "";
+  position: absolute;
+  inset: 0 auto auto 0;
+  height: 100%;
+  width: 4px;
+  background: var(--brand-1); /* L5 Red */
+}
+
+.tbody td {
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--border);
+  vertical-align: middle;
+  color: var(--text);
+}
+
+.projectCell {
+  font-weight: 600;
+}
+
+.trackBtn {
+  background: transparent;
+  border: 1.5px solid var(--border);
+  color: var(--text);
+  padding: 6px 10px;
+  border-radius: 10px;
+  font-weight: 700;
+  transition: border-color .2s ease, color .2s ease, background .2s ease;
+}
+.trackBtn:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+  background: color-mix(in oklab, var(--accent) 8%, transparent);
+}
+
+/* Totals row */
+.totals {
+  background: var(--panel-elev);
+  font-weight: 800;
+}
+
+/* Charts area */
+.charts {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin-top: 14px;
+}
+.chartCard {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-1);
+  padding: 10px 12px;
+}
+
+/* Responsiveness */
+@media (max-width: 900px) {
+  .kpis { grid-template-columns: 1fr; }
+  .charts { grid-template-columns: 1fr; }
+  .thead th, .tbody td { padding: 10px 12px; }
+}

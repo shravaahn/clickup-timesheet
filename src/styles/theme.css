@@ -1,0 +1,53 @@
+/* src/styles/theme.css */
+
+/* === L5 BRAND TOKENS === */
+:root {
+  /* Brand colors */
+  --l5-red: #d60000;
+  --l5-peach: #ff5758;
+  --l5-pink: #ffcdcd;
+  --l5-dark-blue: #002840;
+  --l5-blue: #298ee8;
+  --l5-yellow: #ffcf37;
+  --l5-gray: #5a585c;      /* UI grays */
+  --l5-black: #293237;     /* Title/body text */
+  --l5-white: #fdfbff;
+
+  /* App-level tokens (light) */
+  --bg: #f6f7f9;
+  --panel: #ffffff;
+  --panel-elev: #fbfcfd;
+  --border: #e6e8ee;
+  --text: var(--l5-black);
+  --subtle: #808491;
+
+  --accent: var(--l5-red);
+  --accent-contrast: #ffffff;
+
+  /* shared shadows/radii */
+  --radius: 14px;
+  --shadow-1: 0 1px 2px rgba(20, 24, 40, 0.04), 0 4px 12px rgba(20, 24, 40, 0.06);
+}
+
+/* Dark theme */
+:root[data-theme="dark"] {
+  --bg: #0e141b;
+  --panel: #141a22;
+  --panel-elev: #171e27;
+  --border: #222b36;
+  --text: #e6ebf2;
+  --subtle: #9da7b3;
+
+  /* keep accent same brand red to match deck; you can switch to blue if you prefer */
+  --accent: var(--l5-red);
+  --accent-contrast: #ffffff;
+}
+
+/* Utility (optional): brand accents for charts, badges, etc. */
+:root {
+  --brand-1: var(--l5-red);
+  --brand-2: var(--l5-blue);
+  --brand-3: var(--l5-yellow);
+  --brand-4: var(--l5-peach);
+  --brand-5: var(--l5-dark-blue);
+}
