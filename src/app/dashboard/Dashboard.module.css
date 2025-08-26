@@ -1,95 +1,76 @@
-/* =========================================================
-   THEME VARIABLES (scoped to this page only)
-   - No :root usage (keeps CSS Modules “pure” for Next build)
-   - .theme = dark defaults; add .light to switch to light
-   ========================================================= */
-.theme {
-  /* ---------- Dark (default) ---------- */
+/* =========================
+   THEME TOKENS (scoped)
+   - Default = dark
+   - Light via [data-theme="light"] on .page
+   ========================= */
+.page {
+  /* dark */
   --bg-grad-a: #121826;
   --bg-grad-b: #0d1117;
   --bg-grad-c: #0b0f14;
 
   --text: #e6edf3;
+  --text-subtle: #b8c0cc;
   --muted: #9aa5b4;
 
-  --panel: #10151f;
-  --panel-2: #0f1420;
+  --panel: #0f1420;
+  --panel-2: #10151f;
   --panel-3: #0e1320;
 
   --border: #1f2736;
   --border-2: #202938;
   --border-3: #283142;
 
+  /* Brand & semantic */
+  --accent: #d60000;      /* L5 Red (sparingly) */
   --good: #22c55e;
-  --warn: #bb6c17;
+  --warn: #ffcf37;        /* L5 Yellow */
+  --cta: #3b82f6;         /* CTA (Track etc.) in dark */
+  --cta-text: #ffffff;
 
+  /* Buttons */
   --btnGradA: #1c2333;
   --btnGradB: #151c29;
   --btnText: #cdd6e0;
 
-  /* Brand */
-  --primary: #d60000;      /* L5 Red */
-  --primary-ink: #ffffff;
-  --accent: #298ee8;       /* L5 Blue for charts/links */
-  --band-bg: #0b1320;      /* top band / table head */
-  --band-ink: #e6edf3;
-
-  /* Table head background */
-  --table-head-bg: #0d0f16;
-
-  /* Shadows */
-  --shadow-card: 0 8px 30px rgba(3,10,20,.35);
-  --shadow-soft: 0 6px 16px rgba(0,0,0,.22);
-  --shadow-btn: 0 6px 18px rgba(0,0,0,.25);
-
-  /* Switch */
-  --switch-track: #0f1729;
-  --switch-dot: #d60000;
+  --toggleIconBg: #0f1729;
 }
 
-/* ---------- Light override (L5 palette) ---------- */
-.light {
+.page[data-theme="light"] {
+  /* light (L5 palette) */
   --bg-grad-a: #f6f7fb;
   --bg-grad-b: #eef1f6;
   --bg-grad-c: #e9edf5;
 
-  --text: #293237;         /* L5 Gray text */
-  --muted: #5a585c;        /* L5 Gray (labels) */
+  --text: #293237;        /* L5 Gray (titles/body) */
+  --text-subtle: #5a585c; /* L5 Gray alt */
+  --muted: #5a585c;
 
   --panel: #ffffff;
   --panel-2: #ffffff;
-  --panel-3: #fdfbff;      /* L5 White */
+  --panel-3: #fdfbff;     /* L5 White */
 
   --border: #e3e8ef;
   --border-2: #e6ebf2;
   --border-3: #dbe2ee;
 
+  --accent: #d60000;      /* L5 Red */
   --good: #10b981;
-  --warn: #ffcf37;         /* L5 Yellow */
+  --warn: #ffcf37;
+
+  --cta: #298ee8;         /* L5 Blue for primary CTAs */
+  --cta-text: #ffffff;
 
   --btnGradA: #ffffff;
   --btnGradB: #f6f7fb;
   --btnText: #293237;
 
-  --primary: #d60000;      /* L5 Red */
-  --primary-ink: #ffffff;
-  --accent: #002840;       /* L5 Dark Blue (headers/badges) */
-  --band-bg: #002840;
-  --band-ink: #fdfbff;
-
-  --table-head-bg: #f4f7fb;
-
-  --shadow-card: 0 10px 30px rgba(0,20,60,.08);
-  --shadow-soft: 0 8px 20px rgba(0,0,0,.06);
-  --shadow-btn: 0 8px 18px rgba(214,0,0,.18);
-
-  --switch-track: #ffffff;
-  --switch-dot: #d60000;
+  --toggleIconBg: #ffffff;
 }
 
-/* =========================================================
-   CANVAS
-   ========================================================= */
+/* =========================
+   CANVAS / PAGE
+   ========================= */
 .page {
   min-height: 100dvh;
   background: radial-gradient(900px 480px at 50% -8%, var(--bg-grad-a) 0%, var(--bg-grad-b) 60%, var(--bg-grad-c) 100%);
@@ -101,9 +82,9 @@
   padding: 0 16px 24px;
 }
 
-/* =========================================================
+/* =========================
    HEADER
-   ========================================================= */
+   ========================= */
 .header {
   background: var(--panel-2);
   border:1px solid var(--border);
@@ -113,7 +94,6 @@
   align-items:center;
   justify-content:space-between;
   gap:12px;
-  box-shadow: var(--shadow-soft);
 }
 .brand { display:flex; align-items:center; gap:12px; }
 
@@ -124,9 +104,9 @@
 .logoImg { width:100%; height:100%; object-fit:cover; display:block; }
 .badge {
   width:34px; height:34px; border-radius:8px; display:grid; place-items:center;
-  font-weight:800; font-size:13px; color:#fff;
-  background: linear-gradient(180deg, #ff5758 0%, #d60000 100%);
-  border:1px solid rgba(255,255,255,0.2); box-shadow: var(--shadow-btn);
+  font-weight:800; font-size:13px;
+  background:linear-gradient(180deg,#ff8189 0%,#d60000 100%); color:#fff;
+  border:1px solid rgba(255,255,255,0.15); box-shadow:0 4px 18px rgba(0,0,0,0.15);
 }
 .title { font-weight:700; margin-bottom:2px; }
 .subtitle { font-size:12px; color:var(--muted); }
@@ -135,44 +115,28 @@
 .viewer { background:var(--panel-3); border:1px solid var(--border-2); border-radius:10px; padding:6px 10px; display:flex; gap:6px; align-items:center; }
 .viewerName { font-weight:600; }
 .roleDot { color:var(--muted); font-size:12px; }
-
-.select {
-  height:34px; min-width:260px; background:var(--panel-3); color:var(--text);
-  border:1px solid var(--border-3); border-radius:10px; padding:0 10px;
-}
-
-.btn {
-  height:34px; padding:0 12px; border-radius:10px;
-  border:1px solid var(--border);
-  background:linear-gradient(135deg,var(--btnGradA),var(--btnGradB));
-  color:var(--btnText); cursor:pointer; transition: transform .08s ease, filter .15s ease, box-shadow .2s ease;
-}
+.select { height:34px; min-width:260px; background:var(--panel-3); color:var(--text); border:1px solid var(--border-3); border-radius:10px; padding:0 10px; }
+.btn { height:34px; padding:0 12px; border-radius:10px; border:1px solid var(--border); background:linear-gradient(135deg,var(--btnGradA),var(--btnGradB)); color:var(--btnText); cursor:pointer; transition: transform .08s ease, filter .12s ease; }
 .btn:hover { filter:brightness(1.04); transform: translateY(-1px); }
-.primary {
-  background: linear-gradient(180deg, color-mix(in srgb, var(--primary), #fff 10%), var(--primary));
-  border-color: color-mix(in srgb, var(--primary), #000 12%);
-  color: var(--primary-ink);
-  box-shadow: var(--shadow-btn);
-}
-.warn { background: #ffcf37; border-color: #e1b300; color:#293237; }
-.selected { outline:2px solid color-mix(in srgb, var(--primary), #fff 25%); }
+.primary { background: var(--good); border-color: var(--good); color:#fff; }
+.warn { background: #f59e0b; border-color: #f59e0b; color:#fff; }
+.selected { outline:2px solid color-mix(in srgb, var(--cta), #fff 25%); }
 
-/* =========================================================
+/* =========================
    SELECTORS
-   ========================================================= */
+   ========================= */
 .selectorsBar {
   margin-top:12px; margin-bottom:10px; background:var(--panel-2); border:1px solid var(--border);
   border-radius:12px; padding:12px; display:grid; grid-template-columns: 1fr 1fr auto; gap:12px;
-  box-shadow: var(--shadow-soft);
 }
 .selectorCol { display:flex; flex-direction:column; gap:6px; }
 .selectorLabel { font-size:12px; color:var(--muted); }
 .selectWide { height:36px; background:var(--panel-3); color:var(--text); border:1px solid var(--border-3); border-radius:10px; padding:0 10px; min-width: 220px; }
 .viewToggle { display:flex; gap:8px; }
 
-/* =========================================================
+/* =========================
    SUMMARY
-   ========================================================= */
+   ========================= */
 .summary {
   display:flex; gap:10px; align-items:center; margin-top:10px; margin-bottom:14px;
   background:var(--panel-2); border:1px solid var(--border); border-radius:12px; padding:10px 12px;
@@ -180,25 +144,24 @@
 .pill { background:color-mix(in srgb, var(--panel-3), #000 2%); border:1px solid var(--border-3); color:var(--text); padding:6px 10px; border-radius:999px; font-size:12px; font-weight:600; }
 .period { margin-left:auto; font-size:12px; color:var(--muted); }
 
-/* =========================================================
+/* =========================
    TABLE
-   ========================================================= */
-.card { background:var(--panel); border:1px solid var(--border); border-radius:16px; padding:12px; box-shadow: var(--shadow-card); }
+   ========================= */
+.card { background:var(--panel); border:1px solid var(--border); border-radius:16px; padding:12px; }
 .tableWrap { width:100%; overflow-x:auto; }
 
 .table { width:100%; min-width: 1350px; border-collapse:separate; border-spacing:0 10px; }
-.table thead tr { background: var(--band-bg); }
-.table thead th { text-align:left; font-weight:600; font-size:13px; color:var(--band-ink); padding:10px 12px; white-space:nowrap; }
+.table thead th { text-align:left; font-weight:600; font-size:13px; color:var(--muted); padding:10px 12px; white-space:nowrap; }
 .day { font-weight:600; }
-.daySub { font-size:12px; color:color-mix(in srgb, var(--band-ink), #000 30%); }
+.daySub { font-size:12px; color:color-mix(in srgb, var(--muted), #fff 15%); }
 
 /* Sticky first column */
-.thProject { width: 520px; min-width: 420px; max-width: 620px; color:var(--text); }
+.thProject { width: 520px; min-width: 420px; max-width: 620px; }
 .table thead th:first-child,
 .table tbody td:first-child,
 .table tfoot td:first-child {
   position: sticky; left: 0; z-index: 2;
-  background: var(--panel); box-shadow: 6px 0 10px rgba(0,0,0,0.12);
+  background: var(--panel); box-shadow: 6px 0 10px rgba(0,0,0,0.06);
 }
 
 /* Project name cell */
@@ -209,38 +172,29 @@
 }
 
 /* Cells */
-.table tbody tr td, .table tfoot tr td { padding:10px 12px; vertical-align:top; background: var(--panel); }
+.table tbody tr td, .table tfoot tr td { padding:10px 12px; vertical-align:top; }
 .cellBox { display:grid; grid-template-columns: 1fr 1fr; gap:10px; }
-.num {
-  width:100%; height:38px; border-radius:10px; border:1px solid var(--border-3);
-  background:var(--panel-3); color:var(--text); padding:0 10px; font-size:14px; text-align:right;
-}
+.num { width:100%; height:38px; border-radius:10px; border:1px solid var(--border-3); background:var(--panel-3); color:var(--text); padding:0 10px; font-size:14px; text-align:right; }
 .numWide { min-width:140px; }
-.locked {
-  background:color-mix(in srgb, var(--panel-3), #fff 6%);
-  border-color:color-mix(in srgb, var(--border-3), #fff 20%);
-  color:color-mix(in srgb, var(--text), #fff 20%);
-}
+.locked { background:color-mix(in srgb, var(--panel-3), #fff 6%); border-color:color-mix(in srgb, var(--border-3), #fff 20%); color:color-mix(in srgb, var(--text), #fff 20%); }
 
+/* Track button now uses CTA blue (never red) */
 .trackBtn {
-  height:38px; border-radius:10px; border:1px solid color-mix(in srgb, var(--primary), #000 15%);
-  background: linear-gradient(180deg, #ffcdcd, #ff9ea1);  /* default subtle */
-  color:#7a1b1b; cursor:pointer; font-size:14px; transition:transform .08s ease, filter .15s ease, box-shadow .2s ease;
+  height:38px; border-radius:10px; border:1px solid color-mix(in srgb, var(--cta), #000 8%);
+  background: linear-gradient(180deg, color-mix(in srgb, var(--cta), #fff 8%), var(--cta));
+  color: var(--cta-text); cursor:pointer; font-size:14px;
+  box-shadow: 0 4px 10px color-mix(in srgb, var(--cta), transparent 75%);
+  transition: transform .08s ease, filter .12s ease, box-shadow .12s ease;
 }
-.light .trackBtn {
-  background: linear-gradient(180deg, #ffd4d6, #ffc0c2);
-  color:#7a1b1b;
-}
-.trackBtn:hover { transform: translateY(-1px); filter:brightness(1.02); }
+.trackBtn:hover { filter:brightness(1.03); transform: translateY(-1px); box-shadow: 0 6px 14px color-mix(in srgb, var(--cta), transparent 68%); }
 
 /* Footer */
-.table tfoot tr { background: var(--band-bg); }
 .table tfoot input { opacity:.95; }
 
-/* =========================================================
+/* =========================
    ADMIN PANEL + CHARTS
-   ========================================================= */
-.adminPanel { margin-top:14px; background:var(--panel-2); border:1px solid var(--border); border-radius:12px; padding:12px; box-shadow: var(--shadow-soft); }
+   ========================= */
+.adminPanel { margin-top:14px; background:var(--panel-2); border:1px solid var(--border); border-radius:12px; padding:12px; }
 .cardsRow { display:grid; grid-template-columns: repeat(3, 1fr); gap:12px; }
 .statCard { background:var(--panel-3); border:1px solid var(--border); border-radius:10px; padding:12px; }
 .statLabel { color:var(--muted); font-size:12px; margin-bottom:6px; }
@@ -249,49 +203,53 @@
 
 .chartsRow { display:grid; grid-template-columns: 1fr 1fr; gap:12px; margin-top:12px; }
 .chartCard { background:var(--panel-3); border:1px solid var(--border); border-radius:10px; padding:10px; overflow:hidden; }
-.chartTitle { display:flex; align-items:center; justify-content:space-between; font-weight:700; margin:2px 2px 6px; }
-.chartLink { font-weight:600; font-size:12px; color:var(--accent); text-decoration:none; }
+.chartTitle { display:flex; align-items:center; justify-content:space-between; font-weight:700; margin:2px 2px 6px; color: var(--text); }
+.chartLink { font-weight:600; font-size:12px; color:color-mix(in srgb, var(--cta), #fff 10%); text-decoration:none; }
 .chartSvg { width:100%; height:auto; background:color-mix(in srgb, var(--panel-3), #000 6%); border:1px solid color-mix(in srgb, var(--border), #000 6%); border-radius:8px; }
 .chartAxis { stroke:color-mix(in srgb, var(--border), #fff 8%); stroke-width:1; }
 .chartGrid { stroke:color-mix(in srgb, var(--border), #fff 20%); stroke-width:1; }
 .chartX, .chartY, .leg { font-size:12px; fill:color-mix(in srgb, var(--muted), #fff 8%); }
-.barA { fill:#298ee8; }  /* L5 Blue */
-.barB { fill:#10b981; }  /* green */
+.barA { fill:#298ee8; }   /* Est = L5 Blue in both themes */
+.barB { fill:var(--good); }/* Tracked = green */
 .leg { dominant-baseline: hanging; }
 
-/* =========================================================
-   MONTH VIEW
-   ========================================================= */
-.weekGrid { display:grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap:12px; }
-.weekCard { background:var(--panel-3); border:1px solid var(--border); border-radius:12px; padding:12px; box-shadow: var(--shadow-soft); }
-.weekCardSelected { outline: 2px solid color-mix(in srgb, var(--primary), #fff 25%); }
-.weekHead { display:flex; align-items:center; justify-content:space-between; }
-.weekTitle { margin:0; }
-.weekDays { display:grid; grid-template-columns: repeat(5, 1fr); gap:8px; margin-top:8px; }
+/* =========================
+   MONTH VIEW (card grid)
+   ========================= */
+.weekGrid {
+  display:grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap:12px;
+}
+.weekCard {
+  background:var(--panel-3);
+  border:1px solid var(--border);
+  border-radius:12px;
+  padding:12px;
+  transition: box-shadow .15s ease, transform .1s ease;
+}
+.weekCard:hover { box-shadow:0 8px 22px rgba(0,0,0,.08); transform: translateY(-1px); }
+.weekCardSelected { outline:2px solid color-mix(in srgb, var(--cta), #fff 20%); }
+.weekHead { display:flex; align-items:center; justify-content:space-between; margin-bottom:8px; }
+.weekTitle { margin:0; font-size:14px; font-weight:700; }
+.weekDays { display:grid; grid-template-columns: repeat(5, 1fr); gap:8px; }
 .dayCard { background:var(--panel); border:1px solid var(--border); border-radius:10px; padding:8px; }
 .dayLabel { font-size:12px; color:var(--muted); }
-.dayEst { font-size:13px; }
-.dayTracked { font-size:13px; color: var(--good); }
-.weekTotals { display:flex; align-items:center; gap:6px; margin-top:8px; }
-.dot { opacity:.6; }
+.dayEst, .dayTracked { font-weight:700; }
 
-/* =========================================================
-   MODALS
-   ========================================================= */
-@keyframes popIn { from { opacity:0; transform: translateY(6px) scale(.98); } to { opacity:1; transform: translateY(0) scale(1); } }
+/* KPIs */
+.monthKpis { margin-top:10px; display:grid; grid-template-columns: repeat(3, 1fr); gap:12px; }
+.metric { background:var(--panel-3); border:1px solid var(--border); border-radius:12px; padding:10px 12px; }
 
-.modalBackdrop {
-  position:fixed; inset:0; background:rgba(0,0,0,0.45);
-  display:grid; place-items:center; z-index:50;
-  backdrop-filter: saturate(1.1) blur(2px);
-}
+/* =========================
+   MODALS (opaque, not transparent)
+   ========================= */
+.modalBackdrop { position:fixed; inset:0; background:rgba(0,0,0,0.5); backdrop-filter: blur(2px); display:grid; place-items:center; z-index:50; }
 .modal {
   width:520px; max-width:calc(100vw - 32px);
-  background:var(--panel-2);
-  border:1px solid var(--border);
-  border-radius:14px;
-  box-shadow: var(--shadow-card);
-  animation: popIn .22s ease-out both;
+  background:var(--panel-2); color:var(--text);
+  border:1px solid var(--border); border-radius:14px;
+  box-shadow:0 20px 60px rgba(0,0,0,0.35);
 }
 .modalHeader { display:flex; align-items:center; justify-content:space-between; padding:14px 16px; border-bottom:1px solid var(--border); }
 .modalTitle { font-weight:700; }
@@ -301,34 +259,31 @@
 .help { margin-top:8px; font-size:12px; color:var(--muted); }
 .modalActions { display:flex; justify-content:flex-end; gap:8px; padding:12px 16px; border-top:1px solid var(--border); }
 
-/* =========================================================
-   THEME SWITCH (bottom-right)
-   ========================================================= */
-.themeSwitch {
-  position: fixed; right:18px; bottom:18px; z-index:60;
-  display:flex; align-items:center; gap:8px;
-  background: var(--panel-2);
-  border:1px solid var(--border);
-  padding:6px 10px; border-radius:999px;
-  box-shadow: var(--shadow-soft);
-  font-size:12px; color:var(--muted);
+/* =========================
+   THEME TOGGLE (bottom-right)
+   ========================= */
+.themeToggle {
+  position: fixed; right: 16px; bottom: 14px; z-index: 60;
+  display:flex; align-items:center; gap:8px; user-select:none;
 }
-.switchTrack {
-  width:52px; height:26px; border-radius:999px; border:1px solid var(--border);
-  background: var(--switch-track);
-  position: relative; cursor: pointer;
+.toggleBtn {
+  width:54px; height:28px; border-radius:999px; border:1px solid var(--border);
+  background: var(--panel-3); display:flex; align-items:center; padding:2px;
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--border), transparent 40%);
+  cursor:pointer; transition: background .2s ease, border-color .2s ease;
 }
-.switchDot {
-  position:absolute; top:3px; left:3px; width:20px; height:20px; border-radius:50%;
-  background: var(--switch-dot);
-  transition: left .18s ease;
-  box-shadow: 0 4px 10px rgba(214,0,0,.25);
+.toggleKnob {
+  width:24px; height:24px; border-radius:999px; background:var(--cta);
+  box-shadow:0 2px 6px color-mix(in srgb, var(--cta), transparent 70%);
+  transform: translateX(0);
+  transition: transform .22s cubic-bezier(.2,.7,.2,1), background .2s ease, box-shadow .2s ease;
 }
-.light .switchDot { left:29px; }
+.toggleOn .toggleKnob { transform: translateX(26px); }
+.toggleLabel { font-size:12px; color:var(--muted); }
 
-/* =========================================================
+/* =========================
    RESPONSIVE
-   ========================================================= */
+   ========================= */
 @media (max-width: 1024px) {
   .thProject { width: 420px; min-width: 360px; }
   .select { min-width: 220px; }

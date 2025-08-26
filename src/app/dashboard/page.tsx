@@ -123,10 +123,12 @@ function BarsHorizontal({
 }
 
 export default function DashboardPage() {
-  /** theme */
-  const [theme, setTheme] = useState<'light'|'dark'>(() => (typeof window !== 'undefined' ? (localStorage.getItem('theme') as any) || 'light' : 'light'));
-  useEffect(() => { try { localStorage.setItem('theme', theme); } catch {} }, [theme]);
-  const toggleTheme = () => setTheme(t => (t === 'light' ? 'dark' : 'light'));
+  /** theme (persists + used by CSS module via data-theme) */
+  const [theme, setTheme] = useState<"dark"|"light">(() => {
+    if (typeof window === "undefined") return "dark";
+    return (localStorage.getItem("theme") as "dark"|"light") || "light";
+  });
+  useEffect(() => { try { localStorage.setItem("theme", theme); } catch {} }, [theme]);
 
   /** week state */
   const [weekStart, setWeekStart] = useState<Date>(() => startOfWeek());
@@ -461,7 +463,7 @@ export default function DashboardPage() {
 
   /** ---- render ---- */
   return (
-    <div className={`${styles.page} ${styles.theme} ${theme === 'light' ? styles.light : ''}`}>
+    <div className={styles.page} data-theme={theme}>
       <div className={styles.shell}>
 
         {/* top header bar */}
@@ -471,7 +473,7 @@ export default function DashboardPage() {
             <div className={styles.logoWrap}>
               <img
                 className={styles.logoImg}
-                src="/company-logo.png"
+                src="/company_logo.png"
                 alt="Company"
                 onError={(e) => {
                   e.currentTarget.style.display = "none";
@@ -686,7 +688,7 @@ export default function DashboardPage() {
           </section>
         )}
 
-        {/* ====== MONTH VIEW (responsive, no overlap; shows live data for selected week) ====== */}
+        {/* ====== MONTH VIEW ====== */}
         {viewMode === "month" && (
           <>
             <div className={styles.summary} style={{ marginTop: 0 }}>
@@ -854,7 +856,7 @@ export default function DashboardPage() {
         </div>
       )}
 
-      {/* --- Admin: Add Project modal (solid & animated) --- */}
+      {/* --- Admin: Add Project modal --- */}
       {isAdmin && addOpen && (
         <div className={styles.modalBackdrop} onClick={()=> setAddOpen(false)}>
           <div className={styles.modal} onClick={(e)=> e.stopPropagation()}>
@@ -899,12 +901,17 @@ export default function DashboardPage() {
         </div>
       )}
 
-      {/* Theme switcher */}
-      <div className={`${styles.themeSwitch} ${theme === 'light' ? styles.light : ''}`}>
-        <div className={styles.switchTrack} onClick={toggleTheme}>
-          <div className={styles.switchDot} />
+      {/* Theme toggle */}
+      <div className={styles.themeToggle}>
+        <div
+          className={`${styles.toggleBtn} ${theme === "light" ? styles.toggleOn : ""}`}
+          role="switch"
+          aria-checked={theme === "light"}
+          onClick={()=> setTheme(t => t === "light" ? "dark" : "light")}
+        >
+          <div className={styles.toggleKnob} />
         </div>
-        <span>{theme === 'light' ? 'Light' : 'Dark'}</span>
+        <span className={styles.toggleLabel}>{theme === "light" ? "Light" : "Dark"}</span>
       </div>
     </div>
   );

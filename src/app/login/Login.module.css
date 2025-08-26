@@ -1,39 +1,66 @@
-.page {
-  min-height: 100dvh;
-  background: radial-gradient(1200px 600px at 50% -10%, #121826 0%, #0d1117 60%, #0b0f14 100%);
-  display: grid;
-  place-items: center;
-  padding: 24px;
-  color: #e6edf3;
+/* Scoped theme tokens (default dark) */
+.wrap {
+  --bg-a:#121826; --bg-b:#0d1117;
+  --panel:#0f1420; --panel-2:#10151f; --border:#1f2736;
+  --text:#e6edf3; --muted:#9aa5b4;
+  --cta:#298ee8; --cta-text:#ffffff; /* same blue for both */
 }
-.card {
-  width: 100%;
-  max-width: 420px;
-  background: rgba(13, 17, 23, 0.9);
-  border: 1px solid #202938;
-  border-radius: 16px;
-  box-shadow: 0 10px 30px rgba(0,0,0,0.35);
-  padding: 28px;
+.wrap[data-theme="light"]{
+  --bg-a:#f6f7fb; --bg-b:#e9edf5;
+  --panel:#ffffff; --panel-2:#ffffff; --border:#e3e8ef;
+  --text:#293237; --muted:#5a585c;
+  --cta:#298ee8; --cta-text:#ffffff;
 }
-.brandRow { display: flex; align-items: center; gap: 14px; margin-bottom: 22px; }
-.badge {
-  width: 40px; height: 40px; border-radius: 999px; display: grid; place-items: center;
-  font-weight: 800; letter-spacing: 0.5px;
-  background: linear-gradient(180deg, #5b6cff 0%, #3b82f6 100%);
-  color: white; border: 1px solid rgba(255,255,255,0.15);
-  box-shadow: 0 4px 18px rgba(59,130,246,0.35);
+
+.page{
+  min-height:100dvh;
+  background: radial-gradient(900px 480px at 50% -8%, var(--bg-a) 0%, var(--bg-b) 100%);
+  display:grid; place-items:center; color:var(--text);
+  padding: 24px 16px;
 }
-.brandText { display: flex; flex-direction: column; gap: 2px; }
-.appTitle { font-size: 18px; font-weight: 700; color: #e6edf3; }
-.appSub { font-size: 13px; color: #a1a7b3; }
-.primaryBtn {
-  width: 100%; height: 44px; border: 0; border-radius: 10px;
-  background: linear-gradient(180deg, #4f8cff 0%, #3b82f6 100%);
-  color: white; font-weight: 700; letter-spacing: 0.2px; cursor: pointer;
-  transition: transform 0.06s ease, filter 0.15s ease, box-shadow 0.2s ease;
-  box-shadow: 0 6px 18px rgba(59,130,246,0.35);
+.card{
+  width:420px; max-width:100%;
+  background:var(--panel);
+  border:1px solid var(--border);
+  border-radius:16px; padding:20px;
+  box-shadow:0 20px 60px rgba(0,0,0,.35);
+  transform: translateY(6px);
+  animation: rise .32s ease forwards;
 }
-.primaryBtn:hover { filter: brightness(1.05); }
-.primaryBtn:active { transform: translateY(1px); }
-.primaryBtn:disabled { opacity: 0.7; cursor: default; }
-.hint { margin-top: 14px; font-size: 12px; color: #98a1ae; line-height: 1.45; }
+@keyframes rise { to { transform: translateY(0); } }
+
+.brand{
+  display:flex; align-items:center; gap:10px; margin-bottom:14px;
+}
+.logo{
+  width:38px; height:38px; border-radius:10px; overflow:hidden; border:1px solid var(--border); background:#fff; display:grid; place-items:center;
+}
+.logo img{ width:100%; height:100%; object-fit:cover; display:block; }
+.h1{ font-size:18px; font-weight:800; margin:0; }
+.sub{ font-size:12px; color:var(--muted); margin-top:2px; }
+
+.btn{
+  width:100%; height:42px; border-radius:12px;
+  border:1px solid color-mix(in srgb, var(--cta), #000 14%);
+  background: linear-gradient(180deg, color-mix(in srgb, var(--cta), #fff 8%), var(--cta));
+  color: var(--cta-text); font-weight:700; cursor:pointer;
+  box-shadow: 0 6px 16px color-mix(in srgb, var(--cta), transparent 72%);
+  transition: transform .08s ease, filter .12s ease, box-shadow .12s ease;
+}
+.btn:hover{ filter:brightness(1.02); transform: translateY(-1px); box-shadow: 0 10px 20px color-mix(in srgb, var(--cta), transparent 64%); }
+
+.help{ margin-top:10px; font-size:12px; color:var(--muted); text-align:center; }
+
+/* toggle (same look as dashboard) */
+.toggle { margin-top:14px; display:flex; justify-content:center; gap:8px; align-items:center; }
+.toggleBtn {
+  width:54px; height:28px; border-radius:999px; border:1px solid var(--border);
+  background: var(--panel-2); display:flex; align-items:center; padding:2px; cursor:pointer;
+}
+.toggleKnob {
+  width:24px; height:24px; border-radius:999px; background:#298ee8;
+  box-shadow:0 2px 6px rgba(41,142,232,.45);
+  transform: translateX(0); transition: transform .22s cubic-bezier(.2,.7,.2,1);
+}
+.on .toggleKnob { transform: translateX(26px); }
+.label { font-size:12px; color:var(--muted); }

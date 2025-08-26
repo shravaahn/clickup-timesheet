@@ -2,47 +2,54 @@
 
 import { useEffect, useState } from "react";
 import styles from "./Login.module.css";
-//just an edit to make sure its pushed
+
 export default function LoginPage() {
-  const [redirecting, setRedirecting] = useState(false);
-
-  // If already signed in, go to dashboard
-  useEffect(() => {
-    (async () => {
-      try {
-        const r = await fetch("/api/me", { cache: "no-store" });
-        if (r.ok) {
-          const j = await r.json();
-          if (j?.user?.id) window.location.href = "/dashboard";
-        }
-      } catch {}
-    })();
-  }, []);
-
-  const login = () => {
-    setRedirecting(true);
-    window.location.href = "/api/auth/clickup-login";
-  };
+  const [theme, setTheme] = useState<"dark"|"light">(() => {
+    if (typeof window === "undefined") return "light";
+    return (localStorage.getItem("theme") as "dark"|"light") || "light";
+  });
+  useEffect(()=> { try { localStorage.setItem("theme", theme); } catch{} }, [theme]);
 
   return (
-    <main className={styles.page}>
-      <section className={styles.card}>
-        <div className={styles.brandRow}>
-          <div className={styles.badge}>TT</div>
-          <div className={styles.brandText}>
-            <div className={styles.appTitle}>Weekly Time Tracking</div>
-            <div className={styles.appSub}>Sign in</div>
+    <div className={styles.wrap} data-theme={theme}>
+      <main className={styles.page}>
+        <section className={styles.card}>
+          <div className={styles.brand}>
+            <div className={styles.logo}>
+              <img
+                src="/company_logo.png"
+                alt="Company"
+                onError={(e)=>{ e.currentTarget.style.display="none"; }}
+              />
+            </div>
+            <div>
+              <h1 className={styles.h1}>Weekly Time Tracking</h1>
+              <div className={styles.sub}>Sign in</div>
+            </div>
           </div>
-        </div>
 
-        <button className={styles.primaryBtn} onClick={login} disabled={redirecting}>
-          {redirecting ? "Redirecting to ClickUp…" : "Continue with ClickUp"}
-        </button>
+          <button
+            className={styles.btn}
+            onClick={() => { window.location.href = "/api/auth/login"; }}
+          >
+            Continue with ClickUp
+          </button>
 
-        <p className={styles.hint}>
-          You’ll be redirected to ClickUp to grant access.
-        </p>
-      </section>
-    </main>
+          <div className={styles.help}>You’ll be redirected to ClickUp to grant access.</div>
+
+          <div className={styles.toggle}>
+            <div
+              className={`${styles.toggleBtn} ${theme === "light" ? styles.on : ""}`}
+              role="switch"
+              aria-checked={theme === "light"}
+              onClick={()=> setTheme(t => t === "light" ? "dark" : "light")}
+            >
+              <div className={styles.toggleKnob}/>
+            </div>
+            <span className={styles.label}>{theme === "light" ? "Light" : "Dark"}</span>
+          </div>
+        </section>
+      </main>
+    </div>
   );
 }
