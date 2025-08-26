@@ -123,6 +123,11 @@ function BarsHorizontal({
 }
 
 export default function DashboardPage() {
+  /** theme */
+  const [theme, setTheme] = useState<'light'|'dark'>(() => (typeof window !== 'undefined' ? (localStorage.getItem('theme') as any) || 'light' : 'light'));
+  useEffect(() => { try { localStorage.setItem('theme', theme); } catch {} }, [theme]);
+  const toggleTheme = () => setTheme(t => (t === 'light' ? 'dark' : 'light'));
+
   /** week state */
   const [weekStart, setWeekStart] = useState<Date>(() => startOfWeek());
   const weekEnd = useMemo(() => addDays(weekStart, 4), [weekStart]);
@@ -160,22 +165,6 @@ export default function DashboardPage() {
 
   /** view toggle */
   const [viewMode, setViewMode] = useState<"week" | "month">("week");
-
-  /** theme (persisted) */
-  const [theme, setTheme] = useState<"light" | "dark">(() => {
-    if (typeof window === "undefined") return "dark";
-    const saved = window.localStorage.getItem("theme");
-    if (saved === "light" || saved === "dark") return saved;
-    // Prefer system
-    const prefersLight = window.matchMedia && window.matchMedia("(prefers-color-scheme: light)").matches;
-    return prefersLight ? "light" : "dark";
-  });
-  useEffect(() => {
-    if (typeof document !== "undefined") {
-      document.documentElement.setAttribute("data-theme", theme);
-      window.localStorage.setItem("theme", theme);
-    }
-  }, [theme]);
 
   /** auth + role */
   const [me, setMe] = useState<Me["user"] | null>(null);
@@ -472,7 +461,7 @@ export default function DashboardPage() {
 
   /** ---- render ---- */
   return (
-    <div className={styles.page}>
+    <div className={`${styles.page} ${styles.theme} ${theme === 'light' ? styles.light : ''}`}>
       <div className={styles.shell}>
 
         {/* top header bar */}
@@ -704,16 +693,7 @@ export default function DashboardPage() {
               <span className={styles.period}>Period: Month</span>
             </div>
 
-            {/* Fallback inline grid so layout is correct even if class is missing */}
-            <div
-              className={/* @ts-ignore */ (styles.weekGrid || "")}
-              style={{
-                display: "grid",
-                gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))",
-                gap: 12,
-                alignItems: "stretch",
-              }}
-            >
+            <div className={styles.weekGrid}>
               {monthWeeks.map((w, idx) => {
                 const isSelected = ymd(w.start) === ymd(weekStart);
                 const dayEst = isSelected ? totals.dayEst : [0,0,0,0,0];
@@ -722,38 +702,27 @@ export default function DashboardPage() {
                 return (
                   <section
                     key={idx}
-                    className={`${styles.weekCard ?? ""} ${isSelected ? (styles.weekCardSelected ?? "") : ""}`}
-                    style={{
-                      background: "var(--panel-3)",
-                      border: "1px solid var(--border)",
-                      borderRadius: 12,
-                      padding: 12,
-                    }}
+                    className={`${styles.weekCard} ${isSelected ? styles.weekCardSelected : ""}`}
                   >
-                    <div className={styles.weekHead ?? ""} style={{ display:"flex", justifyContent:"space-between", alignItems:"baseline" }}>
-                      <h3 className={styles.weekTitle ?? ""} style={{ margin:0 }}>Week {idx + 1}</h3>
+                    <div className={styles.weekHead}>
+                      <h3 className={styles.weekTitle}>Week {idx + 1}</h3>
                       <div className={styles.subtitle}>{fmtMMMdd(w.start)} — {fmtMMMdd(w.end)}</div>
                     </div>
 
-                    <div className={styles.weekDays ?? ""} style={{ display:"grid", gridTemplateColumns:"repeat(5, 1fr)", gap:8, marginTop:8 }}>
+                    <div className={styles.weekDays}>
                       {["Mon","Tue","Wed","Thu","Fri"].map((d, i) => (
-                        <div key={d} className={styles.dayCard ?? ""} style={{
-                          background:"var(--panel)",
-                          border:"1px solid var(--border)",
-                          borderRadius:10,
-                          padding:8
-                        }}>
-                          <div className={styles.dayLabel ?? ""} style={{ fontSize:12, color:"var(--muted)" }}>{d}</div>
-                          <div className={styles.dayEst ?? ""} style={{ fontWeight:700 }}>{clamp2(dayEst[i] || 0).toFixed(2)}</div>
-                          <div className={styles.dayTracked ?? ""} style={{ fontWeight:700, color:"var(--good)" }}>{clamp2(dayTracked[i] || 0).toFixed(2)}</div>
+                        <div key={d} className={styles.dayCard}>
+                          <div className={styles.dayLabel}>{d}</div>
+                          <div className={styles.dayEst}>{clamp2(dayEst[i] || 0).toFixed(2)}</div>
+                          <div className={styles.dayTracked}>{clamp2(dayTracked[i] || 0).toFixed(2)}</div>
                         </div>
                       ))}
                     </div>
 
-                    <div className={styles.weekTotals ?? ""} style={{ marginTop:10, display:"flex", gap:6, alignItems:"center" }}>
+                    <div className={styles.weekTotals}>
                       <span>Est:</span>
                       <strong>{clamp2(dayEst.reduce((a,b)=>a+(b||0),0)).toFixed(2)}h</strong>
-                      <span className={styles.dot ?? ""}>•</span>
+                      <span className={styles.dot}>•</span>
                       <span>Tracked:</span>
                       <strong>{clamp2(dayTracked.reduce((a,b)=>a+(b||0),0)).toFixed(2)}h</strong>
                     </div>
@@ -762,10 +731,10 @@ export default function DashboardPage() {
               })}
             </div>
 
-            <div className={styles.monthKpis ?? ""} style={{ display:"grid", gap:12, gridTemplateColumns:"repeat(auto-fit,minmax(260px,1fr))", marginTop:12 }}>
-              <div className={styles.metric ?? ""}>Total Est Hours (Selected Week): {totals.sumEst.toFixed(2)}h</div>
-              <div className={styles.metric ?? ""}>Total Tracked Hours (Selected Week): {totals.sumTracked.toFixed(2)}h</div>
-              <div className={styles.metric ?? ""}>Δ Tracked – Est (Selected Week): {totals.delta.toFixed(2)}h</div>
+            <div className={styles.monthKpis}>
+              <div className={styles.metric}>Total Est Hours (Selected Week): {totals.sumEst.toFixed(2)}h</div>
+              <div className={styles.metric}>Total Tracked Hours (Selected Week): {totals.sumTracked.toFixed(2)}h</div>
+              <div className={styles.metric}>Δ Tracked – Est (Selected Week): {totals.delta.toFixed(2)}h</div>
             </div>
           </>
         )}
@@ -840,48 +809,6 @@ export default function DashboardPage() {
 
       </div>
 
-      {/* --- Floating Light/Dark toggle (brand-y) --- */}
-      <button
-        aria-label="Toggle color theme"
-        onClick={() => setTheme(t => (t === "light" ? "dark" : "light"))}
-        style={{
-          position: "fixed",
-          right: 16,
-          bottom: 16,
-          height: 44,
-          borderRadius: 999,
-          border: "1px solid var(--border)",
-          background: "linear-gradient(180deg,var(--badge-a),var(--badge-b))",
-          padding: 3,
-          display: "flex",
-          alignItems: "center",
-          gap: 8,
-          boxShadow: "0 10px 26px rgba(0,0,0,.25)",
-          zIndex: 60,
-        }}
-      >
-        <div
-          style={{
-            height: 38, width: 38, borderRadius: 999,
-            background: "var(--toggleIconBg)",
-            display: "grid", placeItems: "center",
-            fontWeight: 800, color: theme === "light" ? "#d60000" : "#e6edf3"
-          }}
-          title={theme === "light" ? "Light" : "Dark"}
-        >
-          {theme === "light" ? "☀︎" : "☾"}
-        </div>
-        <span
-          style={{
-            padding: "0 10px 0 6px",
-            fontWeight: 700,
-            color: "#fff"
-          }}
-        >
-          {theme === "light" ? "Light" : "Dark"}
-        </span>
-      </button>
-
       {/* --- Modal for Tracked Time --- */}
       {modalOpen && (
         <div className={styles.modalBackdrop} onClick={closeTrackModal}>
@@ -927,7 +854,7 @@ export default function DashboardPage() {
         </div>
       )}
 
-      {/* --- Admin: Add Project modal (centered & smooth) --- */}
+      {/* --- Admin: Add Project modal (solid & animated) --- */}
       {isAdmin && addOpen && (
         <div className={styles.modalBackdrop} onClick={()=> setAddOpen(false)}>
           <div className={styles.modal} onClick={(e)=> e.stopPropagation()}>
@@ -971,6 +898,14 @@ export default function DashboardPage() {
           </div>
         </div>
       )}
+
+      {/* Theme switcher */}
+      <div className={`${styles.themeSwitch} ${theme === 'light' ? styles.light : ''}`}>
+        <div className={styles.switchTrack} onClick={toggleTheme}>
+          <div className={styles.switchDot} />
+        </div>
+        <span>{theme === 'light' ? 'Light' : 'Dark'}</span>
+      </div>
     </div>
   );
 }
