@@ -3,72 +3,56 @@
 import { useEffect, useState } from "react";
 import styles from "./Login.module.css";
 
-type Theme = "light" | "dark";
-
 export default function LoginPage() {
-  const [theme, setTheme] = useState<Theme>("light");
+  // light by default for login page
+  const [theme, setTheme] = useState<"light" | "dark">("light");
 
-  // Read saved preference or system
   useEffect(() => {
-    const stored = (typeof window !== "undefined" && localStorage.getItem("theme")) as Theme | null;
-    if (stored === "light" || stored === "dark") {
-      setTheme(stored);
-    } else {
-      const prefersDark =
-        typeof window !== "undefined" &&
-        window.matchMedia &&
-        window.matchMedia("(prefers-color-scheme: dark)").matches;
-      setTheme(prefersDark ? "dark" : "light");
-    }
-  }, []);
-
-  // Persist + expose on <html data-theme="">
-  useEffect(() => {
+    // reflect on <html data-theme=""> for the rest of the app if you need it
     if (typeof document !== "undefined") {
-      document.documentElement.setAttribute("data-theme", theme);
-      try { localStorage.setItem("theme", theme); } catch {}
+      document.documentElement.dataset.theme = theme;
     }
   }, [theme]);
 
-  const toggleTheme = () => setTheme((t) => (t === "light" ? "dark" : "light"));
+  const startAuth = () => {
+    // ⬇️ UPDATE this to match your real OAuth start route if different.
+    window.location.href = "/api/auth/clickup";
+  };
 
   return (
-    <main className={`${styles.page} ${theme === "light" ? styles.light : styles.dark}`}>
-      <div className={styles.card}>
-        <div className={styles.brandRow}>
-          <div className={styles.logoWrap}>
-            <img
-              className={styles.logoImg}
-              src="/company-logo.png"
-              alt="Company"
-              onError={(e) => {
-                e.currentTarget.style.display = "none";
-                const sib = document.createElement("div");
-                sib.className = styles.logoFallback;
-                sib.textContent = "L5";
-                (e.currentTarget.parentElement as HTMLElement).appendChild(sib);
-              }}
-            />
+    <div className={`${styles.page} ${theme === "light" ? styles.tokensLight : styles.tokensDark}`}>
+      <div className={styles.shell}>
+        <div className={styles.card} role="dialog" aria-labelledby="login-title">
+          <div className={styles.brandRow}>
+            <div className={styles.logoBadge}>L5</div>
+            <div className={styles.brandText}>
+              <h1 id="login-title" className={styles.title}>Weekly Time Tracking</h1>
+              <p className={styles.subtitle}>Sign in</p>
+            </div>
           </div>
-          <div className={styles.brandText}>
-            <h1 className={styles.title}>Weekly Time Tracking</h1>
-            <p className={styles.subtitle}>Sign in to continue</p>
-          </div>
+
+          <button className={styles.cta} onClick={startAuth} aria-label="Continue with ClickUp">
+            <span className={styles.ctaDot} aria-hidden="true" />
+            Continue with ClickUp
+          </button>
+
+          <p className={styles.note}>
+            You’ll be redirected to ClickUp to grant access.
+          </p>
         </div>
 
-        <a href="/api/auth/clickup" className={styles.cta} aria-label="Continue with ClickUp">
-          <span className={styles.ctaIcon} aria-hidden>↪</span>
-          Continue with ClickUp
-        </a>
-
-        <p className={styles.note}>You’ll be redirected to ClickUp to grant access.</p>
+        {/* Theme toggle (non-overlapping, anchored bottom-right inside page) */}
+        <button
+          className={styles.themeToggle}
+          onClick={() => setTheme((t) => (t === "light" ? "dark" : "light"))}
+          aria-label={`Switch to ${theme === "light" ? "dark" : "light"} mode`}
+        >
+          <span className={styles.togglePill}>
+            <span className={styles.toggleThumb} data-pos={theme} />
+            <span className={styles.toggleLabel}>{theme === "light" ? "Light" : "Dark"}</span>
+          </span>
+        </button>
       </div>
-
-      {/* Theme toggle (no overlap with anything) */}
-      <button className={styles.themeToggle} onClick={toggleTheme}>
-        <span className={styles.toggleDot} />
-        {theme === "light" ? "Light" : "Dark"}
-      </button>
-    </main>
+    </div>
   );
 }

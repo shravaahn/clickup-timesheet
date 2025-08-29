@@ -1,238 +1,215 @@
 /* =========================================================
-   L5 COLORS (tokens used locally so no global selectors)
+   L5 COLORS (tokens scoped by class — no global selectors)
    ========================================================= */
-:local(.page) {
-  --l5-red: #d60000;
+
+/* Token sets (attach one of these to .page). */
+.tokensLight {
+  /* L5 Light */
+  --l5-red:   #d60000;
   --l5-peach: #ff5758;
+  --l5-blue:  #298ee8;
+  --l5-dark-blue: #002840;
+  --l5-gray:  #293237;
+  --l5-gray-2:#5a585c;
+  --l5-yellow:#ffcf37;
   --l5-white: #fdfbff;
 
-  --l5-pink: #ffcdcd;
+  --bg-a: #f6f7fb;
+  --bg-b: #eef1f6;
+  --text: #0b1220;
+  --muted: #5b6578;
+
+  --panel: #ffffff;
+  --panel-2: #f9fbff;
+  --border: #e3e8ef;
+
+  --accent: var(--l5-blue);  /* primary action color on login */
+  --accent-2: var(--l5-peach);
+  --glow: rgba(41, 142, 232, 0.35);
+  --shadow: 0 8px 30px rgba(2, 40, 64, 0.08);
+  --badge-grad-a: #ff8189;
+  --badge-grad-b: #e63946;
+}
+
+.tokensDark {
+  /* Dark defaults (kept subtle so login stays readable) */
+  --l5-red:   #d60000;
+  --l5-peach: #ff5758;
+  --l5-blue:  #298ee8;
   --l5-dark-blue: #002840;
-  --l5-gray-ink: #293237;
-  --l5-gray-mid: #5a585c;
-  --l5-yellow: #ffcf37;
-  --l5-blue: #298ee8;
+  --l5-gray:  #e6edf3;
+  --l5-gray-2:#9aa5b4;
+  --l5-yellow:#ffcf37;
+  --l5-white: #fdfbff;
 
-  /* Surface / text tokens (set per-theme below) */
-  --bg-a: #ffffff;
-  --bg-b: #ffffff;
-  --text: #293237;
-  --muted: color-mix(in srgb, var(--l5-gray-ink), white 45%);
+  --bg-a: #121826;
+  --bg-b: #0d1117;
+  --text: #e6edf3;
+  --muted: #9aa5b4;
 
-  --card-bg: #ffffff;
-  --card-border: rgba(0, 0, 0, 0.08);
-  --card-shadow: 0 10px 40px rgba(0, 0, 0, 0.08);
+  --panel: #10151f;
+  --panel-2: #0f1420;
+  --border: #1f2736;
 
-  --cta-bg-a: var(--l5-blue);
-  --cta-bg-b: #3aa0f0;
-  --cta-ring: color-mix(in srgb, var(--l5-blue), white 35%);
+  --accent: var(--l5-blue);
+  --accent-2: var(--l5-peach);
+  --glow: rgba(41, 142, 232, 0.25);
+  --shadow: 0 10px 32px rgba(0, 0, 0, 0.45);
+  --badge-grad-a: #5b6cff;
+  --badge-grad-b: #3b82f6;
+}
 
-  --logo-ring: color-mix(in srgb, var(--l5-blue), white 45%);
+/* =========================================================
+   LAYOUT
+   ========================================================= */
 
+.page {
   min-height: 100dvh;
+  color: var(--text);
+  background:
+    radial-gradient(980px 520px at 50% -8%, var(--bg-a) 0%, var(--bg-b) 100%);
   display: grid;
   place-items: center;
   padding: 24px;
-  background: radial-gradient(900px 520px at 50% -6%, var(--bg-a) 0%, var(--bg-b) 70%, var(--bg-a) 100%);
-  color: var(--text);
 }
 
-/* Light overrides */
-:local(.light) {
-  --bg-a: #f7f8fc;
-  --bg-b: #eef2f8;
-
-  --text: var(--l5-gray-ink);
-  --muted: color-mix(in srgb, var(--l5-gray-ink), white 55%);
-
-  --card-bg: #ffffff;
-  --card-border: rgba(0, 0, 0, 0.08);
-  --card-shadow: 0 16px 60px rgba(0, 0, 0, 0.08);
-
-  --cta-bg-a: var(--l5-blue);
-  --cta-bg-b: #4aa8f1;
-  --cta-ring: color-mix(in srgb, var(--l5-blue), white 35%);
-  --logo-ring: color-mix(in srgb, var(--l5-blue), white 45%);
-}
-
-/* Dark overrides */
-:local(.dark) {
-  --bg-a: #0e1420;
-  --bg-b: #0b111a;
-
-  --text: var(--l5-white);
-  --muted: color-mix(in srgb, var(--l5-white), black 40%);
-
-  --card-bg: #101722;
-  --card-border: rgba(255, 255, 255, 0.08);
-  --card-shadow: 0 16px 60px rgba(0, 0, 0, 0.55);
-
-  --cta-bg-a: #1f75d8; /* darker blue for dark mode */
-  --cta-bg-b: #2a8aef;
-  --cta-ring: color-mix(in srgb, var(--l5-blue), black 35%);
-  --logo-ring: rgba(255, 255, 255, 0.12);
-}
-
-/* =============================
-   Card
-   ============================= */
-.card {
-  width: 560px;
-  max-width: calc(100vw - 32px);
-  background: var(--card-bg);
-  border: 1px solid var(--card-border);
-  border-radius: 16px;
-  box-shadow: var(--card-shadow);
-  padding: 22px 22px 18px;
+.shell {
+  width: 100%;
+  max-width: 960px;
   position: relative;
-  overflow: hidden;
-  isolation: isolate;
 }
 
-/* subtle top highlight */
-.card::before {
-  content: "";
-  position: absolute;
-  inset: -60px -60px auto -60px;
-  height: 140px;
-  background: radial-gradient(400px 90px at 30% 0%, color-mix(in srgb, var(--l5-red), transparent 86%), transparent 100%);
-  opacity: 0.35;
-  pointer-events: none;
-  z-index: -1;
+/* =========================================================
+   CARD
+   ========================================================= */
+.card {
+  width: 520px;
+  max-width: 100%;
+  margin: 0 auto;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  box-shadow: var(--shadow);
+  padding: 22px 22px 18px;
+  animation: pop 320ms cubic-bezier(.2,.7,.2,1) both;
 }
 
-/* =============================
-   Brand row
-   ============================= */
+@keyframes pop {
+  from { opacity: 0; transform: translateY(6px) scale(.98); }
+  to   { opacity: 1; transform: translateY(0)   scale(1); }
+}
+
+/* Brand row */
 .brandRow {
   display: flex;
   align-items: center;
   gap: 12px;
-  margin-bottom: 14px;
+  margin-bottom: 16px;
 }
 
-.logoWrap {
-  width: 44px;
-  height: 44px;
-  border-radius: 12px;
-  display: grid;
-  place-items: center;
-  background: color-mix(in srgb, var(--bg-b), black 2%);
-  border: 1px solid var(--logo-ring);
-  overflow: hidden;
-}
-.logoImg {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  display: block;
-}
-.logoFallback {
+.logoBadge {
   width: 44px;
   height: 44px;
   border-radius: 12px;
   display: grid;
   place-items: center;
   font-weight: 800;
-  font-size: 14px;
-  color: var(--l5-white);
-  background: linear-gradient(180deg, var(--l5-red), var(--l5-peach));
-  border: 1px solid rgba(255, 255, 255, 0.2);
+  letter-spacing: .5px;
+  color: #fff;
+  background: linear-gradient(180deg, var(--badge-grad-a) 0%, var(--badge-grad-b) 100%);
+  border: 1px solid rgba(255,255,255,.2);
+  box-shadow: 0 6px 22px rgba(0,0,0,.18);
 }
 
 .brandText { display: grid; gap: 2px; }
-.title { font-size: 20px; font-weight: 800; margin: 0; color: var(--text); }
+.title { margin: 0; font-size: 18px; font-weight: 800; }
 .subtitle { margin: 0; font-size: 12px; color: var(--muted); }
 
-/* =============================
-   CTA
-   ============================= */
+/* CTA button */
 .cta {
-  margin-top: 12px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
+  margin-top: 8px;
   height: 44px;
   width: 100%;
   border-radius: 12px;
-  text-decoration: none;
+  border: 1px solid color-mix(in srgb, var(--accent), #000 10%);
+  background: linear-gradient(135deg, color-mix(in srgb, var(--accent), #fff 10%), var(--accent));
   color: #fff;
-  background: linear-gradient(135deg, var(--cta-bg-a), var(--cta-bg-b));
-  border: 1px solid color-mix(in srgb, var(--cta-bg-a), #ffffff 10%);
-  box-shadow: 0 8px 24px color-mix(in srgb, var(--cta-bg-a), #000 70%);
   font-weight: 700;
-  letter-spacing: .1px;
+  cursor: pointer;
   position: relative;
-  overflow: hidden;
-  transform: translateZ(0);
+  outline: none;
+  transition: transform .12s ease, filter .12s ease, box-shadow .12s ease;
+  box-shadow:
+    0 6px 18px var(--glow),
+    inset 0 0 0 0 rgba(255,255,255,0);
 }
-.cta::after {
-  /* sheen animation */
-  content: "";
+
+.cta:hover { transform: translateY(-1px); filter: brightness(1.03); }
+.cta:active { transform: translateY(0); filter: brightness(.98); }
+
+.ctaDot {
   position: absolute;
-  inset: 0 -120% 0 auto;
-  width: 40%;
-  background: linear-gradient(
-    100deg,
-    transparent 0%,
-    rgba(255,255,255,.25) 40%,
-    rgba(255,255,255,.18) 60%,
-    transparent 100%
-  );
-  transform: translateX(-120%);
-  transition: transform .8s ease;
-}
-.cta:hover::after { transform: translateX(0%); }
-.cta:hover { filter: brightness(1.04); box-shadow: 0 10px 26px color-mix(in srgb, var(--cta-bg-a), #000 65%); }
-.cta:focus-visible { outline: 0; box-shadow: 0 0 0 4px var(--cta-ring); }
-
-.ctaIcon {
-  width: 22px;
-  height: 22px;
-  border-radius: 8px;
-  display: grid;
-  place-items: center;
-  background: color-mix(in srgb, var(--cta-bg-b), #000 14%);
-  border: 1px solid color-mix(in srgb, var(--cta-bg-b), #000 25%);
+  left: 12px;
+  top: 50%;
+  width: 10px;
+  height: 10px;
+  transform: translateY(-50%);
+  border-radius: 999px;
+  background: #fff;
+  opacity: .9;
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent), transparent 80%);
 }
 
-/* =============================
-   Note
-   ============================= */
 .note {
   margin: 10px 2px 0;
   font-size: 12px;
   color: var(--muted);
+  text-align: center;
 }
 
-/* =============================
-   Theme toggle (no overlap)
-   ============================= */
+/* =========================================================
+   THEME TOGGLE (anchored, non-overlapping)
+   ========================================================= */
 .themeToggle {
-  position: fixed;
-  right: 16px;
-  bottom: 16px;
-  z-index: 30;
-  height: 38px;
-  padding: 0 12px 0 8px;
-  border-radius: 999px;
-  border: 1px solid var(--card-border);
-  background: color-mix(in srgb, var(--card-bg), var(--bg-b) 30%);
-  color: var(--text);
+  position: absolute;
+  right: 8px;
+  bottom: 8px;
+  background: transparent;
+  border: none;
+  padding: 0;
+}
+
+.togglePill {
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  cursor: pointer;
-  font-weight: 600;
-  box-shadow: 0 6px 20px rgba(0,0,0,0.08);
-}
-.themeToggle:hover { filter: brightness(1.02); }
-.toggleDot {
-  width: 10px;
-  height: 10px;
+  padding: 6px 8px 6px 6px;
   border-radius: 999px;
-  display: inline-block;
-  background: radial-gradient(circle at 40% 40%, var(--l5-red) 0%, var(--l5-peach) 100%);
-  box-shadow: 0 0 0 2px color-mix(in srgb, var(--l5-red), white 65%);
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+}
+
+.toggleThumb {
+  width: 18px;
+  height: 18px;
+  border-radius: 999px;
+  background: var(--accent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent), transparent 80%);
+}
+
+.toggleThumb[data-pos="light"] { background: var(--accent); }
+.toggleThumb[data-pos="dark"]  { background: var(--l5-peach); }
+
+.toggleLabel {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+/* =========================================================
+   RESPONSIVE
+   ========================================================= */
+@media (max-width: 520px) {
+  .card { padding: 18px 16px 14px; }
+  .logoBadge { width: 40px; height: 40px; border-radius: 10px; }
+  .title { font-size: 16px; }
 }
