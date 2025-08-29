@@ -1,66 +1,238 @@
-/* Scoped theme tokens (default dark) */
-.wrap {
-  --bg-a:#121826; --bg-b:#0d1117;
-  --panel:#0f1420; --panel-2:#10151f; --border:#1f2736;
-  --text:#e6edf3; --muted:#9aa5b4;
-  --cta:#298ee8; --cta-text:#ffffff; /* same blue for both */
-}
-.wrap[data-theme="light"]{
-  --bg-a:#f6f7fb; --bg-b:#e9edf5;
-  --panel:#ffffff; --panel-2:#ffffff; --border:#e3e8ef;
-  --text:#293237; --muted:#5a585c;
-  --cta:#298ee8; --cta-text:#ffffff;
+/* =========================================================
+   L5 COLORS (tokens used locally so no global selectors)
+   ========================================================= */
+:local(.page) {
+  --l5-red: #d60000;
+  --l5-peach: #ff5758;
+  --l5-white: #fdfbff;
+
+  --l5-pink: #ffcdcd;
+  --l5-dark-blue: #002840;
+  --l5-gray-ink: #293237;
+  --l5-gray-mid: #5a585c;
+  --l5-yellow: #ffcf37;
+  --l5-blue: #298ee8;
+
+  /* Surface / text tokens (set per-theme below) */
+  --bg-a: #ffffff;
+  --bg-b: #ffffff;
+  --text: #293237;
+  --muted: color-mix(in srgb, var(--l5-gray-ink), white 45%);
+
+  --card-bg: #ffffff;
+  --card-border: rgba(0, 0, 0, 0.08);
+  --card-shadow: 0 10px 40px rgba(0, 0, 0, 0.08);
+
+  --cta-bg-a: var(--l5-blue);
+  --cta-bg-b: #3aa0f0;
+  --cta-ring: color-mix(in srgb, var(--l5-blue), white 35%);
+
+  --logo-ring: color-mix(in srgb, var(--l5-blue), white 45%);
+
+  min-height: 100dvh;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: radial-gradient(900px 520px at 50% -6%, var(--bg-a) 0%, var(--bg-b) 70%, var(--bg-a) 100%);
+  color: var(--text);
 }
 
-.page{
-  min-height:100dvh;
-  background: radial-gradient(900px 480px at 50% -8%, var(--bg-a) 0%, var(--bg-b) 100%);
-  display:grid; place-items:center; color:var(--text);
-  padding: 24px 16px;
-}
-.card{
-  width:420px; max-width:100%;
-  background:var(--panel);
-  border:1px solid var(--border);
-  border-radius:16px; padding:20px;
-  box-shadow:0 20px 60px rgba(0,0,0,.35);
-  transform: translateY(6px);
-  animation: rise .32s ease forwards;
-}
-@keyframes rise { to { transform: translateY(0); } }
+/* Light overrides */
+:local(.light) {
+  --bg-a: #f7f8fc;
+  --bg-b: #eef2f8;
 
-.brand{
-  display:flex; align-items:center; gap:10px; margin-bottom:14px;
-}
-.logo{
-  width:38px; height:38px; border-radius:10px; overflow:hidden; border:1px solid var(--border); background:#fff; display:grid; place-items:center;
-}
-.logo img{ width:100%; height:100%; object-fit:cover; display:block; }
-.h1{ font-size:18px; font-weight:800; margin:0; }
-.sub{ font-size:12px; color:var(--muted); margin-top:2px; }
+  --text: var(--l5-gray-ink);
+  --muted: color-mix(in srgb, var(--l5-gray-ink), white 55%);
 
-.btn{
-  width:100%; height:42px; border-radius:12px;
-  border:1px solid color-mix(in srgb, var(--cta), #000 14%);
-  background: linear-gradient(180deg, color-mix(in srgb, var(--cta), #fff 8%), var(--cta));
-  color: var(--cta-text); font-weight:700; cursor:pointer;
-  box-shadow: 0 6px 16px color-mix(in srgb, var(--cta), transparent 72%);
-  transition: transform .08s ease, filter .12s ease, box-shadow .12s ease;
-}
-.btn:hover{ filter:brightness(1.02); transform: translateY(-1px); box-shadow: 0 10px 20px color-mix(in srgb, var(--cta), transparent 64%); }
+  --card-bg: #ffffff;
+  --card-border: rgba(0, 0, 0, 0.08);
+  --card-shadow: 0 16px 60px rgba(0, 0, 0, 0.08);
 
-.help{ margin-top:10px; font-size:12px; color:var(--muted); text-align:center; }
+  --cta-bg-a: var(--l5-blue);
+  --cta-bg-b: #4aa8f1;
+  --cta-ring: color-mix(in srgb, var(--l5-blue), white 35%);
+  --logo-ring: color-mix(in srgb, var(--l5-blue), white 45%);
+}
 
-/* toggle (same look as dashboard) */
-.toggle { margin-top:14px; display:flex; justify-content:center; gap:8px; align-items:center; }
-.toggleBtn {
-  width:54px; height:28px; border-radius:999px; border:1px solid var(--border);
-  background: var(--panel-2); display:flex; align-items:center; padding:2px; cursor:pointer;
+/* Dark overrides */
+:local(.dark) {
+  --bg-a: #0e1420;
+  --bg-b: #0b111a;
+
+  --text: var(--l5-white);
+  --muted: color-mix(in srgb, var(--l5-white), black 40%);
+
+  --card-bg: #101722;
+  --card-border: rgba(255, 255, 255, 0.08);
+  --card-shadow: 0 16px 60px rgba(0, 0, 0, 0.55);
+
+  --cta-bg-a: #1f75d8; /* darker blue for dark mode */
+  --cta-bg-b: #2a8aef;
+  --cta-ring: color-mix(in srgb, var(--l5-blue), black 35%);
+  --logo-ring: rgba(255, 255, 255, 0.12);
 }
-.toggleKnob {
-  width:24px; height:24px; border-radius:999px; background:#298ee8;
-  box-shadow:0 2px 6px rgba(41,142,232,.45);
-  transform: translateX(0); transition: transform .22s cubic-bezier(.2,.7,.2,1);
+
+/* =============================
+   Card
+   ============================= */
+.card {
+  width: 560px;
+  max-width: calc(100vw - 32px);
+  background: var(--card-bg);
+  border: 1px solid var(--card-border);
+  border-radius: 16px;
+  box-shadow: var(--card-shadow);
+  padding: 22px 22px 18px;
+  position: relative;
+  overflow: hidden;
+  isolation: isolate;
 }
-.on .toggleKnob { transform: translateX(26px); }
-.label { font-size:12px; color:var(--muted); }
+
+/* subtle top highlight */
+.card::before {
+  content: "";
+  position: absolute;
+  inset: -60px -60px auto -60px;
+  height: 140px;
+  background: radial-gradient(400px 90px at 30% 0%, color-mix(in srgb, var(--l5-red), transparent 86%), transparent 100%);
+  opacity: 0.35;
+  pointer-events: none;
+  z-index: -1;
+}
+
+/* =============================
+   Brand row
+   ============================= */
+.brandRow {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.logoWrap {
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  display: grid;
+  place-items: center;
+  background: color-mix(in srgb, var(--bg-b), black 2%);
+  border: 1px solid var(--logo-ring);
+  overflow: hidden;
+}
+.logoImg {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+.logoFallback {
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  display: grid;
+  place-items: center;
+  font-weight: 800;
+  font-size: 14px;
+  color: var(--l5-white);
+  background: linear-gradient(180deg, var(--l5-red), var(--l5-peach));
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.brandText { display: grid; gap: 2px; }
+.title { font-size: 20px; font-weight: 800; margin: 0; color: var(--text); }
+.subtitle { margin: 0; font-size: 12px; color: var(--muted); }
+
+/* =============================
+   CTA
+   ============================= */
+.cta {
+  margin-top: 12px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  height: 44px;
+  width: 100%;
+  border-radius: 12px;
+  text-decoration: none;
+  color: #fff;
+  background: linear-gradient(135deg, var(--cta-bg-a), var(--cta-bg-b));
+  border: 1px solid color-mix(in srgb, var(--cta-bg-a), #ffffff 10%);
+  box-shadow: 0 8px 24px color-mix(in srgb, var(--cta-bg-a), #000 70%);
+  font-weight: 700;
+  letter-spacing: .1px;
+  position: relative;
+  overflow: hidden;
+  transform: translateZ(0);
+}
+.cta::after {
+  /* sheen animation */
+  content: "";
+  position: absolute;
+  inset: 0 -120% 0 auto;
+  width: 40%;
+  background: linear-gradient(
+    100deg,
+    transparent 0%,
+    rgba(255,255,255,.25) 40%,
+    rgba(255,255,255,.18) 60%,
+    transparent 100%
+  );
+  transform: translateX(-120%);
+  transition: transform .8s ease;
+}
+.cta:hover::after { transform: translateX(0%); }
+.cta:hover { filter: brightness(1.04); box-shadow: 0 10px 26px color-mix(in srgb, var(--cta-bg-a), #000 65%); }
+.cta:focus-visible { outline: 0; box-shadow: 0 0 0 4px var(--cta-ring); }
+
+.ctaIcon {
+  width: 22px;
+  height: 22px;
+  border-radius: 8px;
+  display: grid;
+  place-items: center;
+  background: color-mix(in srgb, var(--cta-bg-b), #000 14%);
+  border: 1px solid color-mix(in srgb, var(--cta-bg-b), #000 25%);
+}
+
+/* =============================
+   Note
+   ============================= */
+.note {
+  margin: 10px 2px 0;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+/* =============================
+   Theme toggle (no overlap)
+   ============================= */
+.themeToggle {
+  position: fixed;
+  right: 16px;
+  bottom: 16px;
+  z-index: 30;
+  height: 38px;
+  padding: 0 12px 0 8px;
+  border-radius: 999px;
+  border: 1px solid var(--card-border);
+  background: color-mix(in srgb, var(--card-bg), var(--bg-b) 30%);
+  color: var(--text);
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  font-weight: 600;
+  box-shadow: 0 6px 20px rgba(0,0,0,0.08);
+}
+.themeToggle:hover { filter: brightness(1.02); }
+.toggleDot {
+  width: 10px;
+  height: 10px;
+  border-radius: 999px;
+  display: inline-block;
+  background: radial-gradient(circle at 40% 40%, var(--l5-red) 0%, var(--l5-peach) 100%);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--l5-red), white 65%);
+}

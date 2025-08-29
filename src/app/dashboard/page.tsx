@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import styles from "./Dashboard.module.css";
 
 /** ---- SSR-safe date helpers ---- */
@@ -123,12 +123,15 @@ function BarsHorizontal({
 }
 
 export default function DashboardPage() {
-  /** theme (persists + used by CSS module via data-theme) */
-  const [theme, setTheme] = useState<"dark"|"light">(() => {
-    if (typeof window === "undefined") return "dark";
-    return (localStorage.getItem("theme") as "dark"|"light") || "light";
+  /** theme */
+  const [theme, setTheme] = useState<"light" | "dark">(() => {
+    if (typeof window === "undefined") return "light";
+    return (localStorage.getItem("theme") as "light" | "dark") || "light";
   });
-  useEffect(() => { try { localStorage.setItem("theme", theme); } catch {} }, [theme]);
+  const pageRef = useRef<HTMLDivElement | null>(null);
+  useEffect(() => {
+    localStorage.setItem("theme", theme);
+  }, [theme]);
 
   /** week state */
   const [weekStart, setWeekStart] = useState<Date>(() => startOfWeek());
@@ -450,20 +453,28 @@ export default function DashboardPage() {
     }
   }
 
-  /** load admin summary rows for chart 2 */
+  /** load admin summary rows for chart 2 (map IDs to names) */
   useEffect(() => {
     if (!isAdmin) return;
     const start = ymd(weekStart), end = ymd(weekEnd);
     (async () => {
       const r = await fetch(`/api/admin/summary?start=${start}&end=${end}`, { cache: "no-store" });
-      const j = await r.json().catch(()=>({ rows: [] }));
-      setOverviewRows((j.rows || []).map((x: any)=>({ name: x.name, est: x.est || 0, tracked: x.tracked || 0 })));
+      const j = await r.json().catch(()=>({ rows: [] as any[] }));
+      const rowsRaw: any[] = j.rows || [];
+      const mapped = rowsRaw.map((x) => {
+        let label = String(x.name ?? "");
+        // If API sends numeric/string ID, display member name/email instead
+        const byId = members.find(m => m.id === label);
+        if (byId) label = byId.username || byId.email || byId.id;
+        return { name: label, est: x.est || 0, tracked: x.tracked || 0 };
+      });
+      setOverviewRows(mapped);
     })();
-  }, [isAdmin, weekStart, weekEnd]);
+  }, [isAdmin, weekStart, weekEnd, members]);
 
   /** ---- render ---- */
   return (
-    <div className={styles.page} data-theme={theme}>
+    <div ref={pageRef} className={styles.page} data-theme={theme}>
       <div className={styles.shell}>
 
         {/* top header bar */}
@@ -473,7 +484,7 @@ export default function DashboardPage() {
             <div className={styles.logoWrap}>
               <img
                 className={styles.logoImg}
-                src="/company_logo.png"
+                src="/company-logo.png"
                 alt="Company"
                 onError={(e) => {
                   e.currentTarget.style.display = "none";
@@ -688,7 +699,7 @@ export default function DashboardPage() {
           </section>
         )}
 
-        {/* ====== MONTH VIEW ====== */}
+        {/* ====== MONTH VIEW (responsive, no overlap; shows live data for selected week) ====== */}
         {viewMode === "month" && (
           <>
             <div className={styles.summary} style={{ marginTop: 0 }}>
@@ -811,6 +822,18 @@ export default function DashboardPage() {
 
       </div>
 
+      {/* Theme switch (fixed, non-overlapping) */}
+      <div className={styles.themeSwitch}>
+        <button
+          className={styles.toggleBtn}
+          onClick={()=> setTheme(t => (t === "light" ? "dark" : "light"))}
+          aria-label="Toggle theme"
+        >
+          <span className={styles.knob} data-on={theme === "light"}/>
+          <span className={styles.toggleLabel}>{theme === "light" ? "Light" : "Dark"}</span>
+        </button>
+      </div>
+
       {/* --- Modal for Tracked Time --- */}
       {modalOpen && (
         <div className={styles.modalBackdrop} onClick={closeTrackModal}>
@@ -856,7 +879,7 @@ export default function DashboardPage() {
         </div>
       )}
 
-      {/* --- Admin: Add Project modal --- */}
+      {/* --- Admin: Add Project modal (opaque) --- */}
       {isAdmin && addOpen && (
         <div className={styles.modalBackdrop} onClick={()=> setAddOpen(false)}>
           <div className={styles.modal} onClick={(e)=> e.stopPropagation()}>
@@ -900,19 +923,6 @@ export default function DashboardPage() {
           </div>
         </div>
       )}
-
-      {/* Theme toggle */}
-      <div className={styles.themeToggle}>
-        <div
-          className={`${styles.toggleBtn} ${theme === "light" ? styles.toggleOn : ""}`}
-          role="switch"
-          aria-checked={theme === "light"}
-          onClick={()=> setTheme(t => t === "light" ? "dark" : "light")}
-        >
-          <div className={styles.toggleKnob} />
-        </div>
-        <span className={styles.toggleLabel}>{theme === "light" ? "Light" : "Dark"}</span>
-      </div>
     </div>
   );
 }

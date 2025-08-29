@@ -3,53 +3,72 @@
 import { useEffect, useState } from "react";
 import styles from "./Login.module.css";
 
+type Theme = "light" | "dark";
+
 export default function LoginPage() {
-  const [theme, setTheme] = useState<"dark"|"light">(() => {
-    if (typeof window === "undefined") return "light";
-    return (localStorage.getItem("theme") as "dark"|"light") || "light";
-  });
-  useEffect(()=> { try { localStorage.setItem("theme", theme); } catch{} }, [theme]);
+  const [theme, setTheme] = useState<Theme>("light");
+
+  // Read saved preference or system
+  useEffect(() => {
+    const stored = (typeof window !== "undefined" && localStorage.getItem("theme")) as Theme | null;
+    if (stored === "light" || stored === "dark") {
+      setTheme(stored);
+    } else {
+      const prefersDark =
+        typeof window !== "undefined" &&
+        window.matchMedia &&
+        window.matchMedia("(prefers-color-scheme: dark)").matches;
+      setTheme(prefersDark ? "dark" : "light");
+    }
+  }, []);
+
+  // Persist + expose on <html data-theme="">
+  useEffect(() => {
+    if (typeof document !== "undefined") {
+      document.documentElement.setAttribute("data-theme", theme);
+      try { localStorage.setItem("theme", theme); } catch {}
+    }
+  }, [theme]);
+
+  const toggleTheme = () => setTheme((t) => (t === "light" ? "dark" : "light"));
 
   return (
-    <div className={styles.wrap} data-theme={theme}>
-      <main className={styles.page}>
-        <section className={styles.card}>
-          <div className={styles.brand}>
-            <div className={styles.logo}>
-              <img
-                src="/company_logo.png"
-                alt="Company"
-                onError={(e)=>{ e.currentTarget.style.display="none"; }}
-              />
-            </div>
-            <div>
-              <h1 className={styles.h1}>Weekly Time Tracking</h1>
-              <div className={styles.sub}>Sign in</div>
-            </div>
+    <main className={`${styles.page} ${theme === "light" ? styles.light : styles.dark}`}>
+      <div className={styles.card}>
+        <div className={styles.brandRow}>
+          <div className={styles.logoWrap}>
+            <img
+              className={styles.logoImg}
+              src="/company-logo.png"
+              alt="Company"
+              onError={(e) => {
+                e.currentTarget.style.display = "none";
+                const sib = document.createElement("div");
+                sib.className = styles.logoFallback;
+                sib.textContent = "L5";
+                (e.currentTarget.parentElement as HTMLElement).appendChild(sib);
+              }}
+            />
           </div>
-
-          <button
-            className={styles.btn}
-            onClick={() => { window.location.href = "/api/auth/login"; }}
-          >
-            Continue with ClickUp
-          </button>
-
-          <div className={styles.help}>You’ll be redirected to ClickUp to grant access.</div>
-
-          <div className={styles.toggle}>
-            <div
-              className={`${styles.toggleBtn} ${theme === "light" ? styles.on : ""}`}
-              role="switch"
-              aria-checked={theme === "light"}
-              onClick={()=> setTheme(t => t === "light" ? "dark" : "light")}
-            >
-              <div className={styles.toggleKnob}/>
-            </div>
-            <span className={styles.label}>{theme === "light" ? "Light" : "Dark"}</span>
+          <div className={styles.brandText}>
+            <h1 className={styles.title}>Weekly Time Tracking</h1>
+            <p className={styles.subtitle}>Sign in to continue</p>
           </div>
-        </section>
-      </main>
-    </div>
+        </div>
+
+        <a href="/api/auth/clickup" className={styles.cta} aria-label="Continue with ClickUp">
+          <span className={styles.ctaIcon} aria-hidden>↪</span>
+          Continue with ClickUp
+        </a>
+
+        <p className={styles.note}>You’ll be redirected to ClickUp to grant access.</p>
+      </div>
+
+      {/* Theme toggle (no overlap with anything) */}
+      <button className={styles.themeToggle} onClick={toggleTheme}>
+        <span className={styles.toggleDot} />
+        {theme === "light" ? "Light" : "Dark"}
+      </button>
+    </main>
   );
 }
