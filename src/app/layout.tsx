@@ -11,13 +11,13 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" data-theme="dark">
+    <html lang="en" data-theme="light">
       <head>
         <meta name="theme-color" content="#0b0f14" />
       </head>
       <body>
         {children}
-        {/* Global, aesthetic corner toggle — move corner if you prefer */}
+        {/* one global switch; pick your corner */}
         <ThemeSwitch corner="top-right" />
       </body>
     </html>

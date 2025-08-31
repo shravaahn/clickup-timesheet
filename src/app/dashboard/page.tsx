@@ -102,31 +102,41 @@ function BarsVertical({
   );
 }
 
+/* FIXED: overlapping consultants – more vertical spacing, safe label truncation, bigger width */
 function BarsHorizontal({
   labels, a, b, titleA="Est", titleB="Tracked", maxBars=8,
 }: { labels: string[]; a: number[]; b: number[]; titleA?: string; titleB?: string; maxBars?: number }) {
   const rows = labels.map((name, i) => ({ name, a: a[i] || 0, b: b[i] || 0 }))
     .sort((x,y)=> (y.b - y.a) - (x.b - x.a))
     .slice(0, maxBars);
-  const H = Math.max(150, rows.length * 34 + 48), W = 680, pad = 26;
+
+  const rowH = 42; // was 34 — give bars breathing room
+  const H = Math.max(160, rows.length * rowH + 60);
+  const pad = 26;
+  const W = 760; // a bit wider so long names + legend don’t collide
   const maxVal = Math.max(1, ...rows.map(r=>Math.max(r.a,r.b))) * 1.15;
-  const x = (v: number) => pad + (v / maxVal) * (W - pad - 14);
+  const x = (v: number) => pad + (v / maxVal) * (W - pad - 18);
+
+  // truncate long labels visually (full shown in title tooltip)
+  const short = (s: string) => (s.length > 22 ? `${s.slice(0, 20)}…` : s);
+
   return (
     <svg className={styles.chartSvg} viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none">
       {rows.map((r, i) => {
-        const y = 28 + i * 34;
+        const yBase = 30 + i * rowH;
         return (
           <g key={i}>
-            <text x={pad} y={y-6} className={styles.chartY}>{r.name}</text>
-            <line x1={pad} y1={y} x2={W-10} y2={y} className={styles.chartGrid}/>
-            <rect x={pad} y={y+6} width={x(r.a)-pad} height="10" className={styles.barA}/>
-            <rect x={pad} y={y+18} width={x(r.b)-pad} height="10" className={styles.barB}/>
+            <title>{r.name}</title>
+            <text x={pad} y={yBase-8} className={styles.chartY}>{short(r.name)}</text>
+            <line x1={pad} y1={yBase} x2={W-10} y2={yBase} className={styles.chartGrid}/>
+            <rect x={pad} y={yBase+6}  width={Math.max(0, x(r.a)-pad)} height="11" className={styles.barA}/>
+            <rect x={pad} y={yBase+20} width={Math.max(0, x(r.b)-pad)} height="11" className={styles.barB}/>
           </g>
         );
       })}
       <g>
-        <rect x={W - 160} y={10} width="10" height="10" className={styles.barA}/><text x={W-144} y={19} className={styles.leg}>{titleA}</text>
-        <rect x={W - 90} y={10} width="10" height="10" className={styles.barB}/><text x={W-74} y={19} className={styles.leg}>{titleB}</text>
+        <rect x={W - 170} y={10} width="10" height="10" className={styles.barA}/><text x={W-154} y={19} className={styles.leg}>{titleA}</text>
+        <rect x={W - 100} y={10} width="10" height="10" className={styles.barB}/><text x={W-84}  y={19} className={styles.leg}>{titleB}</text>
       </g>
     </svg>
   );
@@ -135,14 +145,16 @@ function BarsHorizontal({
 export default function DashboardPage() {
   /* ---------- Theme state ---------- */
   const [theme, setTheme] = useState<Scheme>("light");
+
   useEffect(() => { setTheme(getInitialTheme()); }, []);
+
   useEffect(() => {
-    // Persist + set <html data-theme> for any global styles
+    // Persist + set attributes so both login & dashboard pick up the same palette
     if (typeof document !== "undefined") {
-      document.documentElement.setAttribute("data-theme", theme);
+      document.documentElement.setAttribute("data-theme", theme);       // <html data-theme>
+      window.localStorage.setItem("theme", theme);
       const meta = document.querySelector('meta[name="theme-color"]') as HTMLMetaElement | null;
       if (meta) meta.content = theme === "light" ? "#f6f7fb" : "#0b0f14";
-      window.localStorage.setItem("theme", theme);
     }
   }, [theme]);
 
@@ -727,7 +739,7 @@ export default function DashboardPage() {
           </section>
         )}
 
-        {/* ====== MONTH VIEW ====== */}
+        {/* ====== MONTH VIEW (responsive, no overlap; shows live data for selected week) ====== */}
         {viewMode === "month" && (
           <>
             <div className={styles.summary} style={{ marginTop: 0 }}>
@@ -894,7 +906,7 @@ export default function DashboardPage() {
         </div>
       )}
 
-      {/* --- Admin: Add Project modal --- */}
+      {/* --- Admin: Add Project modal (centered & opaque) --- */}
       {isAdmin && addOpen && (
         <div className={styles.modalBackdrop} onClick={()=> setAddOpen(false)}>
           <div className={styles.modal} onClick={(e)=> e.stopPropagation()}>
@@ -939,7 +951,7 @@ export default function DashboardPage() {
         </div>
       )}
 
-      {/* ---------- Corner Theme Toggle ---------- */}
+      {/* ---------- Corner Theme Toggle (single source of truth) ---------- */}
       <div className={styles.themeSwitch}>
         <button
           className={styles.toggleBtn}
