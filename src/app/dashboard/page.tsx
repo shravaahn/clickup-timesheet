@@ -1,7 +1,38 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import styles from "./Dashboard.module.css";
+
+/** ---- L5 Light palette (inline CSS vars, avoids CSS-Modules :root problems) ---- */
+const LIGHT_VARS: React.CSSProperties = {
+  // Background gradients
+  ["--bg-grad-a" as any]: "#f6f7fb",
+  ["--bg-grad-b" as any]: "#eef1f6",
+  ["--bg-grad-c" as any]: "#e9edf5",
+  // Text
+  ["--text" as any]: "#0b1220",
+  ["--muted" as any]: "#5b6578",
+  // Panels
+  ["--panel" as any]: "#ffffff",
+  ["--panel-2" as any]: "#f9fbff",
+  ["--panel-3" as any]: "#f3f6fb",
+  // Borders
+  ["--border" as any]: "#e3e8ef",
+  ["--border-2" as any]: "#e6ebf2",
+  ["--border-3" as any]: "#dbe2ee",
+  // Brand accents (L5)
+  ["--badge-a" as any]: "#ff8189", // pinky red start
+  ["--badge-b" as any]: "#d60000", // L5 red
+  ["--accent"  as any]: "#d60000",
+  // Status
+  ["--good" as any]: "#10b981",
+  ["--warn" as any]: "#f59e0b",
+  // Buttons
+  ["--btnGradA" as any]: "#ffffff",
+  ["--btnGradB" as any]: "#f6f7fb",
+  ["--btnText"  as any]: "#0b1220",
+  ["--toggleIconBg" as any]: "#ffffff",
+} as any;
 
 /** ---- SSR-safe date helpers ---- */
 const MONTHS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
@@ -96,8 +127,8 @@ function BarsHorizontal({
   labels, a, b, titleA="Est", titleB="Tracked", maxBars=8,
 }: { labels: string[]; a: number[]; b: number[]; titleA?: string; titleB?: string; maxBars?: number }) {
   const rows = labels.map((name, i) => ({ name, a: a[i] || 0, b: b[i] || 0 }))
-                     .sort((x,y)=> (y.b - y.a) - (x.b - x.a))
-                     .slice(0, maxBars);
+    .sort((x,y)=> (y.b - y.a) - (x.b - x.a))
+    .slice(0, maxBars);
   const H = Math.max(150, rows.length * 34 + 48), W = 680, pad = 26;
   const maxVal = Math.max(1, ...rows.map(r=>Math.max(r.a,r.b))) * 1.15;
   const x = (v: number) => pad + (v / maxVal) * (W - pad - 14);
@@ -123,16 +154,6 @@ function BarsHorizontal({
 }
 
 export default function DashboardPage() {
-  /** theme */
-  const [theme, setTheme] = useState<"light" | "dark">(() => {
-    if (typeof window === "undefined") return "light";
-    return (localStorage.getItem("theme") as "light" | "dark") || "light";
-  });
-  const pageRef = useRef<HTMLDivElement | null>(null);
-  useEffect(() => {
-    localStorage.setItem("theme", theme);
-  }, [theme]);
-
   /** week state */
   const [weekStart, setWeekStart] = useState<Date>(() => startOfWeek());
   const weekEnd = useMemo(() => addDays(weekStart, 4), [weekStart]);
@@ -327,6 +348,22 @@ export default function DashboardPage() {
     return { dayEst, dayTracked, sumEst, sumTracked, delta };
   }, [rows]);
 
+  /** helper: resolve consultant id -> friendly name for charts */
+  const memberNameById = useMemo(() => {
+    const m = new Map<string,string>();
+    for (const mem of members) m.set(mem.id, mem.username || mem.email || mem.id);
+    return m;
+  }, [members]);
+
+  const overviewResolved = useMemo(() => {
+    return overviewRows.map(r => {
+      // If backend sent an ID-like value, replace with friendly name if we have it.
+      const looksLikeId = /^[0-9]+$/.test(r.name) || r.name.length > 20;
+      const friendly = looksLikeId ? (memberNameById.get(r.name) || r.name) : r.name;
+      return { ...r, name: friendly };
+    });
+  }, [overviewRows, memberNameById]);
+
   /** actions */
   async function saveEstimate(taskId: string, taskName: string, i: number, val: number) {
     if (!selectedUserId) return;
@@ -338,7 +375,12 @@ export default function DashboardPage() {
     }));
     const r = await fetch("/api/timesheet", {
       method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ type: "estimate", userId: selectedUserId, taskId, taskName, date, hours: Number(val) }),
+      body: JSON.stringify({
+        type: "estimate",
+        userId: selectedUserId,
+        taskId, taskName, date, hours: Number(val),
+        syncToClickUp: true, // hint for backend to mirror to ClickUp
+      }),
     });
     if (!r.ok) {
       setRows(prev => prev.map(row => {
@@ -362,7 +404,12 @@ export default function DashboardPage() {
     }));
     const r = await fetch("/api/timesheet", {
       method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ type: "tracked", userId: selectedUserId, taskId, taskName, date, hours: Number(val), note }),
+      body: JSON.stringify({
+        type: "tracked",
+        userId: selectedUserId,
+        taskId, taskName, date, hours: Number(val), note,
+        syncToClickUp: true, // hint for backend to mirror to ClickUp
+      }),
     });
     if (!r.ok) {
       setRows(prev => prev.map(row => {
@@ -453,30 +500,21 @@ export default function DashboardPage() {
     }
   }
 
-  /** load admin summary rows for chart 2 (map IDs to names) */
+  /** load admin summary rows for chart 2 */
   useEffect(() => {
     if (!isAdmin) return;
     const start = ymd(weekStart), end = ymd(weekEnd);
     (async () => {
       const r = await fetch(`/api/admin/summary?start=${start}&end=${end}`, { cache: "no-store" });
-      const j = await r.json().catch(()=>({ rows: [] as any[] }));
-      const rowsRaw: any[] = j.rows || [];
-      const mapped = rowsRaw.map((x) => {
-        let label = String(x.name ?? "");
-        // If API sends numeric/string ID, display member name/email instead
-        const byId = members.find(m => m.id === label);
-        if (byId) label = byId.username || byId.email || byId.id;
-        return { name: label, est: x.est || 0, tracked: x.tracked || 0 };
-      });
-      setOverviewRows(mapped);
+      const j = await r.json().catch(()=>({ rows: [] }));
+      setOverviewRows((j.rows || []).map((x: any)=>({ name: String(x.name), est: x.est || 0, tracked: x.tracked || 0 })));
     })();
-  }, [isAdmin, weekStart, weekEnd, members]);
+  }, [isAdmin, weekStart, weekEnd]);
 
   /** ---- render ---- */
   return (
-    <div ref={pageRef} className={styles.page} data-theme={theme}>
+    <div className={styles.page} style={LIGHT_VARS}>
       <div className={styles.shell}>
-
         {/* top header bar */}
         <header className={styles.header}>
           <div className={styles.brand}>
@@ -788,9 +826,9 @@ export default function DashboardPage() {
                   <a className={styles.chartLink} href="/admin/overview">Open Overview</a>
                 </div>
                 <BarsHorizontal
-                  labels={overviewRows.map(r=>r.name)}
-                  a={overviewRows.map(r=>r.est)}
-                  b={overviewRows.map(r=>r.tracked)}
+                  labels={overviewResolved.map(r=>r.name)}
+                  a={overviewResolved.map(r=>r.est)}
+                  b={overviewResolved.map(r=>r.tracked)}
                   titleA="Est"
                   titleB="Tracked"
                   maxBars={8}
@@ -820,18 +858,6 @@ export default function DashboardPage() {
           </section>
         )}
 
-      </div>
-
-      {/* Theme switch (fixed, non-overlapping) */}
-      <div className={styles.themeSwitch}>
-        <button
-          className={styles.toggleBtn}
-          onClick={()=> setTheme(t => (t === "light" ? "dark" : "light"))}
-          aria-label="Toggle theme"
-        >
-          <span className={styles.knob} data-on={theme === "light"}/>
-          <span className={styles.toggleLabel}>{theme === "light" ? "Light" : "Dark"}</span>
-        </button>
       </div>
 
       {/* --- Modal for Tracked Time --- */}
@@ -879,7 +905,7 @@ export default function DashboardPage() {
         </div>
       )}
 
-      {/* --- Admin: Add Project modal (opaque) --- */}
+      {/* --- Admin: Add Project modal (centered & opaque) --- */}
       {isAdmin && addOpen && (
         <div className={styles.modalBackdrop} onClick={()=> setAddOpen(false)}>
           <div className={styles.modal} onClick={(e)=> e.stopPropagation()}>
