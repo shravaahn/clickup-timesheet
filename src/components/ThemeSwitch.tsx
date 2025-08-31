@@ -1,4 +1,4 @@
-"use client";
+/*"use client";
 
 import { useEffect, useState } from "react";
 
@@ -72,8 +72,8 @@ export default function ThemeSwitch() {
           transition: "background .2s ease",
         }}
       >
-        {/* simple sun/moon glyph that cross-fades */}
-        <span
+        {/* simple sun/moon glyph that cross-fades *///}
+       /* <span
           aria-hidden
           style={{
             position: "relative",
@@ -94,3 +94,4 @@ export default function ThemeSwitch() {
     </button>
   );
 }
+*/
