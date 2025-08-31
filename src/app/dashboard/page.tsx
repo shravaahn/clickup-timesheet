@@ -3,36 +3,15 @@
 import { useEffect, useMemo, useState } from "react";
 import styles from "./Dashboard.module.css";
 
-/** ---- L5 Light palette (inline CSS vars, avoids CSS-Modules :root problems) ---- */
-const LIGHT_VARS: React.CSSProperties = {
-  // Background gradients
-  ["--bg-grad-a" as any]: "#f6f7fb",
-  ["--bg-grad-b" as any]: "#eef1f6",
-  ["--bg-grad-c" as any]: "#e9edf5",
-  // Text
-  ["--text" as any]: "#0b1220",
-  ["--muted" as any]: "#5b6578",
-  // Panels
-  ["--panel" as any]: "#ffffff",
-  ["--panel-2" as any]: "#f9fbff",
-  ["--panel-3" as any]: "#f3f6fb",
-  // Borders
-  ["--border" as any]: "#e3e8ef",
-  ["--border-2" as any]: "#e6ebf2",
-  ["--border-3" as any]: "#dbe2ee",
-  // Brand accents (L5)
-  ["--badge-a" as any]: "#ff8189", // pinky red start
-  ["--badge-b" as any]: "#d60000", // L5 red
-  ["--accent"  as any]: "#d60000",
-  // Status
-  ["--good" as any]: "#10b981",
-  ["--warn" as any]: "#f59e0b",
-  // Buttons
-  ["--btnGradA" as any]: "#ffffff",
-  ["--btnGradB" as any]: "#f6f7fb",
-  ["--btnText"  as any]: "#0b1220",
-  ["--toggleIconBg" as any]: "#ffffff",
-} as any;
+/* ---------- Theme helpers (SSR-safe) ---------- */
+type Scheme = "light" | "dark";
+function getInitialTheme(): Scheme {
+  if (typeof window === "undefined") return "light";
+  const stored = window.localStorage.getItem("theme");
+  if (stored === "light" || stored === "dark") return stored;
+  const prefersLight = window.matchMedia?.("(prefers-color-scheme: light)").matches;
+  return prefersLight ? "light" : "dark";
+}
 
 /** ---- SSR-safe date helpers ---- */
 const MONTHS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
@@ -154,6 +133,19 @@ function BarsHorizontal({
 }
 
 export default function DashboardPage() {
+  /* ---------- Theme state ---------- */
+  const [theme, setTheme] = useState<Scheme>("light");
+  useEffect(() => { setTheme(getInitialTheme()); }, []);
+  useEffect(() => {
+    // Persist + set <html data-theme> for any global styles
+    if (typeof document !== "undefined") {
+      document.documentElement.setAttribute("data-theme", theme);
+      const meta = document.querySelector('meta[name="theme-color"]') as HTMLMetaElement | null;
+      if (meta) meta.content = theme === "light" ? "#f6f7fb" : "#0b0f14";
+      window.localStorage.setItem("theme", theme);
+    }
+  }, [theme]);
+
   /** week state */
   const [weekStart, setWeekStart] = useState<Date>(() => startOfWeek());
   const weekEnd = useMemo(() => addDays(weekStart, 4), [weekStart]);
@@ -357,7 +349,6 @@ export default function DashboardPage() {
 
   const overviewResolved = useMemo(() => {
     return overviewRows.map(r => {
-      // If backend sent an ID-like value, replace with friendly name if we have it.
       const looksLikeId = /^[0-9]+$/.test(r.name) || r.name.length > 20;
       const friendly = looksLikeId ? (memberNameById.get(r.name) || r.name) : r.name;
       return { ...r, name: friendly };
@@ -379,7 +370,7 @@ export default function DashboardPage() {
         type: "estimate",
         userId: selectedUserId,
         taskId, taskName, date, hours: Number(val),
-        syncToClickUp: true, // hint for backend to mirror to ClickUp
+        syncToClickUp: true,
       }),
     });
     if (!r.ok) {
@@ -408,7 +399,7 @@ export default function DashboardPage() {
         type: "tracked",
         userId: selectedUserId,
         taskId, taskName, date, hours: Number(val), note,
-        syncToClickUp: true, // hint for backend to mirror to ClickUp
+        syncToClickUp: true,
       }),
     });
     if (!r.ok) {
@@ -513,12 +504,11 @@ export default function DashboardPage() {
 
   /** ---- render ---- */
   return (
-    <div className={styles.page} style={LIGHT_VARS}>
+    <div className={styles.page} data-theme={theme}>
       <div className={styles.shell}>
         {/* top header bar */}
         <header className={styles.header}>
           <div className={styles.brand}>
-            {/* Logo (fallback to TT) */}
             <div className={styles.logoWrap}>
               <img
                 className={styles.logoImg}
@@ -737,7 +727,7 @@ export default function DashboardPage() {
           </section>
         )}
 
-        {/* ====== MONTH VIEW (responsive, no overlap; shows live data for selected week) ====== */}
+        {/* ====== MONTH VIEW ====== */}
         {viewMode === "month" && (
           <>
             <div className={styles.summary} style={{ marginTop: 0 }}>
@@ -857,7 +847,6 @@ export default function DashboardPage() {
             </div>
           </section>
         )}
-
       </div>
 
       {/* --- Modal for Tracked Time --- */}
@@ -905,7 +894,7 @@ export default function DashboardPage() {
         </div>
       )}
 
-      {/* --- Admin: Add Project modal (centered & opaque) --- */}
+      {/* --- Admin: Add Project modal --- */}
       {isAdmin && addOpen && (
         <div className={styles.modalBackdrop} onClick={()=> setAddOpen(false)}>
           <div className={styles.modal} onClick={(e)=> e.stopPropagation()}>
@@ -949,6 +938,18 @@ export default function DashboardPage() {
           </div>
         </div>
       )}
+
+      {/* ---------- Corner Theme Toggle ---------- */}
+      <div className={styles.themeSwitch}>
+        <button
+          className={styles.toggleBtn}
+          aria-label="Toggle theme"
+          onClick={() => setTheme(t => (t === "dark" ? "light" : "dark"))}
+        >
+          <span className={styles.knob} data-on={String(theme === "dark")} />
+          <span className={styles.toggleLabel}>{theme === "dark" ? "Dark" : "Light"}</span>
+        </button>
+      </div>
     </div>
   );
 }
