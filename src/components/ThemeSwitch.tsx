@@ -1,78 +1,67 @@
+// src/components/ThemeSwitch.tsx
 "use client";
 
 import { useEffect, useState } from "react";
 
 type Scheme = "light" | "dark";
+type Props = { corner?: "top-right" | "top-left" | "bottom-right" | "bottom-left" };
 
-function getInitial(): Scheme {
+function loadInitial(): Scheme {
   if (typeof window === "undefined") return "dark";
-  const stored = window.localStorage.getItem("theme");
-  if (stored === "light" || stored === "dark") return stored;
-  const prefersLight =
-    window.matchMedia &&
-    window.matchMedia("(prefers-color-scheme: light)").matches;
+  const saved = localStorage.getItem("theme");
+  if (saved === "light" || saved === "dark") return saved;
+  const prefersLight = window.matchMedia?.("(prefers-color-scheme: light)").matches;
   return prefersLight ? "light" : "dark";
 }
 
-export default function ThemeSwitch() {
-  const [theme, setTheme] = useState<Scheme>(getInitial);
+export default function ThemeSwitch({ corner = "top-right" }: Props) {
+  const [theme, setTheme] = useState<Scheme>(loadInitial);
 
   useEffect(() => {
     document.documentElement.setAttribute("data-theme", theme);
-    window.localStorage.setItem("theme", theme);
-
-    // Update meta theme-color for mobile bars
-    const meta = document.querySelector(
-      'meta[name="theme-color"]'
-    ) as HTMLMetaElement | null;
+    localStorage.setItem("theme", theme);
+    const meta = document.querySelector('meta[name="theme-color"]') as HTMLMetaElement | null;
     if (meta) meta.content = theme === "light" ? "#f6f7fb" : "#0b0f14";
   }, [theme]);
+
+  const pos: Record<"top-right" | "top-left" | "bottom-right" | "bottom-left", React.CSSProperties> = {
+    "top-right":    { top: 10,  right: 10 },
+    "top-left":     { top: 10,  left: 10 },
+    "bottom-right": { bottom: 10, right: 10 },
+    "bottom-left":  { bottom: 10, left: 10 },
+  };
 
   return (
     <button
       aria-label="Toggle theme"
-      onClick={() => setTheme((t) => (t === "dark" ? "light" : "dark"))}
+      onClick={() => setTheme(t => (t === "light" ? "dark" : "light"))}
       style={{
         position: "fixed",
-        top: 14,
-        right: 14,
         zIndex: 1000,
-        border: "1px solid var(--border)",
-        background:
-          "linear-gradient(135deg, color-mix(in srgb, var(--panel), #fff 10%), var(--panel-elev))",
-        color: "var(--text)",
+        ...pos[corner],
+        height: 34,
+        padding: "0 10px",
         borderRadius: 999,
-        padding: "6px 10px",
+        border: "1px solid var(--border)",
+        background: "var(--panel)",
         display: "inline-flex",
         alignItems: "center",
         gap: 8,
-        boxShadow:
-          "0 4px 14px rgba(0,0,0,.1), inset 0 0 0 1px color-mix(in srgb, var(--border), transparent 60%)",
+        boxShadow: "0 6px 16px rgba(0,0,0,.15)",
         cursor: "pointer",
-        transition: "transform .12s ease, filter .12s ease",
+        userSelect: "none",
       }}
-      onMouseDown={(e) => (e.currentTarget.style.transform = "scale(.98)")}
-      onMouseUp={(e) => (e.currentTarget.style.transform = "scale(1)")}
-      onMouseLeave={(e) => (e.currentTarget.style.transform = "scale(1)")}
-      title="Toggle dark / light"
     >
       <span
         aria-hidden
         style={{
-          width: 18,
-          height: 18,
-          borderRadius: "50%",
-          display: "grid",
-          placeItems: "center",
-          background:
-            theme === "light"
-              ? "radial-gradient(circle at 40% 40%, var(--accent) 40%, transparent 41%), #fff"
-              : "linear-gradient(180deg,#0f1520,#0b0f14)",
-          border: "1px solid var(--border)",
+          width: 16, height: 16, borderRadius: "50%",
+          background: theme === "light" ? "var(--accent)" : "var(--l5-peach)",
+          boxShadow: "0 0 0 3px color-mix(in srgb, var(--accent), transparent 80%)",
         }}
       />
-      <span style={{ fontSize: 12, fontWeight: 600 }}>
-        {theme === "dark" ? "Dark" : "Light"}
+      <span style={{ fontSize: 12, color: "var(--muted)", fontWeight: 600 }}>
+        {theme === "light" ? "Light" : "Dark"}
       </span>
     </button>
   );

@@ -11,29 +11,27 @@ export const metadata: Metadata = {
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
-  // Inline script to set initial theme BEFORE React hydration (avoids flash)
-  const noFlash = `
-  (function(){
+  // Inline boot script prevents theme flash before hydration
+  const bootTheme = `
     try {
-      var stored = localStorage.getItem('theme');
-      var prefersLight = window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches;
-      var t = stored === 'light' || stored === 'dark' ? stored : (prefersLight ? 'light' : 'dark');
-      document.documentElement.setAttribute('data-theme', t);
-      var meta = document.querySelector('meta[name="theme-color"]');
-      if (meta) meta.setAttribute('content', t === 'light' ? '#f6f7fb' : '#0b0f14');
+      var t = localStorage.getItem("theme");
+      if (!t) {
+        t = window.matchMedia && window.matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark";
+      }
+      document.documentElement.setAttribute("data-theme", t);
     } catch (e) {}
-  })();`;
+  `;
 
   return (
     <html lang="en">
       <head>
         <meta name="theme-color" content="#0b0f14" />
-        <script dangerouslySetInnerHTML={{ __html: noFlash }} />
+        <script dangerouslySetInnerHTML={{ __html: bootTheme }} />
       </head>
       <body>
         {children}
-        {/* Global floating theme switch */}
-        <ThemeSwitch />
+        {/* Global corner toggle (top-right by default) */}
+        <ThemeSwitch corner="top-right" />
       </body>
     </html>
   );
