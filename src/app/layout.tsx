@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import "./globals.css"; // keep your global if you have it (or remove if unused)
-import ThemeSwitch from "@/components/ThemeSwitch";
+//import ThemeSwitch from "@/components/ThemeSwitch";
 import '@/styles/theme.css';
 
 export const metadata: Metadata = {
@@ -21,7 +21,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         {children}
 
         {/* Floating theme toggle */}
-        <ThemeSwitch />
+        {/* <ThemeSwitch /> */}
       </body>
     </html>
   );
