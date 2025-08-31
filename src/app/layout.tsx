@@ -1,27 +1,39 @@
+// src/app/layout.tsx
 import type { Metadata } from "next";
-import "./globals.css"; // keep your global if you have it (or remove if unused)
-//import ThemeSwitch from "@/components/ThemeSwitch";
-import '@/styles/theme.css';
+import "./globals.css";
+import "@/styles/theme.css";
+import ThemeSwitch from "@/components/ThemeSwitch";
 
 export const metadata: Metadata = {
   title: "ClickUp Timesheet",
   description: "Internal timesheet dashboard for ClickUp",
-  // Helps mobile address bar color match theme (we’ll update this dynamically too)
   themeColor: "#0b0f14",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
+  // Inline script to set initial theme BEFORE React hydration (avoids flash)
+  const noFlash = `
+  (function(){
+    try {
+      var stored = localStorage.getItem('theme');
+      var prefersLight = window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches;
+      var t = stored === 'light' || stored === 'dark' ? stored : (prefersLight ? 'light' : 'dark');
+      document.documentElement.setAttribute('data-theme', t);
+      var meta = document.querySelector('meta[name="theme-color"]');
+      if (meta) meta.setAttribute('content', t === 'light' ? '#f6f7fb' : '#0b0f14');
+    } catch (e) {}
+  })();`;
+
   return (
-    <html lang="en" data-theme="dark">
+    <html lang="en">
       <head>
         <meta name="theme-color" content="#0b0f14" />
+        <script dangerouslySetInnerHTML={{ __html: noFlash }} />
       </head>
       <body>
-        {/* Your app */}
         {children}
-
-        {/* Floating theme toggle */}
-        {/* <ThemeSwitch /> */}
+        {/* Global floating theme switch */}
+        <ThemeSwitch />
       </body>
     </html>
   );
