@@ -2,7 +2,6 @@
    THEME TOKENS on container
    ========================= */
 .page[data-theme="dark"] {
-  /* L5 dark UI base */
   --bg-grad-a: #121826;
   --bg-grad-b: #0d1117;
   --bg-grad-c: #0b0f14;
@@ -29,21 +28,20 @@
   --btnText: #cdd6e0;
   --toggleIconBg: #0f1729;
 
-  --accent: #d60000; /* L5 Red primary */
-  --blue: #298ee8;  /* L5 Blue */
-  --darkBlue: #002840; /* L5 Dark Blue */
-  --peach: #ff5758; /* L5 Peach (text highlight) */
-  --grayText: #293237; /* L5 Gray text */
+  --accent: #d60000;
+  --blue: #298ee8;
+  --darkBlue: #002840;
+  --peach: #ff5758;
+  --grayText: #cdd6e0;
   --white: #fdfbff;
 }
 
 .page[data-theme="light"] {
-  /* L5 light palette */
   --bg-grad-a: #f6f7fb;
   --bg-grad-b: #eef1f6;
   --bg-grad-c: #e9edf5;
 
-  --text: #293237; /* L5 Gray text */
+  --text: #293237;
   --muted: #5a585c;
 
   --panel: #ffffff;
@@ -65,8 +63,8 @@
   --btnText: #293237;
   --toggleIconBg: #ffffff;
 
-  --accent: #d60000;  /* primary red */
-  --blue: #298ee8;    /* L5 Blue */
+  --accent: #d60000;
+  --blue: #298ee8;
   --darkBlue: #002840;
   --peach: #ff5758;
   --grayText: #293237;
@@ -118,7 +116,7 @@
 .viewerName { font-weight:600; }
 .roleDot { color:var(--muted); font-size:12px; }
 .select { height:34px; min-width:260px; background:var(--panel-3); color:var(--text); border:1px solid var(--border-3); border-radius:10px; padding:0 10px; }
-.btn { height:34px; padding:0 12px; border-radius:10px; border:1px solid var(--border); background:linear-gradient(135deg,var(--btnGradA),var(--btnGradB)); color:var(--btnText); cursor:pointer; transition: transform .04s ease; }
+.btn { height:34px; padding:0 12px; border-radius:10px; border:1px solid var(--border); background:linear-gradient(135deg,var(--btnGradA),var(--btnGradB)); color:var(--btnText); cursor:pointer; transition: transform .04s ease, filter .08s ease; }
 .btn:hover { filter:brightness(1.04); transform: translateY(-0.5px); }
 .primary { background: var(--good); border-color: var(--good); color:#fff; }
 .warn { background: #ffcf7a; border-color: #ffcf7a; color:#002840; }
@@ -152,8 +150,10 @@
 .card { background:var(--panel); border:1px solid var(--border); border-radius:16px; padding:12px; }
 .tableWrap { width:100%; overflow-x:auto; }
 
+/* Ensure header cells are light panels to remove dark strip */
+.thHead { background: var(--panel-2); }
 .table { width:100%; min-width: 1350px; border-collapse:separate; border-spacing:0 10px; }
-.table thead th { text-align:left; font-weight:600; font-size:13px; color:var(--muted); padding:10px 12px; white-space:nowrap; }
+.table thead th { text-align:left; font-weight:600; font-size:13px; color:var(--muted); padding:10px 12px; white-space:nowrap; border-radius:10px; border:1px solid var(--border); }
 .day { font-weight:600; }
 .daySub { font-size:12px; color:color-mix(in srgb, var(--muted), #fff 15%); }
 
@@ -163,7 +163,7 @@
 .table tbody td:first-child,
 .table tfoot td:first-child {
   position: sticky; left: 0; z-index: 2;
-  background: var(--panel); box-shadow: 6px 0 10px rgba(0,0,0,0.12);
+  background: var(--panel-2); box-shadow: 6px 0 10px rgba(0,0,0,0.06);
 }
 
 /* Project name cell */
@@ -180,7 +180,7 @@
 .numWide { min-width:140px; }
 .locked { background:color-mix(in srgb, var(--panel-3), #fff 6%); border-color:color-mix(in srgb, var(--border-3), #fff 20%); color:color-mix(in srgb, var(--text), #fff 20%); }
 
-/* Track button uses L5 Blue in both themes (no red) */
+/* Track button (blue) */
 .trackBtn {
   height:38px; border-radius:10px; border:1px solid var(--blue);
   background:linear-gradient(135deg, color-mix(in srgb, var(--blue), #fff 10%), color-mix(in srgb, var(--blue), #000 6%));
@@ -206,11 +206,11 @@
 .chartCard { background:var(--panel-3); border:1px solid var(--border); border-radius:10px; padding:10px; overflow:hidden; }
 .chartTitle { display:flex; align-items:center; justify-content:space-between; font-weight:700; margin:2px 2px 6px; }
 .chartLink { font-weight:600; font-size:12px; color:color-mix(in srgb, var(--blue), #000 0%); text-decoration:none; }
-.chartSvg { width:100%; height:auto; background:color-mix(in srgb, var(--panel-3), #000 6%); border:1px solid color-mix(in srgb, var(--border), #000 6%); border-radius:8px; }
+.chartSvg { width:100%; height:auto; background:color-mix(in srgb, var(--panel-3), #000 4%); border:1px solid color-mix(in srgb, var(--border), #000 6%); border-radius:8px; }
 .chartAxis { stroke:color-mix(in srgb, var(--border), #fff 8%); stroke-width:1; }
 .chartGrid { stroke:color-mix(in srgb, var(--border), #fff 20%); stroke-width:1; }
 .chartX, .chartY, .leg { font-size:12px; fill:color-mix(in srgb, var(--muted), #fff 8%); }
-.barA { fill:#298ee8; } /* L5 Blue */
+.barA { fill:#298ee8; } /* Blue */
 .barB { fill:var(--good); }
 .leg { dominant-baseline: hanging; }
 
@@ -256,11 +256,9 @@
 .modalActions { display:flex; justify-content:flex-end; gap:8px; padding:12px 16px; border-top:1px solid var(--border); }
 
 /* =========================
-   THEME TOGGLE
+   THEME TOGGLE (single)
    ========================= */
-.themeSwitch {
-  position:fixed; right:16px; bottom:16px; z-index:70;
-}
+.themeSwitch { position:fixed; right:16px; bottom:16px; z-index:70; }
 .toggleBtn {
   display:flex; align-items:center; gap:8px;
   border:1px solid var(--border); background:var(--panel-2); color:var(--text);

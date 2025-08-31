@@ -78,7 +78,7 @@ function BarsVertical({
   const y = (v: number) => H - pad - (v / maxVal) * (H - pad - 30);
   const band = (W - pad * 2) / labels.length;
   return (
-    <svg className={styles.chartSvg} viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none">
+    <svg className={styles.chartSvg} viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" role="img" aria-label="Daily totals">
       <line x1={pad} y1={H-pad} x2={W-pad} y2={H-pad} className={styles.chartAxis}/>
       <line x1={pad} y1={H-pad} x2={pad} y2={20} className={styles.chartAxis}/>
       {labels.map((_, i) => {
@@ -102,7 +102,6 @@ function BarsVertical({
   );
 }
 
-/* FIXED: overlapping consultants – more vertical spacing, safe label truncation, bigger width */
 function BarsHorizontal({
   labels, a, b, titleA="Est", titleB="Tracked", maxBars=8,
 }: { labels: string[]; a: number[]; b: number[]; titleA?: string; titleB?: string; maxBars?: number }) {
@@ -110,51 +109,44 @@ function BarsHorizontal({
     .sort((x,y)=> (y.b - y.a) - (x.b - x.a))
     .slice(0, maxBars);
 
-  const rowH = 42; // was 34 — give bars breathing room
-  const H = Math.max(160, rows.length * rowH + 60);
+  // More spacing to avoid overlap + ellipsis for long names
+  const rowHeight = 42;
+  const H = Math.max(180, rows.length * rowHeight + 56);
+  const W = 680;
   const pad = 26;
-  const W = 760; // a bit wider so long names + legend don’t collide
   const maxVal = Math.max(1, ...rows.map(r=>Math.max(r.a,r.b))) * 1.15;
-  const x = (v: number) => pad + (v / maxVal) * (W - pad - 18);
-
-  // truncate long labels visually (full shown in title tooltip)
-  const short = (s: string) => (s.length > 22 ? `${s.slice(0, 20)}…` : s);
+  const x = (v: number) => pad + (v / maxVal) * (W - pad - 14);
 
   return (
-    <svg className={styles.chartSvg} viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none">
+    <svg className={styles.chartSvg} viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" role="img" aria-label="Consultant comparison">
       {rows.map((r, i) => {
-        const yBase = 30 + i * rowH;
+        const y = 28 + i * rowHeight;
+        const label = r.name.length > 28 ? r.name.slice(0, 27) + "…" : r.name;
         return (
           <g key={i}>
-            <title>{r.name}</title>
-            <text x={pad} y={yBase-8} className={styles.chartY}>{short(r.name)}</text>
-            <line x1={pad} y1={yBase} x2={W-10} y2={yBase} className={styles.chartGrid}/>
-            <rect x={pad} y={yBase+6}  width={Math.max(0, x(r.a)-pad)} height="11" className={styles.barA}/>
-            <rect x={pad} y={yBase+20} width={Math.max(0, x(r.b)-pad)} height="11" className={styles.barB}/>
+            <text x={pad} y={y-6} className={styles.chartY}>{label}</text>
+            <line x1={pad} y1={y} x2={W-10} y2={y} className={styles.chartGrid}/>
+            <rect x={pad} y={y+6} width={Math.max(0, x(r.a)-pad)} height="12" rx="4" className={styles.barA}/>
+            <rect x={pad} y={y+22} width={Math.max(0, x(r.b)-pad)} height="12" rx="4" className={styles.barB}/>
           </g>
         );
       })}
       <g>
-        <rect x={W - 170} y={10} width="10" height="10" className={styles.barA}/><text x={W-154} y={19} className={styles.leg}>{titleA}</text>
-        <rect x={W - 100} y={10} width="10" height="10" className={styles.barB}/><text x={W-84}  y={19} className={styles.leg}>{titleB}</text>
+        <rect x={W - 160} y={10} width="10" height="10" className={styles.barA}/><text x={W-144} y={19} className={styles.leg}>{titleA}</text>
+        <rect x={W - 90} y={10} width="10" height="10" className={styles.barB}/><text x={W-74} y={19} className={styles.leg}>{titleB}</text>
       </g>
     </svg>
   );
 }
 
 export default function DashboardPage() {
-  /* ---------- Theme state ---------- */
+  /* ---------- Theme state (persists; also set on <html> so login can read it) ---------- */
   const [theme, setTheme] = useState<Scheme>("light");
-
   useEffect(() => { setTheme(getInitialTheme()); }, []);
-
   useEffect(() => {
-    // Persist + set attributes so both login & dashboard pick up the same palette
     if (typeof document !== "undefined") {
-      document.documentElement.setAttribute("data-theme", theme);       // <html data-theme>
+      document.documentElement.setAttribute("data-theme", theme);
       window.localStorage.setItem("theme", theme);
-      const meta = document.querySelector('meta[name="theme-color"]') as HTMLMetaElement | null;
-      if (meta) meta.content = theme === "light" ? "#f6f7fb" : "#0b0f14";
     }
   }, [theme]);
 
@@ -639,14 +631,14 @@ export default function DashboardPage() {
               <table className={styles.table}>
                 <thead>
                   <tr>
-                    <th className={styles.thProject}>Project</th>
+                    <th className={`${styles.thProject} ${styles.thHead}`}>Project</th>
                     {["Mon","Tue","Wed","Thu","Fri"].map((d, i) => (
-                      <th key={d}>
+                      <th key={d} className={styles.thHead}>
                         <div className={styles.day}>{d} • {fmtMMMdd(weekCols[i])}</div>
                         <div className={styles.daySub}>Est | Tracked</div>
                       </th>
                     ))}
-                    <th>
+                    <th className={styles.thHead}>
                       <div className={styles.day}>Total (Week)</div>
                       <div className={styles.daySub}>Est | Tracked</div>
                     </th>
@@ -739,7 +731,7 @@ export default function DashboardPage() {
           </section>
         )}
 
-        {/* ====== MONTH VIEW (responsive, no overlap; shows live data for selected week) ====== */}
+        {/* ====== MONTH VIEW ====== */}
         {viewMode === "month" && (
           <>
             <div className={styles.summary} style={{ marginTop: 0 }}>
@@ -906,7 +898,7 @@ export default function DashboardPage() {
         </div>
       )}
 
-      {/* --- Admin: Add Project modal (centered & opaque) --- */}
+      {/* --- Admin: Add Project modal --- */}
       {isAdmin && addOpen && (
         <div className={styles.modalBackdrop} onClick={()=> setAddOpen(false)}>
           <div className={styles.modal} onClick={(e)=> e.stopPropagation()}>
@@ -951,7 +943,7 @@ export default function DashboardPage() {
         </div>
       )}
 
-      {/* ---------- Corner Theme Toggle (single source of truth) ---------- */}
+      {/* ---------- Corner Theme Toggle (single, compact) ---------- */}
       <div className={styles.themeSwitch}>
         <button
           className={styles.toggleBtn}
