@@ -95,7 +95,7 @@ input[disabled].locked{
 .grid{ overflow:auto; border:1px solid var(--border); border-radius:12px; margin-top:14px; }
 table{ border-collapse:separate; border-spacing:0; width:100%; }
 thead th{
-  position:sticky; top:0; z-index:2; background:#12151c; color:#c8d2e3;
+  position:sticky; top:0; z-index:2; background:#c8d2e3; color:#0b1220;
   border-bottom:1px solid var(--border); text-align:left; font-weight:600; padding:12px; white-space:nowrap;
 }
 th, td{ border-bottom:1px solid var(--border); padding:10px; vertical-align:middle; white-space:nowrap }
