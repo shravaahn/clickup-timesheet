@@ -1,24 +1,33 @@
+import "./globals.css"; // keep your global styles if you have them
+import ThemeToggle from "@/components/ThemeToggle";
 import type { Metadata } from "next";
-import "@/styles/theme.css";
-import "./globals.css";
-import ThemeSwitch from "@/components/ThemeSwitch";
 
 export const metadata: Metadata = {
   title: "ClickUp Timesheet",
-  description: "Internal timesheet dashboard for ClickUp",
-  themeColor: "#0b0f14",
+  description: "Timesheet",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" data-theme="light">
-      <head>
-        <meta name="theme-color" content="#0b0f14" />
-      </head>
+    <html lang="en" suppressHydrationWarning>
       <body>
+        {/* Global top bar with theme button (right aligned) */}
+        <header
+          style={{
+            position: "sticky",
+            top: 0,
+            zIndex: 100,
+            display: "flex",
+            justifyContent: "flex-end",
+            padding: "10px 14px",
+            background: "transparent",
+          }}
+        >
+          <ThemeToggle />
+        </header>
+
+        {/* Page content */}
         {children}
-        {/* one global switch; pick your corner */}
-        <ThemeSwitch corner="top-right" />
       </body>
     </html>
   );

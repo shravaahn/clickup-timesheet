@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import styles from "./Dashboard.module.css";
 
-/* ---------- Theme helpers (SSR-safe) ---------- */
+/* ---------- Theme: read from global + listen for changes ---------- */
 type Scheme = "light" | "dark";
 function getInitialTheme(): Scheme {
   if (typeof window === "undefined") return "light";
@@ -78,7 +78,7 @@ function BarsVertical({
   const y = (v: number) => H - pad - (v / maxVal) * (H - pad - 30);
   const band = (W - pad * 2) / labels.length;
   return (
-    <svg className={styles.chartSvg} viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" role="img" aria-label="Daily totals">
+    <svg className={styles.chartSvg} viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none">
       <line x1={pad} y1={H-pad} x2={W-pad} y2={H-pad} className={styles.chartAxis}/>
       <line x1={pad} y1={H-pad} x2={pad} y2={20} className={styles.chartAxis}/>
       {labels.map((_, i) => {
@@ -108,26 +108,19 @@ function BarsHorizontal({
   const rows = labels.map((name, i) => ({ name, a: a[i] || 0, b: b[i] || 0 }))
     .sort((x,y)=> (y.b - y.a) - (x.b - x.a))
     .slice(0, maxBars);
-
-  // More spacing to avoid overlap + ellipsis for long names
-  const rowHeight = 42;
-  const H = Math.max(180, rows.length * rowHeight + 56);
-  const W = 680;
-  const pad = 26;
+  const H = Math.max(150, rows.length * 34 + 48), W = 680, pad = 26;
   const maxVal = Math.max(1, ...rows.map(r=>Math.max(r.a,r.b))) * 1.15;
   const x = (v: number) => pad + (v / maxVal) * (W - pad - 14);
-
   return (
-    <svg className={styles.chartSvg} viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" role="img" aria-label="Consultant comparison">
+    <svg className={styles.chartSvg} viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none">
       {rows.map((r, i) => {
-        const y = 28 + i * rowHeight;
-        const label = r.name.length > 28 ? r.name.slice(0, 27) + "…" : r.name;
+        const y = 28 + i * 34;
         return (
           <g key={i}>
-            <text x={pad} y={y-6} className={styles.chartY}>{label}</text>
+            <text x={pad} y={y-6} className={styles.chartY}>{r.name}</text>
             <line x1={pad} y1={y} x2={W-10} y2={y} className={styles.chartGrid}/>
-            <rect x={pad} y={y+6} width={Math.max(0, x(r.a)-pad)} height="12" rx="4" className={styles.barA}/>
-            <rect x={pad} y={y+22} width={Math.max(0, x(r.b)-pad)} height="12" rx="4" className={styles.barB}/>
+            <rect x={pad} y={y+6} width={x(r.a)-pad} height="10" className={styles.barA}/>
+            <rect x={pad} y={y+18} width={x(r.b)-pad} height="10" className={styles.barB}/>
           </g>
         );
       })}
@@ -140,15 +133,22 @@ function BarsHorizontal({
 }
 
 export default function DashboardPage() {
-  /* ---------- Theme state (persists; also set on <html> so login can read it) ---------- */
+  /* ---------- Theme (read only): sync with global toggle ---------- */
   const [theme, setTheme] = useState<Scheme>("light");
-  useEffect(() => { setTheme(getInitialTheme()); }, []);
   useEffect(() => {
-    if (typeof document !== "undefined") {
-      document.documentElement.setAttribute("data-theme", theme);
-      window.localStorage.setItem("theme", theme);
-    }
-  }, [theme]);
+    setTheme(getInitialTheme());
+    const onCustom = (e: Event) => {
+      const detail = (e as CustomEvent).detail as Scheme | undefined;
+      if (detail === "light" || detail === "dark") setTheme(detail);
+    };
+    const onStorage = () => setTheme(getInitialTheme());
+    window.addEventListener("theme-change", onCustom as EventListener);
+    window.addEventListener("storage", onStorage);
+    return () => {
+      window.removeEventListener("theme-change", onCustom as EventListener);
+      window.removeEventListener("storage", onStorage);
+    };
+  }, []);
 
   /** week state */
   const [weekStart, setWeekStart] = useState<Date>(() => startOfWeek());
@@ -631,14 +631,14 @@ export default function DashboardPage() {
               <table className={styles.table}>
                 <thead>
                   <tr>
-                    <th className={`${styles.thProject} ${styles.thHead}`}>Project</th>
+                    <th className={styles.thProject}>Project</th>
                     {["Mon","Tue","Wed","Thu","Fri"].map((d, i) => (
-                      <th key={d} className={styles.thHead}>
+                      <th key={d}>
                         <div className={styles.day}>{d} • {fmtMMMdd(weekCols[i])}</div>
                         <div className={styles.daySub}>Est | Tracked</div>
                       </th>
                     ))}
-                    <th className={styles.thHead}>
+                    <th>
                       <div className={styles.day}>Total (Week)</div>
                       <div className={styles.daySub}>Est | Tracked</div>
                     </th>
@@ -851,6 +851,7 @@ export default function DashboardPage() {
             </div>
           </section>
         )}
+
       </div>
 
       {/* --- Modal for Tracked Time --- */}
@@ -898,7 +899,7 @@ export default function DashboardPage() {
         </div>
       )}
 
-      {/* --- Admin: Add Project modal --- */}
+      {/* --- Admin: Add Project modal (centered & opaque) --- */}
       {isAdmin && addOpen && (
         <div className={styles.modalBackdrop} onClick={()=> setAddOpen(false)}>
           <div className={styles.modal} onClick={(e)=> e.stopPropagation()}>
@@ -942,18 +943,6 @@ export default function DashboardPage() {
           </div>
         </div>
       )}
-
-      {/* ---------- Corner Theme Toggle (single, compact) ---------- */}
-      <div className={styles.themeSwitch}>
-        <button
-          className={styles.toggleBtn}
-          aria-label="Toggle theme"
-          onClick={() => setTheme(t => (t === "dark" ? "light" : "dark"))}
-        >
-          <span className={styles.knob} data-on={String(theme === "dark")} />
-          <span className={styles.toggleLabel}>{theme === "dark" ? "Dark" : "Light"}</span>
-        </button>
-      </div>
     </div>
   );
 }
