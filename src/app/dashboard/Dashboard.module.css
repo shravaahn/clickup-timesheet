@@ -1,52 +1,30 @@
-/* --- global theme tokens (allowed inside a CSS Module via :global) --- */
-:global(:root) {
-  --page-bg: #f6f7fb;
-  --panel: #ffffff;
-  --ink: #0b0f14;
-  --subtle-ink: #4b5563;
-  --border: rgba(0,0,0,0.10);
-  --muted: #f2f4f7;
-  --accent-a: #2563eb;
-  --accent-b: #10b981;
-  --warn: #dc2626;
-}
+/* =========================
+   DASHBOARD MODULE STYLES
+   (No :root or :global selectors here)
+   ========================= */
 
-/* light/dark overrides driven by <html data-theme="..."> */
-:global(html[data-theme="dark"]) {
-  --page-bg: #0b0f14;
-  --panel: #0f1720;
-  --ink: #e5e7eb;
-  --subtle-ink: #9aa4b2;
-  --border: rgba(255,255,255,0.10);
-  --muted: #111827;
-  --accent-a: #60a5fa;
-  --accent-b: #34d399;
-  --warn: #f87171;
-}
-
-/* …keep the rest of your module rules exactly as they were… */
-
-
-/* page shell */
+/* Page shell */
 .page { background: var(--page-bg); color: var(--text); }
 .shell { max-width: 1280px; margin: 0 auto; padding: 16px; }
 
-/* header */
+/* Header */
 .header {
   display: flex; align-items: center; justify-content: space-between;
   padding: 12px 14px; border: 1px solid var(--border); border-radius: 12px;
   background: var(--panel);
 }
 .brand { display: flex; gap: 12px; align-items: center; }
-.logoWrap { width: 36px; height: 36px; border-radius: 10px; background: var(--panel-subtle);
-  display: grid; place-items: center; border: 1px solid var(--border); }
+.logoWrap {
+  width: 36px; height: 36px; border-radius: 10px; background: var(--panel-subtle);
+  display: grid; place-items: center; border: 1px solid var(--border);
+}
 .logoImg { width: 28px; height: 28px; object-fit: contain; }
 .badge { font-weight: 700; font-size: 12px; color: var(--muted); }
 
 .title { font-weight: 700; font-size: 16px; }
 .subtitle { color: var(--muted); font-size: 12px; margin-top: 2px; }
 
-/* header controls */
+/* Header controls */
 .controls { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
 .viewer { color: var(--muted); font-size: 12px; margin-right: 4px; }
 .viewerName { color: var(--text); font-weight: 600; }
@@ -55,13 +33,13 @@
 .btn {
   height: 32px; padding: 0 10px; border-radius: 8px; border: 1px solid var(--border);
   background: var(--panel-subtle); color: var(--text); font-size: 12px; font-weight: 600; cursor: pointer;
+  transition: filter .06s ease, transform .04s ease;
 }
-.btn:hover { filter: brightness(0.97); }
-.primary { background: var(--primary); border-color: transparent; color: #fff; }
+.btn:hover { filter: brightness(0.97); transform: translateY(-1px); }
+.primary { background: var(--good); border-color: transparent; color: #fff; }
 .warn { background: #ffdd9a; border-color: #f1b03d; color: #5d3b00; }
 .selected { outline: 2px solid var(--primary); }
 
-/* selectors */
 .selectorsBar {
   margin-top: 12px; display: grid; grid-template-columns: repeat(3, minmax(0,1fr));
   gap: 10px;
@@ -73,7 +51,7 @@
   color: var(--text); font-size: 12px; padding: 0 8px; min-width: 160px;
 }
 
-/* summary pills */
+/* Summary pills */
 .summary {
   margin-top: 12px; display: flex; gap: 8px; align-items: center; flex-wrap: wrap;
 }
@@ -84,22 +62,23 @@
 }
 .period { margin-left: auto; color: var(--muted); font-size: 12px; }
 
-/* card */
+/* Card */
 .card {
   margin-top: 12px; border: 1px solid var(--border); border-radius: 12px; background: var(--panel); padding: 10px;
 }
 
-/* table */
+/* Table */
 .tableWrap { overflow: auto; }
 .table {
   border-collapse: separate; border-spacing: 0; width: 100%;
-  table-layout: fixed; /* important to keep narrow columns consistent */
+  table-layout: fixed; /* keep narrow columns consistent */
 }
 .thProject { width: 28%; min-width: 220px; }
 
+/* Header row — light (no dark strip) */
 .table thead th {
   position: sticky; top: 0; z-index: 1;
-  background: var(--panel); /* removed the dark band */
+  background: var(--panel);  /* removed dark band */
   border-bottom: 1px solid var(--border);
   padding: 8px; font-weight: 700; font-size: 12px; color: var(--muted);
 }
@@ -111,8 +90,9 @@
 }
 .projectName { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
-/* COMPACT CELLS */
+/* ==== COMPACT CELLS (fit full week while keeping project names visible) ==== */
 .cellBox { display: grid; grid-template-columns: 68px 1fr; gap: 6px; align-items: center; }
+
 .num {
   height: 28px; padding: 0 6px; border: 1px solid var(--border); border-radius: 8px;
   background: var(--panel-subtle); color: var(--text); font-size: 12px; text-align: center;
@@ -126,10 +106,10 @@
 }
 .trackBtn:hover { filter: brightness(.98); }
 
-/* tfoot total row look – remove dark pills */
+/* Totals row look */
 .table tfoot td input { background: var(--panel-subtle); }
 
-/* admin panel */
+/* Admin panel */
 .adminPanel { margin-top: 12px; }
 .cardsRow { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 10px; }
 .statCard {
@@ -138,17 +118,19 @@
 .statLabel { color: var(--muted); font-size: 12px; }
 .statValue { font-weight: 800; font-size: 22px; }
 
-/* charts */
+/* Charts */
 .chartsRow { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 10px; }
 .chartCard { border: 1px solid var(--border); border-radius: 12px; background: var(--panel); padding: 12px; }
 .chartTitle { display: flex; gap: 8px; align-items: center; font-weight: 700; font-size: 13px; margin-bottom: 8px; }
 .chartLink { margin-left: auto; font-size: 12px; color: var(--primary); }
-.chartSvg { width: 100%; height: auto; display: block; } /* prevent overlap from forced heights */
+
+/* IMPORTANT: prevent overlap by letting SVG size itself */
+.chartSvg { width: 100%; height: auto; display: block; }
 .chartAxis { stroke: var(--border); stroke-width: 1; }
 .chartGrid { stroke: var(--border); stroke-width: 1; }
 .chartX, .chartY, .leg { fill: var(--muted); font-size: 11px; }
 
-/* modal */
+/* Modal */
 .modalBackdrop {
   position: fixed; inset: 0; background: rgba(0,0,0,.35); display: grid; place-items: center; z-index: 1000;
 }
@@ -163,7 +145,7 @@
 .help { margin-top: 8px; color: var(--muted); font-size: 12px; }
 .modalActions { margin-top: 12px; display: flex; gap: 8px; justify-content: flex-end; }
 
-/* month view */
+/* Month view */
 .weekGrid { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 10px; margin-top: 10px; }
 .weekCard { border: 1px solid var(--border); border-radius: 12px; background: var(--panel); padding: 12px; }
 .weekCardSelected { outline: 2px solid var(--primary); }
@@ -180,5 +162,5 @@
 }
 .metric { border: 1px solid var(--border); border-radius: 12px; background: var(--panel); padding: 12px; font-weight: 600; }
 
-/* view toggle group */
+/* View toggle */
 .viewToggle { display: inline-flex; gap: 6px; }

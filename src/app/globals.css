@@ -1,150 +1,93 @@
 /*src/app/globals.css*/
+/* ==== Tailwind (keep if you use it) ==== */
 @import "tailwindcss";
 
+/* =========================
+   GLOBAL THEME TOKENS
+   ========================= */
+/* Light (default) */
 :root {
-  /* example theme tokens, adjust as you like */
-  --bg: #0b1220;
-  --fg: #e6edf3;
+  /* Surfaces */
+  --page-bg: #f6f7fb;
+  --panel: #ffffff;
+  --panel-subtle: #f7f9fc;
+
+  /* Text */
+  --text: #0b1220;
+  --muted: #5b6578;
+
+  /* Borders */
+  --border: #e3e8ef;
+
+  /* Brand / State */
+  --primary: #298ee8;   /* used for buttons/links (was L5 Blue) */
+  --good: #10b981;
+  --warn: #f59e0b;
+
+  /* Extras used across pages */
+  --accent-a: #2563eb;
+  --accent-b: #10b981;
 }
+
+/* Dark */
+html[data-theme="dark"] {
+  --page-bg: #0b0f14;
+  --panel: #0f1720;
+  --panel-subtle: #0e1320;
+
+  --text: #e6edf3;
+  --muted: #9aa5b4;
+
+  --border: #1f2736;
+
+  --primary: #60a5fa;
+  --good: #22c55e;
+  --warn: #bb6c17;
+
+  --accent-a: #60a5fa;
+  --accent-b: #34d399;
+}
+
+/* =========================
+   GLOBAL BASE STYLES
+   ========================= */
+* { box-sizing: border-box; }
+
 html, body {
-  background: var(--bg);
-  color: var(--fg);
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  background: var(--page-bg);
+  color: var(--text);
+  font: 14px/1.45 system-ui, -apple-system, Segoe UI, Roboto, Inter, Arial, sans-serif;
 }
 
-
-/* === App-wide base (keeps Mantine, adds our theme classes) === */
-:root{
-  --bg:#0f1115; --panel:#171a21; --muted:#8b94a7; --text:#e8ecf1;
-  --accent:#4f8cff; --accent-2:#22c55e; --warn:#f59e0b; --danger:#ef4444;
-  --border:#242a35; --input:#11141a; --good:#22c55e; --bad:#ef4444;
-  --radius:12px;
-}
-
-*{ box-sizing:border-box }
-html, body { height: 100%; }
-body{
-  margin:0;
-  font:14px/1.45 system-ui,-apple-system,Segoe UI,Roboto,Inter,Arial;
-  color:var(--text);
-  background:linear-gradient(180deg,#0f1115,#0b0d12 60%);
-}
-
-/* --- Card shell (dashboard) --- */
-.card{
-  width:min(1300px,100%);
-  background:var(--panel);
-  border:1px solid var(--border);
-  border-radius:var(--radius);
-  box-shadow:0 10px 30px rgba(0,0,0,.35);
-  overflow:hidden;
-  margin:24px auto;
-}
-
-/* --- Header zone (brand + controls) --- */
-header.appbar{
-  padding:18px 22px;
-  display:flex; align-items:center; justify-content:space-between;
-  border-bottom:1px solid var(--border);
-  background:rgba(255,255,255,.02);
-}
-.brand{display:flex; gap:10px; align-items:center}
-.logo{
-  width:34px; height:34px; display:grid; place-items:center; border-radius:10px;
-  background:linear-gradient(135deg,var(--accent),#7aa8ff);
-  color:white; font-weight:800;
-}
-.muted{color:var(--muted)}
-.role-badge{
-  font-size:12px; padding:6px 10px; border:1px solid var(--border);
-  border-radius:999px; color:var(--muted); background:rgba(255,255,255,.02);
-}
-
-/* --- Inner wrapper --- */
-.wrap{ padding:22px }
-
-/* --- Controls row --- */
-.controls{ display:flex; gap:10px; flex-wrap:wrap; align-items:center }
-
-/* Buttons & inputs match the HTML */
-button{
-  appearance:none; border:1px solid var(--border); background:#11141a; color:var(--text);
-  padding:10px 14px; border-radius:10px; cursor:pointer;
-}
-button.primary{background:var(--accent); border-color:transparent; color:white; font-weight:600}
-button.success{background:var(--accent-2); border-color:transparent; color:#06240f; font-weight:600}
-button.warn{background:var(--warn); border-color:transparent; color:#1b1404; font-weight:600}
-button.ghost{background:transparent}
-button:disabled{opacity:.6; cursor:not-allowed}
-
-input, select{
-  width:100%; background:var(--input); border:1px solid var(--border); color:var(--text);
-  border-radius:10px; padding:10px 12px; outline:none;
-}
-input[disabled].locked{
-  background:rgba(79,140,255,.08); border-color:rgba(79,140,255,.35); color:#bcd2ff;
-}
-
-/* --- Sum bar (pills) --- */
-.pill{
-  font-size:12px; padding:4px 8px; border:1px solid var(--border);
-  border-radius:999px; color:#cbd5e1; background:#0f131a;
-}
-.sumbar{ display:flex; gap:8px; align-items:center; flex-wrap:wrap; margin-top:6px }
-.tiny{ font-size:12px; color:var(--muted) }
-
-/* --- Grid/Table --- */
-.grid{ overflow:auto; border:1px solid var(--border); border-radius:12px; margin-top:14px; }
-table{ border-collapse:separate; border-spacing:0; width:100%; }
-thead th{
-  position:sticky; top:0; z-index:2; background:#c8d2e3; color:#0b1220;
-  border-bottom:1px solid var(--border); text-align:left; font-weight:600; padding:12px; white-space:nowrap;
-}
-th, td{ border-bottom:1px solid var(--border); padding:10px; vertical-align:middle; white-space:nowrap }
-tbody tr:nth-child(even){ background:rgba(255,255,255,.02) }
-tfoot td{ background:#10131a; color:#d7dfef; font-weight:600 }
-.proj-cell{ min-width:220px; position:sticky; left:0; background:inherit; z-index:3 }
-.num{ text-align:right }
-.cellBox{ display:grid; grid-template-columns:1fr 1fr; gap:6px }
-
-/* --- Admin / KPI / charts (placeholder now) --- */
-.dash{display:grid; grid-template-columns:repeat(3, minmax(0,1fr)); gap:12px; margin-top:16px;}
-.kpi{background:#0f131a; border:1px solid var(--border); border-radius:12px; padding:14px;}
-.kpi .label{font-size:12px; color:var(--muted); margin-bottom:6px}
-.kpi .value{font-size:22px; font-weight:700}
-.kpi.delta.positive .value{color:var(--good)}
-.kpi.delta.negative .value{color:var(--bad)}
-.chartbox{margin-top:12px; background:#0f131a; border:1px solid var(--border); border-radius:12px; padding:12px; overflow:auto;}
-
-/* --- Picker row --- */
-.pickerRow{display:flex; gap:10px; align-items:center; flex-wrap:wrap; margin-top:8px}
-.label{font-size:12px; color:var(--muted)}
-.togglegrp{display:flex; gap:6px; align-items:center}
-
-/* --- Modal (styles only; wiring later) --- */
-.modal-backdrop{
-  position:fixed; inset:0; background:rgba(0,0,0,.55); display:none; align-items:center; justify-content:center;
-  z-index:10;
-}
-.modal{
-  width:min(520px, 92vw); background:#0f131a; border:1px solid var(--border); border-radius:14px; padding:18px;
-  box-shadow:0 20px 60px rgba(0,0,0,.6);
-}
-.modal header{ display:flex; align-items:center; justify-content:space-between; padding:0 0 10px 0; border:0; }
-.modal h3{ margin:0; font-size:18px }
-.modal .row{ display:grid; gap:8px; margin:12px 0 }
-.modal .row.two{ grid-template-columns:1fr 1fr; }
-.modal footer{ display:flex; gap:10px; justify-content:flex-end; margin-top:8px }
-.help{ font-size:12px; color:var(--muted) }
-.badge{ display:inline-flex; font-size:11px; padding:2px 8px; border:1px solid var(--border); border-radius:999px; color:#cbd5e1 }
-
-/* ===== Global light vs dark surface tweaks (non-dashboard pages too) ===== */
+/* (Optional) subtle page backgrounds per theme */
 html[data-theme="dark"] body {
   background: radial-gradient(900px 480px at 50% -8%, #121826 0%, #0d1117 60%, #0b0f14 100%);
-  color: #e6edf3;
 }
 
 html[data-theme="light"] body {
-  /* Company-inspired light surface: subtle off-white with a red accent hint */
   background: radial-gradient(1100px 560px at 50% -10%, #ffffff 0%, #f7f9fc 55%, #eef2f9 100%);
-  color: #0b1220;
+}
+
+/* Basic form + button resets (safe app-wide) */
+button {
+  appearance: none;
+  border: 1px solid var(--border);
+  background: var(--panel-subtle);
+  color: var(--text);
+  padding: 8px 12px;
+  border-radius: 8px;
+  cursor: pointer;
+}
+button:disabled { opacity: .6; cursor: not-allowed; }
+
+input, select {
+  background: var(--panel-subtle);
+  border: 1px solid var(--border);
+  color: var(--text);
+  border-radius: 8px;
+  padding: 8px 10px;
+  outline: none;
 }
