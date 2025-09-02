@@ -1,25 +1,31 @@
-:root {
+/* --- global theme tokens (allowed inside a CSS Module via :global) --- */
+:global(:root) {
   --page-bg: #f6f7fb;
   --panel: #ffffff;
-  --panel-subtle: #fafbff;
-  --text: #0b0f14;
-  --muted: #67728a;
-  --border: rgba(0,0,0,0.08);
-  --primary: #2f7dff;
-  --warning: #f1b03d;
-  --ok: #0aa66d;
+  --ink: #0b0f14;
+  --subtle-ink: #4b5563;
+  --border: rgba(0,0,0,0.10);
+  --muted: #f2f4f7;
+  --accent-a: #2563eb;
+  --accent-b: #10b981;
+  --warn: #dc2626;
 }
-html[data-theme="dark"] {
+
+/* light/dark overrides driven by <html data-theme="..."> */
+:global(html[data-theme="dark"]) {
   --page-bg: #0b0f14;
-  --panel: #121823;
-  --panel-subtle: #141b28;
-  --text: #e9eef9;
-  --muted: #b4c0d5;
-  --border: rgba(255,255,255,0.1);
-  --primary: #63a3ff;
-  --warning: #ffd278;
-  --ok: #2bd495;
+  --panel: #0f1720;
+  --ink: #e5e7eb;
+  --subtle-ink: #9aa4b2;
+  --border: rgba(255,255,255,0.10);
+  --muted: #111827;
+  --accent-a: #60a5fa;
+  --accent-b: #34d399;
+  --warn: #f87171;
 }
+
+/* …keep the rest of your module rules exactly as they were… */
+
 
 /* page shell */
 .page { background: var(--page-bg); color: var(--text); }
