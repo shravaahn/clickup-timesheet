@@ -1,68 +1,55 @@
-/*src/app/globals.css*/
-/* ==== Tailwind (keep if you use it) ==== */
-@import "tailwindcss";
+/* ============ GLOBALS (minimal; no frame) ============ */
 
-/* =========================
-   GLOBAL THEME TOKENS
-   ========================= */
-/* Light (default) */
-:root {
-  /* Surfaces */
-  --page-bg: #f6f7fb;
-  --panel: #ffffff;
-  --panel-subtle: #f7f9fc;
+/* Base tokens (light defaults) */
+:root{
+  --page-bg:#f6f7fb;
+  --panel:#ffffff;
+  --panel-subtle:#f3f5f9;
+  --text:#0b0f14;
+  --muted:#4b5563;
+  --border:rgba(0,0,0,.10);
 
-  /* Text */
-  --text: #0b1220;
-  --muted: #5b6578;
-
-  /* Borders */
-  --border: #e3e8ef;
-
-  /* Brand / State */
-  --primary: #298ee8;   /* used for buttons/links (was L5 Blue) */
-  --good: #10b981;
-  --warn: #f59e0b;
-
-  /* Extras used across pages */
-  --accent-a: #2563eb;
-  --accent-b: #10b981;
+  --primary:#2563eb;   /* blue */
+  --good:#10b981;      /* emerald */
+  --warn:#dc2626;
 }
 
-/* Dark */
-html[data-theme="dark"] {
-  --page-bg: #0b0f14;
-  --panel: #0f1720;
-  --panel-subtle: #0e1320;
+/* Dark theme tokens (driven by <html data-theme="dark">) */
+html[data-theme="dark"]{
+  --page-bg:#0b0f14;
+  --panel:#0f1720;
+  --panel-subtle:#0c111a;
+  --text:#e5e7eb;
+  --muted:#9aa4b2;
+  --border:rgba(255,255,255,.12);
 
-  --text: #e6edf3;
-  --muted: #9aa5b4;
-
-  --border: #1f2736;
-
-  --primary: #60a5fa;
-  --good: #22c55e;
-  --warn: #bb6c17;
-
-  --accent-a: #60a5fa;
-  --accent-b: #34d399;
+  --primary:#60a5fa;
+  --good:#34d399;
+  --warn:#f87171;
 }
 
-/* =========================
-   GLOBAL BASE STYLES
-   ========================= */
-* { box-sizing: border-box; }
-
-html, body {
-  height: 100%;
-  margin: 0;
-  padding: 0;
+/* Reset-ish */
+*{ box-sizing:border-box; }
+html, body { height:100%; }
+body{
+  margin:0;
+  font:14px/1.45 system-ui,-apple-system,Segoe UI,Roboto,Inter,Arial;
   background: var(--page-bg);
   color: var(--text);
-  font: 14px/1.45 system-ui, -apple-system, Segoe UI, Roboto, Inter, Arial, sans-serif;
 }
 
-/* (Optional) subtle page backgrounds per theme */
+/* Utility buttons/inputs baseline so components look consistent everywhere */
+button{
+  appearance:none; border:1px solid var(--border); background:var(--panel-subtle); color:var(--text);
+  padding:8px 12px; border-radius:8px; cursor:pointer; font-weight:600;
+}
+button:disabled{opacity:.6; cursor:not-allowed}
+input, select{
+  background:var(--panel); border:1px solid var(--border); color:var(--text);
+  border-radius:8px; padding:8px 10px; outline:none;
+}
+
+/* ===== Global light vs dark body surface ===== */
 html[data-theme="dark"] body {
   background: radial-gradient(900px 480px at 50% -8%, #121826 0%, #0d1117 60%, #0b0f14 100%);
 }
@@ -71,23 +58,14 @@ html[data-theme="light"] body {
   background: radial-gradient(1100px 560px at 50% -10%, #ffffff 0%, #f7f9fc 55%, #eef2f9 100%);
 }
 
-/* Basic form + button resets (safe app-wide) */
-button {
-  appearance: none;
-  border: 1px solid var(--border);
-  background: var(--panel-subtle);
-  color: var(--text);
-  padding: 8px 12px;
-  border-radius: 8px;
-  cursor: pointer;
+/* === Global theme toggle (fixed, shows on Login + Dashboard) === */
+.theme-toggle-fixed{
+  position: fixed; right: 14px; top: 12px; z-index: 1000;
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 6px 10px; border: 1px solid var(--border); border-radius: 999px;
+  background: var(--panel); color: var(--text);
 }
-button:disabled { opacity: .6; cursor: not-allowed; }
-
-input, select {
-  background: var(--panel-subtle);
-  border: 1px solid var(--border);
-  color: var(--text);
-  border-radius: 8px;
-  padding: 8px 10px;
-  outline: none;
+.theme-toggle-fixed .dot{
+  width: 14px; height: 14px; border-radius: 50%;
+  background: var(--primary);
 }

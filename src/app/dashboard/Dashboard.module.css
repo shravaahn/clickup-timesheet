@@ -1,23 +1,20 @@
 /* =========================
-   DASHBOARD MODULE STYLES
-   (No :root or :global selectors here)
+   DASHBOARD (PURE MODULE)
    ========================= */
 
-/* Page shell */
+/* Page shell (no frame) */
 .page { background: var(--page-bg); color: var(--text); }
 .shell { max-width: 1280px; margin: 0 auto; padding: 16px; }
 
-/* Header */
+/* Header (no heavy frame; lightweight surface) */
 .header {
   display: flex; align-items: center; justify-content: space-between;
   padding: 12px 14px; border: 1px solid var(--border); border-radius: 12px;
   background: var(--panel);
 }
 .brand { display: flex; gap: 12px; align-items: center; }
-.logoWrap {
-  width: 36px; height: 36px; border-radius: 10px; background: var(--panel-subtle);
-  display: grid; place-items: center; border: 1px solid var(--border);
-}
+.logoWrap { width: 36px; height: 36px; border-radius: 10px; background: var(--panel-subtle);
+  display: grid; place-items: center; border: 1px solid var(--border); }
 .logoImg { width: 28px; height: 28px; object-fit: contain; }
 .badge { font-weight: 700; font-size: 12px; color: var(--muted); }
 
@@ -30,28 +27,34 @@
 .viewerName { color: var(--text); font-weight: 600; }
 .roleDot { margin-left: 6px; opacity: .8; }
 
+.select {
+  height: 32px; min-width: 200px;
+  border: 1px solid var(--border); border-radius: 8px; background: var(--panel);
+  color: var(--text); font-size: 12px; padding: 0 8px;
+}
 .btn {
   height: 32px; padding: 0 10px; border-radius: 8px; border: 1px solid var(--border);
   background: var(--panel-subtle); color: var(--text); font-size: 12px; font-weight: 600; cursor: pointer;
-  transition: filter .06s ease, transform .04s ease;
 }
-.btn:hover { filter: brightness(0.97); transform: translateY(-1px); }
-.primary { background: var(--good); border-color: transparent; color: #fff; }
+.btn:hover { filter: brightness(0.98); }
+.primary { background: var(--primary); border-color: transparent; color: #fff; }
 .warn { background: #ffdd9a; border-color: #f1b03d; color: #5d3b00; }
 .selected { outline: 2px solid var(--primary); }
 
+/* =========================
+   SELECTORS + SUMMARY
+   ========================= */
 .selectorsBar {
   margin-top: 12px; display: grid; grid-template-columns: repeat(3, minmax(0,1fr));
   gap: 10px;
 }
 .selectorCol { display: flex; align-items: center; gap: 8px; }
 .selectorLabel { color: var(--muted); font-size: 12px; }
-.select, .selectWide {
+.selectWide {
   height: 32px; border: 1px solid var(--border); border-radius: 8px; background: var(--panel);
   color: var(--text); font-size: 12px; padding: 0 8px; min-width: 160px;
 }
 
-/* Summary pills */
 .summary {
   margin-top: 12px; display: flex; gap: 8px; align-items: center; flex-wrap: wrap;
 }
@@ -62,75 +65,82 @@
 }
 .period { margin-left: auto; color: var(--muted); font-size: 12px; }
 
-/* Card */
-.card {
-  margin-top: 12px; border: 1px solid var(--border); border-radius: 12px; background: var(--panel); padding: 10px;
-}
-
-/* Table */
+/* =========================
+   TABLE (COMPACT + NO DARK BANDS)
+   ========================= */
+.card { margin-top: 12px; border: 1px solid var(--border); border-radius: 12px; background: var(--panel); padding: 10px; }
 .tableWrap { overflow: auto; }
 .table {
   border-collapse: separate; border-spacing: 0; width: 100%;
-  table-layout: fixed; /* keep narrow columns consistent */
+  table-layout: fixed;
 }
+
+/* sticky first col width */
 .thProject { width: 28%; min-width: 220px; }
 
-/* Header row — light (no dark strip) */
+/* header row — remove dark strip */
 .table thead th {
   position: sticky; top: 0; z-index: 1;
-  background: var(--panel);  /* removed dark band */
+  background: var(--panel);
   border-bottom: 1px solid var(--border);
   padding: 8px; font-weight: 700; font-size: 12px; color: var(--muted);
 }
 .day { font-size: 12px; font-weight: 700; color: var(--text); }
 .daySub { font-size: 11px; color: var(--muted); }
 
-.table tbody td, .table tfoot td {
-  padding: 8px; border-bottom: 1px solid var(--border);
-}
+/* body + foot */
+.table tbody td, .table tfoot td { padding: 8px; border-bottom: 1px solid var(--border); }
 .projectName { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
-/* ==== COMPACT CELLS (fit full week while keeping project names visible) ==== */
-.cellBox { display: grid; grid-template-columns: 68px 1fr; gap: 6px; align-items: center; }
-
+/* === COMPACT CELLS (fix overlap + fit all days + total) === */
+.cellBox {
+  display: grid;
+  grid-template-columns: 56px 56px; /* smaller “cute” controls */
+  gap: 6px; align-items: center; justify-content: start;
+}
 .num {
-  height: 28px; padding: 0 6px; border: 1px solid var(--border); border-radius: 8px;
+  height: 26px; padding: 0 6px; border: 1px solid var(--border); border-radius: 7px;
   background: var(--panel-subtle); color: var(--text); font-size: 12px; text-align: center;
 }
-.numWide { width: 68px; }
-.locked { opacity: .7; }
+.numWide { width: 56px; }
+.locked { opacity: .75; }
 
 .trackBtn {
-  height: 28px; width: 68px; border-radius: 8px; border: 1px solid var(--border);
+  height: 26px; width: 56px; border-radius: 7px; border: 1px solid var(--border);
   background: var(--primary); color: #fff; font-size: 12px; font-weight: 700; cursor: pointer;
+  display: inline-flex; align-items: center; justify-content: center;
 }
 .trackBtn:hover { filter: brightness(.98); }
 
-/* Totals row look */
+/* tfoot total inputs style */
 .table tfoot td input { background: var(--panel-subtle); }
 
-/* Admin panel */
+/* =========================
+   ADMIN + CHARTS
+   ========================= */
 .adminPanel { margin-top: 12px; }
 .cardsRow { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 10px; }
-.statCard {
-  border: 1px solid var(--border); border-radius: 12px; background: var(--panel); padding: 12px;
-}
+.statCard { border: 1px solid var(--border); border-radius: 12px; background: var(--panel); padding: 12px; }
 .statLabel { color: var(--muted); font-size: 12px; }
 .statValue { font-weight: 800; font-size: 22px; }
 
-/* Charts */
+/* Charts – explicit colors so they’re never black */
 .chartsRow { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 10px; }
 .chartCard { border: 1px solid var(--border); border-radius: 12px; background: var(--panel); padding: 12px; }
 .chartTitle { display: flex; gap: 8px; align-items: center; font-weight: 700; font-size: 13px; margin-bottom: 8px; }
 .chartLink { margin-left: auto; font-size: 12px; color: var(--primary); }
-
-/* IMPORTANT: prevent overlap by letting SVG size itself */
 .chartSvg { width: 100%; height: auto; display: block; }
 .chartAxis { stroke: var(--border); stroke-width: 1; }
 .chartGrid { stroke: var(--border); stroke-width: 1; }
 .chartX, .chartY, .leg { fill: var(--muted); font-size: 11px; }
 
-/* Modal */
+/* NEW: Bars color fixes */
+.barA { fill: #4F46E5; }   /* Indigo 600 – Est */
+.barB { fill: #10B981; }   /* Emerald 500 – Tracked */
+
+/* =========================
+   MODALS
+   ========================= */
 .modalBackdrop {
   position: fixed; inset: 0; background: rgba(0,0,0,.35); display: grid; place-items: center; z-index: 1000;
 }
@@ -145,7 +155,9 @@
 .help { margin-top: 8px; color: var(--muted); font-size: 12px; }
 .modalActions { margin-top: 12px; display: flex; gap: 8px; justify-content: flex-end; }
 
-/* Month view */
+/* =========================
+   MONTH VIEW
+   ========================= */
 .weekGrid { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 10px; margin-top: 10px; }
 .weekCard { border: 1px solid var(--border); border-radius: 12px; background: var(--panel); padding: 12px; }
 .weekCardSelected { outline: 2px solid var(--primary); }
@@ -157,9 +169,7 @@
 .dayEst { font-size: 13px; font-weight: 700; }
 .dayTracked { font-size: 12px; color: var(--muted); }
 
-.monthKpis {
-  margin-top: 10px; display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 10px;
-}
+.monthKpis { margin-top: 10px; display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 10px; }
 .metric { border: 1px solid var(--border); border-radius: 12px; background: var(--panel); padding: 12px; font-weight: 600; }
 
 /* View toggle */
