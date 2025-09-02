@@ -1,5 +1,6 @@
+//src/app/layout.tsx
 import "./globals.css"; // keep your global styles if you have them
-import { ActionToggle } from "@/components/ThemeToggle";
+import ThemeToggle from "@/components/ThemeToggle";
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
@@ -23,7 +24,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             background: "transparent",
           }}
         >
-          <ActionToggle />
+          <ThemeToggle />
         </header>
 
         {/* Page content */}

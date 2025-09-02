@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import styles from "./Dashboard.module.css";
+import ThemeToggle from "../../components/ThemeToggle"; // uses your global toggle
 
 /* ---------- Theme: read from global + listen for changes ---------- */
 type Scheme = "light" | "dark";
@@ -83,7 +84,7 @@ function BarsVertical({
       <line x1={pad} y1={H-pad} x2={pad} y2={20} className={styles.chartAxis}/>
       {labels.map((_, i) => {
         const x0 = pad + i * band;
-        const bw = Math.min(28, band/3);
+        const bw = Math.min(24, band/3); // slightly narrower bars
         const xA = x0 + band/2 - bw - 3;
         const xB = x0 + band/2 + 3;
         return (
@@ -117,10 +118,10 @@ function BarsHorizontal({
         const y = 28 + i * 34;
         return (
           <g key={i}>
-            <text x={pad} y={y-6} className={styles.chartY}>{r.name}</text>
+            <text x={pad} y={y-6} className={styles.chartY}>{r.name.length > 22 ? r.name.slice(0,21)+"…" : r.name}</text>
             <line x1={pad} y1={y} x2={W-10} y2={y} className={styles.chartGrid}/>
-            <rect x={pad} y={y+6} width={x(r.a)-pad} height="10" className={styles.barA}/>
-            <rect x={pad} y={y+18} width={x(r.b)-pad} height="10" className={styles.barB}/>
+            <rect x={pad} y={y+6}  width={Math.max(0, x(r.a)-pad)} height="10" className={styles.barA}/>
+            <rect x={pad} y={y+18} width={Math.max(0, x(r.b)-pad)} height="10" className={styles.barB}/>
           </g>
         );
       })}
@@ -359,6 +360,18 @@ export default function DashboardPage() {
     });
   }, [overviewRows, memberNameById]);
 
+  /** collapse duplicate consultants to avoid overlap */
+  const overviewCollapsed = useMemo(() => {
+    const map = new Map<string, { name: string; est: number; tracked: number }>();
+    for (const r of overviewResolved) {
+      const key = r.name.trim();
+      const prev = map.get(key);
+      if (prev) map.set(key, { name: key, est: prev.est + (r.est || 0), tracked: prev.tracked + (r.tracked || 0) });
+      else map.set(key, { name: key, est: r.est || 0, tracked: r.tracked || 0 });
+    }
+    return Array.from(map.values());
+  }, [overviewResolved]);
+
   /** actions */
   async function saveEstimate(taskId: string, taskName: string, i: number, val: number) {
     if (!selectedUserId) return;
@@ -568,6 +581,9 @@ export default function DashboardPage() {
             <button className={`${styles.btn} ${styles.primary}`} onClick={()=> alert("All changes auto-save on blur / Save.")}>Save</button>
             <button className={styles.btn} onClick={exportCsv}>Export CSV</button>
             <button className={`${styles.btn} ${styles.warn}`} onClick={()=> (window.location.href="/login")}>Log out</button>
+
+            {/* Single global theme toggle in the header */}
+            <ThemeToggle />
           </div>
         </header>
 
@@ -628,7 +644,8 @@ export default function DashboardPage() {
         {viewMode === "week" && (
           <section className={styles.card}>
             <div className={styles.tableWrap}>
-              <table className={styles.table}>
+              {/* compact the table so project names + all days fit */}
+              <table className={styles.table} style={{ minWidth: 1100 }}>
                 <thead>
                   <tr>
                     <th className={styles.thProject}>Project</th>
@@ -662,9 +679,11 @@ export default function DashboardPage() {
 
                         {[0,1,2,3,4].map((i) => (
                           <td key={i}>
-                            <div className={styles.cellBox}>
+                            {/* tighter grid for the two controls */}
+                            <div className={styles.cellBox} style={{ gridTemplateColumns: "80px 92px", gap: 8 }}>
                               <input
-                                className={`${styles.num} ${styles.numWide} ${r.estLockedByDay[i] ? styles.locked : ""}`}
+                                className={`${styles.num} ${r.estLockedByDay[i] ? styles.locked : ""}`}
+                                style={{ height: 34 }}
                                 type="number" step="0.25" min="0"
                                 value={r.estByDay[i] ?? ""}
                                 onChange={(e)=> {
@@ -683,7 +702,8 @@ export default function DashboardPage() {
                               />
 
                               <button
-                                className={`${styles.trackBtn} ${styles.numWide}`}
+                                className={styles.trackBtn}
+                                style={{ height: 34 }}
                                 onClick={() => openTrackModal(r.taskId, r.taskName, i, r.trackedByDay[i], r.noteByDay[i])}
                               >
                                 {r.trackedByDay[i] != null ? `${r.trackedByDay[i]}h` : "Track"}
@@ -693,9 +713,9 @@ export default function DashboardPage() {
                         ))}
 
                         <td>
-                          <div className={styles.cellBox}>
-                            <input className={`${styles.num} ${styles.numWide} ${styles.locked}`} disabled value={tEst.toFixed(2)} />
-                            <input className={`${styles.num} ${styles.numWide}`} disabled value={tTracked.toFixed(2)} />
+                          <div className={styles.cellBox} style={{ gridTemplateColumns: "80px 92px", gap: 8 }}>
+                            <input className={`${styles.num} ${styles.locked}`} style={{ height: 34 }} disabled value={tEst.toFixed(2)} />
+                            <input className={styles.num} style={{ height: 34 }} disabled value={tTracked.toFixed(2)} />
                           </div>
                         </td>
                       </tr>
@@ -712,16 +732,16 @@ export default function DashboardPage() {
                     <td className={styles.thProject}>All Projects Total</td>
                     {[0,1,2,3,4].map((i) => (
                       <td key={i}>
-                        <div className={styles.cellBox}>
-                          <input className={`${styles.num} ${styles.numWide} ${styles.locked}`} disabled value={(totals.dayEst[i]||0).toFixed(2)} />
-                          <input className={`${styles.num} ${styles.numWide}`} disabled value={(totals.dayTracked[i]||0).toFixed(2)} />
+                        <div className={styles.cellBox} style={{ gridTemplateColumns: "80px 92px", gap: 8 }}>
+                          <input className={`${styles.num} ${styles.locked}`} style={{ height: 34 }} disabled value={(totals.dayEst[i]||0).toFixed(2)} />
+                          <input className={styles.num} style={{ height: 34 }} disabled value={(totals.dayTracked[i]||0).toFixed(2)} />
                         </div>
                       </td>
                     ))}
                     <td>
-                      <div className={styles.cellBox}>
-                        <input className={`${styles.num} ${styles.numWide} ${styles.locked}`} disabled value={totals.sumEst.toFixed(2)} />
-                        <input className={`${styles.num} ${styles.numWide}`} disabled value={totals.sumTracked.toFixed(2)} />
+                      <div className={styles.cellBox} style={{ gridTemplateColumns: "80px 92px", gap: 8 }}>
+                        <input className={`${styles.num} ${styles.locked}`} style={{ height: 34 }} disabled value={totals.sumEst.toFixed(2)} />
+                        <input className={styles.num} style={{ height: 34 }} disabled value={totals.sumTracked.toFixed(2)} />
                       </div>
                     </td>
                   </tr>
@@ -820,9 +840,9 @@ export default function DashboardPage() {
                   <a className={styles.chartLink} href="/admin/overview">Open Overview</a>
                 </div>
                 <BarsHorizontal
-                  labels={overviewResolved.map(r=>r.name)}
-                  a={overviewResolved.map(r=>r.est)}
-                  b={overviewResolved.map(r=>r.tracked)}
+                  labels={overviewCollapsed.map(r=>r.name)}
+                  a={overviewCollapsed.map(r=>r.est)}
+                  b={overviewCollapsed.map(r=>r.tracked)}
                   titleA="Est"
                   titleB="Tracked"
                   maxBars={8}
@@ -851,7 +871,6 @@ export default function DashboardPage() {
             </div>
           </section>
         )}
-
       </div>
 
       {/* --- Modal for Tracked Time --- */}
