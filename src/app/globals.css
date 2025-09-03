@@ -1,71 +1,98 @@
-/* ============ GLOBALS (minimal; no frame) ============ */
+/* src/app/globals.css */
+@import "tailwindcss";
 
-/* Base tokens (light defaults) */
-:root{
-  --page-bg:#f6f7fb;
-  --panel:#ffffff;
-  --panel-subtle:#f3f5f9;
-  --text:#0b0f14;
-  --muted:#4b5563;
-  --border:rgba(0,0,0,.10);
+/* ---------- THEME TOKENS ---------- */
+/* Light (default) */
+:root {
+  --page-bg: #f6f7fb;
+  --panel: #ffffff;
+  --panel-subtle: #f3f6fb;
+  --text: #0b1220;
+  --muted: #667085;
+  --border: #e6ebf2;
 
-  --primary:#2563eb;   /* blue */
-  --good:#10b981;      /* emerald */
-  --warn:#dc2626;
+  --primary: #2563eb;   /* blue */
+  --good: #22c55e;      /* green */
+  --warn: #f59e0b;      /* amber */
+  --danger: #ef4444;
+
+  --chart-a: #4f8cff;   /* bar A (Est) */
+  --chart-b: #22c55e;   /* bar B (Tracked) */
+
+  --radius: 12px;
 }
 
-/* Dark theme tokens (driven by <html data-theme="dark">) */
-html[data-theme="dark"]{
-  --page-bg:#0b0f14;
-  --panel:#0f1720;
-  --panel-subtle:#0c111a;
-  --text:#e5e7eb;
-  --muted:#9aa4b2;
-  --border:rgba(255,255,255,.12);
+/* Dark */
+html[data-theme="dark"] {
+  --page-bg: #0b0f14;
+  --panel: #0f1720;
+  --panel-subtle: #0e1520;
+  --text: #e6edf3;
+  --muted: #9aa4b2;
+  --border: #1f2736;
 
-  --primary:#60a5fa;
-  --good:#34d399;
-  --warn:#f87171;
+  --primary: #60a5fa;
+  --good: #34d399;
+
+  --chart-a: #7aa8ff;
+  --chart-b: #34d399;
 }
 
-/* Reset-ish */
-*{ box-sizing:border-box; }
-html, body { height:100%; }
-body{
-  margin:0;
-  font:14px/1.45 system-ui,-apple-system,Segoe UI,Roboto,Inter,Arial;
+/* ---------- Global base (no “frame” look) ---------- */
+* { box-sizing: border-box; }
+html, body { height: 100%; }
+body {
+  margin: 0;
   background: var(--page-bg);
   color: var(--text);
+  font: 14px/1.45 system-ui,-apple-system,Segoe UI,Roboto,Inter,Arial;
 }
 
-/* Utility buttons/inputs baseline so components look consistent everywhere */
-button{
-  appearance:none; border:1px solid var(--border); background:var(--panel-subtle); color:var(--text);
-  padding:8px 12px; border-radius:8px; cursor:pointer; font-weight:600;
+/* Remove any boxed/card layout styles app-wide */
+.card, .wrap, header.appbar, .grid, .chartbox { all: unset; }
+
+/* Buttons / inputs – neutral base so Dashboard.module.css can size them */
+button {
+  appearance: none;
+  border: 1px solid var(--border);
+  background: var(--panel-subtle);
+  color: var(--text);
+  padding: 8px 10px;
+  border-radius: 8px;
+  cursor: pointer;
 }
-button:disabled{opacity:.6; cursor:not-allowed}
-input, select{
-  background:var(--panel); border:1px solid var(--border); color:var(--text);
-  border-radius:8px; padding:8px 10px; outline:none;
+button:disabled { opacity: .6; cursor: not-allowed; }
+input, select {
+  background: var(--panel-subtle);
+  border: 1px solid var(--border);
+  color: var(--text);
+  border-radius: 8px;
+  padding: 8px 10px;
+  outline: none;
 }
 
-/* ===== Global light vs dark body surface ===== */
-html[data-theme="dark"] body {
-  background: radial-gradient(900px 480px at 50% -8%, #121826 0%, #0d1117 60%, #0b0f14 100%);
+/* ---------- Floating theme toggle (global, top-right) ---------- */
+.theme-toggle {
+  position: fixed;
+  top: 12px;
+  right: 12px;
+  z-index: 9999;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  border-radius: 999px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  color: var(--text);
+  box-shadow: 0 6px 20px rgba(0,0,0,.08);
+  font-size: 12px;
+}
+.theme-toggle .dot {
+  width: 12px; height: 12px; border-radius: 50%;
+  background: radial-gradient(circle at 30% 30%, var(--primary), #ff7a7a);
 }
 
-html[data-theme="light"] body {
-  background: radial-gradient(1100px 560px at 50% -10%, #ffffff 0%, #f7f9fc 55%, #eef2f9 100%);
-}
-
-/* === Global theme toggle (fixed, shows on Login + Dashboard) === */
-.theme-toggle-fixed{
-  position: fixed; right: 14px; top: 12px; z-index: 1000;
-  display: inline-flex; align-items: center; gap: 8px;
-  padding: 6px 10px; border: 1px solid var(--border); border-radius: 999px;
-  background: var(--panel); color: var(--text);
-}
-.theme-toggle-fixed .dot{
-  width: 14px; height: 14px; border-radius: 50%;
-  background: var(--primary);
-}
+/* Prevent any library defaults from forcing black chart bars */
+svg .barA { fill: var(--chart-a); }
+svg .barB { fill: var(--chart-b); }
