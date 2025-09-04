@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import styles from "./Dashboard.module.css";
+import EstTrackCell from "@/components/EstTrackCell";
 
 /* ---------- Theme: read from global + listen for changes ---------- */
 type Scheme = "light" | "dark";
