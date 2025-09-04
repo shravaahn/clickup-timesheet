@@ -1,67 +1,50 @@
 // src/app/login/page.tsx
 "use client";
 
-import Link from "next/link";
+import { useEffect, useState } from "react";
+import styles from "./Login.module.css";
 
 export default function LoginPage() {
+  // reflect the global theme set on <html>
+  const [theme, setTheme] = useState<"light" | "dark">("light");
+
+  useEffect(() => {
+    const htmlTheme =
+      (document.documentElement.getAttribute("data-theme") as "light" | "dark") || "light";
+    setTheme(htmlTheme);
+    const onChange = (e: Event) => {
+      const t = (e as CustomEvent).detail as "light" | "dark";
+      setTheme(t);
+    };
+    window.addEventListener("app-theme-change", onChange as any);
+    return () => window.removeEventListener("app-theme-change", onChange as any);
+  }, []);
+
+  // ✅ correct OAuth start route
+  const startAuth = () => {
+    window.location.href = "/api/auth/clickup-login";
+  };
+
   return (
-    <main className="min-h-dvh grid place-items-center px-4">
-      <div
-        className="
-          w-full max-w-[380px]
-          rounded-xl border border-[var(--border)]
-          bg-[var(--panel)] p-6 shadow-sm
-        "
-      >
-        <h1 className="text-lg font-bold">Sign in</h1>
-        <p className="mt-1 text-sm text-[var(--muted)]">
-          Continue to Time Tracking
-        </p>
+    <div className={`${styles.page} ${theme === "light" ? styles.tokensLight : styles.tokensDark}`}>
+      <div className={styles.shell}>
+        <div className={styles.card} role="dialog" aria-labelledby="login-title">
+          <div className={styles.brandRow}>
+            <div className={styles.logoBadge}>L5</div>
+            <div className={styles.brandText}>
+              <h1 id="login-title" className={styles.title}>Weekly Time Tracking</h1>
+              <p className={styles.subtitle}>Sign in</p>
+            </div>
+          </div>
 
-        <form className="mt-5 grid gap-3" action="/api/login" method="post">
-          <label className="grid gap-1 text-sm">
-            <span className="text-[var(--muted)]">Email</span>
-            <input
-              name="email"
-              type="email"
-              required
-              className="rounded-lg border border-[var(--border)] bg-[var(--input)] px-3 py-2 text-[var(--text)] outline-none"
-              placeholder="you@company.com"
-            />
-          </label>
-
-          <label className="grid gap-1 text-sm">
-            <span className="text-[var(--muted)]">Password</span>
-            <input
-              name="password"
-              type="password"
-              required
-              className="rounded-lg border border-[var(--border)] bg-[var(--input)] px-3 py-2 text-[var(--text)] outline-none"
-              placeholder="••••••••"
-            />
-          </label>
-
-          <button
-            type="submit"
-            className="
-              mt-2 h-10 rounded-lg
-              bg-[var(--accent)] text-white font-semibold
-              hover:brightness-110 transition
-            "
-          >
-            Sign in
+          <button className={styles.cta} onClick={startAuth} aria-label="Continue with ClickUp">
+            <span className={styles.ctaDot} aria-hidden="true" />
+            Continue with ClickUp
           </button>
-        </form>
 
-        <div className="mt-4 flex items-center justify-between text-xs text-[var(--muted)]">
-          <Link href="#" className="hover:underline">
-            Forgot password?
-          </Link>
-          <Link href="/" className="hover:underline">
-            Go home
-          </Link>
+          <p className={styles.note}>You’ll be redirected to ClickUp to grant access.</p>
         </div>
       </div>
-    </main>
+    </div>
   );
 }
