@@ -103,3 +103,29 @@ svg .barA { fill: var(--chart-a); }
 svg .barB { fill: var(--chart-b); }
 svg .axis, svg .grid { stroke: var(--border); }
 svg .label { fill: var(--muted); font-size: 11px; }
+
+/* Base theme variables shared app-wide */
+html[data-theme="light"] {
+  --page-bg: #f6f7fb;
+  --panel: #ffffff;
+  --panel-subtle:#f2f4f7;
+  --text: #0b0f14;
+  --muted: #4b5563;
+  --border: rgba(0,0,0,0.10);
+  --primary: #2563eb;
+}
+
+html[data-theme="dark"] {
+  --page-bg: #0b0f14;
+  --panel: #0f1720;
+  --panel-subtle:#111827;
+  --text: #e5e7eb;
+  --muted: #9aa4b2;
+  --border: rgba(255,255,255,0.10);
+  --primary: #60a5fa;
+}
+
+/* reset-ish */
+*{box-sizing:border-box}
+html,body{height:100%}
+body{margin:0}
