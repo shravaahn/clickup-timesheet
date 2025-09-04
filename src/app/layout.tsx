@@ -36,14 +36,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           enableSystem
           disableTransitionOnChange
         >
-          {/* Global, minimal top bar – lives on ALL pages (login + dashboard) */}
-          <div className="globalTopbar">
-            <div className="brand">
-              <span className="dot">TT</span>
-              <span className="title">Time Tracking</span>
-            </div>
-            <ThemeToggle />
-          </div>
+          
 
           {/* Page content */}
           <main className="pageContainer">{children}</main>
