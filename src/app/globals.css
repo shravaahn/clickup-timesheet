@@ -1,98 +1,105 @@
-/* src/app/globals.css */
-@import "tailwindcss";
+/* ===== Base reset (tiny) ===== */
+* { box-sizing: border-box; }
+html, body { height: 100%; }
+body { margin: 0; font: 14px/1.45 system-ui, -apple-system, Segoe UI, Roboto, Inter, Arial; }
 
-/* ---------- THEME TOKENS ---------- */
-/* Light (default) */
-:root {
+/* ===== Theme tokens (no CSS Modules here) ===== */
+html[data-theme="light"] {
   --page-bg: #f6f7fb;
   --panel: #ffffff;
-  --panel-subtle: #f3f6fb;
-  --text: #0b1220;
-  --muted: #667085;
-  --border: #e6ebf2;
+  --text: #0b0f14;
+  --muted: #4b5563;
+  --border: rgba(0,0,0,0.10);
+  --input: #ffffff;
+  --primary: #2563eb;
+  --primary-ink: #ffffff;
+  --good: #22c55e;
+  --warn: #f59e0b;
 
-  --primary: #2563eb;   /* blue */
-  --good: #22c55e;      /* green */
-  --warn: #f59e0b;      /* amber */
-  --danger: #ef4444;
-
-  --chart-a: #4f8cff;   /* bar A (Est) */
-  --chart-b: #22c55e;   /* bar B (Tracked) */
-
-  --radius: 12px;
+  --chart-a: #3b82f6; /* Est (blue) */
+  --chart-b: #22c55e; /* Tracked (green) */
 }
 
-/* Dark */
 html[data-theme="dark"] {
   --page-bg: #0b0f14;
   --panel: #0f1720;
-  --panel-subtle: #0e1520;
-  --text: #e6edf3;
+  --text: #e5e7eb;
   --muted: #9aa4b2;
-  --border: #1f2736;
-
+  --border: rgba(255,255,255,0.10);
+  --input: #0f1720;
   --primary: #60a5fa;
+  --primary-ink: #081427;
   --good: #34d399;
+  --warn: #f59e0b;
 
-  --chart-a: #7aa8ff;
-  --chart-b: #34d399;
+  --chart-a: #60a5fa; /* Est (blue) */
+  --chart-b: #34d399; /* Tracked (green) */
 }
 
-/* ---------- Global base (no “frame” look) ---------- */
-* { box-sizing: border-box; }
-html, body { height: 100%; }
-body {
-  margin: 0;
+/* Clean, frameless page */
+.pageContainer {
+  min-height: 100dvh;
   background: var(--page-bg);
   color: var(--text);
-  font: 14px/1.45 system-ui,-apple-system,Segoe UI,Roboto,Inter,Arial;
+  padding: 16px 18px 40px;
 }
 
-/* Remove any boxed/card layout styles app-wide */
-.card, .wrap, header.appbar, .grid, .chartbox { all: unset; }
-
-/* Buttons / inputs – neutral base so Dashboard.module.css can size them */
-button {
-  appearance: none;
-  border: 1px solid var(--border);
-  background: var(--panel-subtle);
-  color: var(--text);
-  padding: 8px 10px;
-  border-radius: 8px;
-  cursor: pointer;
-}
-button:disabled { opacity: .6; cursor: not-allowed; }
-input, select {
-  background: var(--panel-subtle);
-  border: 1px solid var(--border);
-  color: var(--text);
-  border-radius: 8px;
-  padding: 8px 10px;
-  outline: none;
+/* ===== Global top bar (super light) ===== */
+.globalTopbar {
+  position: sticky; top: 0; z-index: 40;
+  display: flex; align-items: center; justify-content: space-between;
+  height: 48px;
+  padding: 0 14px;
+  background: color-mix(in oklab, var(--panel) 92%, transparent);
+  border-bottom: 1px solid var(--border);
+  backdrop-filter: saturate(1.2) blur(4px);
 }
 
-/* ---------- Floating theme toggle (global, top-right) ---------- */
-.theme-toggle {
-  position: fixed;
-  top: 12px;
-  right: 12px;
-  z-index: 9999;
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  padding: 6px 10px;
-  border-radius: 999px;
-  background: var(--panel);
-  border: 1px solid var(--border);
-  color: var(--text);
-  box-shadow: 0 6px 20px rgba(0,0,0,.08);
-  font-size: 12px;
+.globalTopbar .brand { display: flex; gap: 8px; align-items: center; }
+.globalTopbar .dot {
+  width: 22px; height: 22px; border-radius: 6px;
+  display: grid; place-items: center; font-weight: 900; font-size: 11px;
+  background: var(--primary); color: var(--primary-ink);
 }
-.theme-toggle .dot {
-  width: 12px; height: 12px; border-radius: 50%;
-  background: radial-gradient(circle at 30% 30%, var(--primary), #ff7a7a);
+.globalTopbar .title { font-weight: 700; font-size: 13px; color: var(--text); }
+
+/* Theme switch */
+.globalSwitch {
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 6px 10px; border-radius: 999px;
+  border: 1px solid var(--border); background: var(--panel); color: var(--text);
+  cursor: pointer; font-weight: 600; font-size: 12px;
+}
+.globalSwitch .knob {
+  width: 24px; height: 14px; border-radius: 999px; position: relative;
+  background: color-mix(in oklab, var(--muted) 30%, transparent);
+  display: inline-block;
+}
+.globalSwitch .knob::after {
+  content: ""; position: absolute; top: 1px; left: 1px;
+  width: 12px; height: 12px; border-radius: 999px; background: var(--primary);
+  transition: transform .18s ease;
+}
+.globalSwitch .knob[data-on="true"]::after { transform: translateX(10px); }
+.globalSwitch .label { opacity: .9 }
+
+/* ===== Utility (shared by dashboard CSS module as well) ===== */
+button.basic {
+  appearance: none; border: 1px solid var(--border);
+  background: var(--panel); color: var(--text);
+  padding: 8px 10px; border-radius: 8px; cursor: pointer; font-weight: 600; font-size: 12px;
+}
+button.basic.primary {
+  background: var(--primary); color: var(--primary-ink); border-color: transparent;
+}
+button.basic:disabled { opacity: .6; cursor: not-allowed; }
+input.basic, select.basic {
+  background: var(--input); color: var(--text); border: 1px solid var(--border);
+  height: 32px; border-radius: 8px; padding: 0 8px; font-size: 12px;
 }
 
-/* Prevent any library defaults from forcing black chart bars */
+/* SVG chart colors (classes used inside Dashboard.module.css) */
 svg .barA { fill: var(--chart-a); }
 svg .barB { fill: var(--chart-b); }
+svg .axis, svg .grid { stroke: var(--border); }
+svg .label { fill: var(--muted); font-size: 11px; }
