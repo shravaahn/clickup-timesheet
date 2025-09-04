@@ -1,19 +1,10 @@
-/* ================== Theme tokens (scoped here; not using :root to avoid CSS Modules "pure" errors) ================== */
-.page { /* page surface controlled by globals via html[data-theme] */
-  background: var(--page-bg);
-  color: var(--text);
-}
+/* ===== Everything here is LOCAL to the dashboard (no :global selectors) ===== */
+
+/* page shell (no frame) */
+.page { background: var(--page-bg); color: var(--text); }
 .shell { max-width: 1280px; margin: 0 auto; padding: 16px; }
 
-/* ---------- sizing system to STOP overlap ---------- */
-:global(html) {
-  --day-col-w: 152px;       /* width for each day column (fits 2 compact inputs + gap) */
-  --cell-w: 68px;           /* width of each small control (num + track)  */
-  --cell-h: 28px;
-  --cell-gap: 6px;
-}
-
-/* header */
+/* header (kept simple, no thick bands) */
 .header {
   display: flex; align-items: center; justify-content: space-between;
   padding: 12px 14px; border: 1px solid var(--border); border-radius: 12px;
@@ -24,41 +15,41 @@
   display: grid; place-items: center; border: 1px solid var(--border); }
 .logoImg { width: 28px; height: 28px; object-fit: contain; }
 .badge { font-weight: 700; font-size: 12px; color: var(--muted); }
-
 .title { font-weight: 700; font-size: 16px; }
 .subtitle { color: var(--muted); font-size: 12px; margin-top: 2px; }
 
-/* header controls */
 .controls { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
 .viewer { color: var(--muted); font-size: 12px; margin-right: 4px; }
 .viewerName { color: var(--text); font-weight: 600; }
 .roleDot { margin-left: 6px; opacity: .8; }
 
 .btn {
-  height: 32px; padding: 0 10px; border-radius: 8px; border: 1px solid var(--border);
+  height: var(--cell-h); padding: 0 10px; border-radius: 8px; border: 1px solid var(--border);
   background: var(--panel-subtle); color: var(--text); font-size: 12px; font-weight: 600; cursor: pointer;
 }
-.btn:hover { filter: brightness(0.97); }
+.btn:hover { filter: brightness(0.98); }
 .primary { background: var(--primary); border-color: transparent; color: #fff; }
 .warn { background: #ffdd9a; border-color: #f1b03d; color: #5d3b00; }
 .selected { outline: 2px solid var(--primary); }
 
-/* --- selectors row (perfect alignment) --- */
+/* selectors row – consistent alignment */
 .selectorsBar {
-  margin-top: 12px; display: grid; grid-template-columns: repeat(3, minmax(0,1fr));
-  gap: 10px;
+  margin-top: 12px;
+  display: grid;
+  grid-template-columns: repeat(3, max-content);
+  gap: 16px;
+  align-items: center;
 }
-.selectorCol { display: grid; grid-template-columns: 64px 1fr; align-items: center; gap: 8px; }
-.selectorLabel { color: var(--muted); font-size: 12px; text-align: right; }
+.selectorCol { display: inline-flex; align-items: center; gap: 8px; }
+.selectorLabel { color: var(--muted); font-size: 12px; }
 .select, .selectWide {
-  height: 32px; border: 1px solid var(--border); border-radius: 8px; background: var(--panel);
-  color: var(--text); font-size: 12px; padding: 0 8px; min-width: 160px;
+  height: var(--cell-h); border: 1px solid var(--border); border-radius: 8px; background: var(--panel);
+  color: var(--text); font-size: 12px; padding: 0 8px; min-width: 180px;
 }
+.viewToggle { display: inline-flex; gap: 6px; }
 
 /* summary pills */
-.summary {
-  margin-top: 12px; display: flex; gap: 8px; align-items: center; flex-wrap: wrap;
-}
+.summary { margin-top: 12px; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
 .pill {
   display: inline-flex; align-items: center; height: 28px; padding: 0 10px;
   background: var(--panel); border: 1px solid var(--border); border-radius: 999px;
@@ -66,30 +57,26 @@
 }
 .period { margin-left: auto; color: var(--muted); font-size: 12px; }
 
-/* card */
-.card {
-  margin-top: 12px; border: 1px solid var(--border); border-radius: 12px; background: var(--panel); padding: 10px;
-}
+/* card (kept flat) */
+.card { margin-top: 12px; border: 1px solid var(--border); border-radius: 12px; background: var(--panel); padding: 10px; }
 
-/* ========= TABLE (no overlap) ========= */
+/* ===== Table (NO OVERLAP) ===== */
 .tableWrap { overflow: auto; }
 .table {
   border-collapse: separate; border-spacing: 0; width: 100%;
-  table-layout: fixed;
+  table-layout: fixed; /* required for fixed col widths below */
 }
+.thProject { width: 32%; min-width: 260px; }
 
-/* exact column widths */
-.colProject { width: 28%; }
-.colDay { width: var(--day-col-w); }
-
-.thProject { width: 28%; min-width: 220px; }
-.thDay { width: var(--day-col-w); }
+/* fix width for day columns: everything except first (project) column */
+.table thead th:not(:first-child) { width: var(--day-col-w); }
 
 .table thead th {
   position: sticky; top: 0; z-index: 1;
-  background: var(--panel);
+  background: var(--panel); /* no dark band */
   border-bottom: 1px solid var(--border);
   padding: 8px; font-weight: 700; font-size: 12px; color: var(--muted);
+  text-align: left;
 }
 .day { font-size: 12px; font-weight: 700; color: var(--text); }
 .daySub { font-size: 11px; color: var(--muted); }
@@ -97,34 +84,41 @@
 .table tbody td, .table tfoot td {
   padding: 8px; border-bottom: 1px solid var(--border);
 }
-.tdDay { width: var(--day-col-w); }
 .projectName { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
-/* COMPACT CELLS – two tiny controls side by side */
-.cellBox { display: grid; align-items: center; }
-.compact { grid-template-columns: var(--cell-w) var(--cell-w); gap: var(--cell-gap); }
-
-.num {
-  height: var(--cell-h); width: var(--cell-w); padding: 0 6px; border: 1px solid var(--border); border-radius: 8px;
-  background: var(--panel-subtle); color: var(--text); font-size: 12px; text-align: right;
+/* ===== COMPACT CELLS (precise, geometric) ===== */
+.cellBox {
+  display: grid;
+  grid-template-columns: var(--cell-w) var(--cell-w); /* two compact controls */
+  gap: var(--cell-gap);
+  align-items: center;
 }
-.readonly { opacity: .9; }
+.num {
+  height: var(--cell-h);
+  padding: 0 6px;
+  border: 1px solid var(--border); border-radius: 8px;
+  background: var(--panel-subtle); color: var(--text); font-size: 12px;
+  text-align: right;
+  width: 100%;
+}
+.locked { opacity: .7; }
 
 .trackBtn {
-  height: var(--cell-h); width: var(--cell-w); border-radius: 8px; border: 1px solid var(--border);
+  height: var(--cell-h);
+  width: 100%;
+  border-radius: 8px; border: 1px solid var(--border);
   background: var(--primary); color: #fff; font-size: 12px; font-weight: 700; cursor: pointer;
+  padding: 0 8px;
 }
 .trackBtn:hover { filter: brightness(.98); }
 
-/* totals row surface */
+/* totals row look */
 .table tfoot td input { background: var(--panel-subtle); }
 
-/* admin panel + charts */
+/* ===== Admin panel + charts ===== */
 .adminPanel { margin-top: 12px; }
 .cardsRow { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 10px; }
-.statCard {
-  border: 1px solid var(--border); border-radius: 12px; background: var(--panel); padding: 12px;
-}
+.statCard { border: 1px solid var(--border); border-radius: 12px; background: var(--panel); padding: 12px; }
 .statLabel { color: var(--muted); font-size: 12px; }
 .statValue { font-weight: 800; font-size: 22px; }
 
@@ -132,18 +126,17 @@
 .chartCard { border: 1px solid var(--border); border-radius: 12px; background: var(--panel); padding: 12px; }
 .chartTitle { display: flex; gap: 8px; align-items: center; font-weight: 700; font-size: 13px; margin-bottom: 8px; }
 .chartLink { margin-left: auto; font-size: 12px; color: var(--primary); }
-.chartSvg { width: 100%; height: auto; display: block; }
+.chartSvg { width: 100%; height: auto; display: block; } /* avoids overlap by height */
 .chartAxis { stroke: var(--border); stroke-width: 1; }
 .chartGrid { stroke: var(--border); stroke-width: 1; }
 .chartX, .chartY, .leg { fill: var(--muted); font-size: 11px; }
-/* brighter non-black chart fills */
-.barA { fill: #7c97ff; }  /* Est */
-.barB { fill: #2dd4bf; }  /* Tracked */
 
-/* modal */
-.modalBackdrop {
-  position: fixed; inset: 0; background: rgba(0,0,0,.35); display: grid; place-items: center; z-index: 1000;
-}
+/* Give the bars real colors (no black) */
+.barA { fill: var(--primary); }   /* blue */
+.barB { fill: var(--primary-2); } /* green */
+
+/* ===== Modal ===== */
+.modalBackdrop { position: fixed; inset: 0; background: rgba(0,0,0,.35); display: grid; place-items: center; z-index: 1000; }
 .modal {
   width: min(420px,90vw); background: var(--panel); border: 1px solid var(--border);
   border-radius: 12px; padding: 12px;
@@ -155,7 +148,7 @@
 .help { margin-top: 8px; color: var(--muted); font-size: 12px; }
 .modalActions { margin-top: 12px; display: flex; gap: 8px; justify-content: flex-end; }
 
-/* month view */
+/* ===== Month view ===== */
 .weekGrid { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 10px; margin-top: 10px; }
 .weekCard { border: 1px solid var(--border); border-radius: 12px; background: var(--panel); padding: 12px; }
 .weekCardSelected { outline: 2px solid var(--primary); }
@@ -167,9 +160,5 @@
 .dayEst { font-size: 13px; font-weight: 700; }
 .dayTracked { font-size: 12px; color: var(--muted); }
 
-.monthKpis {
-  margin-top: 10px; display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 10px;
-}
+.monthKpis { margin-top: 10px; display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 10px; }
 .metric { border: 1px solid var(--border); border-radius: 12px; background: var(--panel); padding: 12px; font-weight: 600; }
-
-/* light/dark tokens pulled from globals (already set there) */

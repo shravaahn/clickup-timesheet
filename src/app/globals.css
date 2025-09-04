@@ -1,131 +1,74 @@
-/* ===== Base reset (tiny) ===== */
-* { box-sizing: border-box; }
-html, body { height: 100%; }
-body { margin: 0; font: 14px/1.45 system-ui, -apple-system, Segoe UI, Roboto, Inter, Arial; }
+/* ===== Global base (no frame) ===== */
+@import "tailwindcss";
 
-/* ===== Theme tokens (no CSS Modules here) ===== */
-html[data-theme="light"] {
+/* --- Theme tokens (light as default) --- */
+:root {
   --page-bg: #f6f7fb;
   --panel: #ffffff;
   --text: #0b0f14;
-  --muted: #4b5563;
-  --border: rgba(0,0,0,0.10);
-  --input: #ffffff;
-  --primary: #2563eb;
-  --primary-ink: #ffffff;
-  --good: #22c55e;
+  --muted: #667085;
+  --border: rgba(0,0,0,0.12);
+  --panel-subtle: #f3f5f8;
+  --primary: #2563eb;   /* blue for buttons / charts A */
+  --primary-2: #10b981; /* green for charts B */
   --warn: #f59e0b;
 
-  --chart-a: #3b82f6; /* Est (blue) */
-  --chart-b: #22c55e; /* Tracked (green) */
+  /* ---------- sizing system (used by Dashboard.module.css) ---------- */
+  --cell-h: 30px;             /* compact control height */
+  --cell-w: 84px;             /* width of each compact control (Est / Track) */
+  --cell-gap: 6px;            /* gap between the two controls */
+  /* day column fits 2*cell + gap + a bit of breathing room */
+  --day-col-w: calc((var(--cell-w) * 2) + var(--cell-gap) + 20px);
 }
 
 html[data-theme="dark"] {
   --page-bg: #0b0f14;
   --panel: #0f1720;
-  --text: #e5e7eb;
+  --text: #e6e7ea;
   --muted: #9aa4b2;
-  --border: rgba(255,255,255,0.10);
-  --input: #0f1720;
+  --border: rgba(255,255,255,0.12);
+  --panel-subtle: #0e141c;
   --primary: #60a5fa;
-  --primary-ink: #081427;
-  --good: #34d399;
+  --primary-2: #34d399;
   --warn: #f59e0b;
-
-  --chart-a: #60a5fa; /* Est (blue) */
-  --chart-b: #34d399; /* Tracked (green) */
 }
 
-/* Clean, frameless page */
-.pageContainer {
-  min-height: 100dvh;
+/* page background (no frame, no outer card) */
+html, body {
+  height: 100%;
+  margin: 0;
   background: var(--page-bg);
   color: var(--text);
-  padding: 16px 18px 40px;
+  font: 14px/1.45 system-ui, -apple-system, Segoe UI, Roboto, Inter, Arial;
 }
 
-/* ===== Global top bar (super light) ===== */
-.globalTopbar {
-  position: sticky; top: 0; z-index: 40;
-  display: flex; align-items: center; justify-content: space-between;
-  height: 48px;
-  padding: 0 14px;
-  background: color-mix(in oklab, var(--panel) 92%, transparent);
-  border-bottom: 1px solid var(--border);
-  backdrop-filter: saturate(1.2) blur(4px);
+/* basic resets for form controls so module styles look consistent */
+button {
+  appearance: none;
+  border: 1px solid var(--border);
+  background: var(--panel-subtle);
+  color: var(--text);
+  border-radius: 8px;
+  height: var(--cell-h);
+  padding: 0 10px;
+  cursor: pointer;
+}
+button:disabled { opacity: .6; cursor: not-allowed; }
+
+input, select {
+  background: var(--panel-subtle);
+  border: 1px solid var(--border);
+  color: var(--text);
+  border-radius: 8px;
+  height: var(--cell-h);
+  padding: 0 8px;
+  outline: none;
 }
 
-.globalTopbar .brand { display: flex; gap: 8px; align-items: center; }
-.globalTopbar .dot {
-  width: 22px; height: 22px; border-radius: 6px;
-  display: grid; place-items: center; font-weight: 900; font-size: 11px;
-  background: var(--primary); color: var(--primary-ink);
+/* hide default number spinners for a cleaner look */
+input[type="number"]::-webkit-outer-spin-button,
+input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+input[type="number"] {
+  -moz-appearance: textfield;
+  appearance: textfield;
 }
-.globalTopbar .title { font-weight: 700; font-size: 13px; color: var(--text); }
-
-/* Theme switch */
-.globalSwitch {
-  display: inline-flex; align-items: center; gap: 8px;
-  padding: 6px 10px; border-radius: 999px;
-  border: 1px solid var(--border); background: var(--panel); color: var(--text);
-  cursor: pointer; font-weight: 600; font-size: 12px;
-}
-.globalSwitch .knob {
-  width: 24px; height: 14px; border-radius: 999px; position: relative;
-  background: color-mix(in oklab, var(--muted) 30%, transparent);
-  display: inline-block;
-}
-.globalSwitch .knob::after {
-  content: ""; position: absolute; top: 1px; left: 1px;
-  width: 12px; height: 12px; border-radius: 999px; background: var(--primary);
-  transition: transform .18s ease;
-}
-.globalSwitch .knob[data-on="true"]::after { transform: translateX(10px); }
-.globalSwitch .label { opacity: .9 }
-
-/* ===== Utility (shared by dashboard CSS module as well) ===== */
-button.basic {
-  appearance: none; border: 1px solid var(--border);
-  background: var(--panel); color: var(--text);
-  padding: 8px 10px; border-radius: 8px; cursor: pointer; font-weight: 600; font-size: 12px;
-}
-button.basic.primary {
-  background: var(--primary); color: var(--primary-ink); border-color: transparent;
-}
-button.basic:disabled { opacity: .6; cursor: not-allowed; }
-input.basic, select.basic {
-  background: var(--input); color: var(--text); border: 1px solid var(--border);
-  height: 32px; border-radius: 8px; padding: 0 8px; font-size: 12px;
-}
-
-/* SVG chart colors (classes used inside Dashboard.module.css) */
-svg .barA { fill: var(--chart-a); }
-svg .barB { fill: var(--chart-b); }
-svg .axis, svg .grid { stroke: var(--border); }
-svg .label { fill: var(--muted); font-size: 11px; }
-
-/* Base theme variables shared app-wide */
-html[data-theme="light"] {
-  --page-bg: #f6f7fb;
-  --panel: #ffffff;
-  --panel-subtle:#f2f4f7;
-  --text: #0b0f14;
-  --muted: #4b5563;
-  --border: rgba(0,0,0,0.10);
-  --primary: #2563eb;
-}
-
-html[data-theme="dark"] {
-  --page-bg: #0b0f14;
-  --panel: #0f1720;
-  --panel-subtle:#111827;
-  --text: #e5e7eb;
-  --muted: #9aa4b2;
-  --border: rgba(255,255,255,0.10);
-  --primary: #60a5fa;
-}
-
-/* reset-ish */
-*{box-sizing:border-box}
-html,body{height:100%}
-body{margin:0}
