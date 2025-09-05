@@ -1,7 +1,10 @@
-// src/app/api/projects/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import { getIronSession } from "iron-session";
 import { sessionOptions } from "@/lib/session";
+
+function digitsOnly(s: string): string {
+  return (s || "").replace(/\D+/g, "");
+}
 
 export async function POST(req: NextRequest) {
   const res = new NextResponse();
@@ -14,7 +17,7 @@ export async function POST(req: NextRequest) {
     ? String(rawToken)
     : `Bearer ${rawToken}`;
 
-  const { name, code } = await req.json().catch(() => ({}));
+  const { name, code, assigneeId } = await req.json().catch(() => ({}));
   if (!name) return NextResponse.json({ error: "Missing name" }, { status: 400 });
 
   const LIST_ID = process.env.CLICKUP_LIST_ID;
@@ -22,11 +25,17 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "CLICKUP_LIST_ID not set" }, { status: 500 });
   }
 
-  // Create without assignment (or add default assignee if you want)
+  // Build body; include assignee if a numeric id was provided
+  const body: any = { name: String(name), tags: code ? [String(code)] : [] };
+  const numericAssignee = digitsOnly(String(assigneeId ?? ""));
+  if (numericAssignee) {
+    body.assignees = [Number(numericAssignee)];
+  }
+
   const r = await fetch(`https://api.clickup.com/api/v2/list/${LIST_ID}/task`, {
     method: "POST",
     headers: { Authorization, "Content-Type": "application/json", Accept: "application/json" },
-    body: JSON.stringify({ name, tags: code ? [String(code)] : [] }),
+    body: JSON.stringify(body),
     cache: "no-store",
   });
 
