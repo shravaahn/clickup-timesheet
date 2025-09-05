@@ -10,7 +10,7 @@ type Scheme = "light" | "dark";
 function getInitialTheme(): Scheme {
   if (typeof window === "undefined") return "light";
   const stored = window.localStorage.getItem("theme");
-  if (stored === "light" || "dark") return (stored as Scheme) ?? "light";
+  if (stored === "light" || stored === "dark") return stored;
   const prefersLight = window.matchMedia?.("(prefers-color-scheme: light)").matches;
   return prefersLight ? "light" : "dark";
 }
@@ -216,16 +216,6 @@ export default function DashboardPage() {
 
   /** admin summary */
   const [overviewRows, setOverviewRows] = useState<{ name: string; est: number; tracked: number }[]>([]);
-
-  /* logo: try multiple common paths; fall back to "TT" badge if none load */
-  const [logoSrc, setLogoSrc] = useState<string | null>("/company-logo.svg");
-  function onLogoError() {
-    setLogoSrc(prev =>
-      prev === "/company-logo.svg" ? "/logo.svg" :
-      prev === "/logo.svg" ? "/logo.png" :
-      null
-    );
-  }
 
   /* load me */
   useEffect(() => {
@@ -576,147 +566,245 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        {/* ===== WEEK VIEW ===== */}
-        <section className={styles.card}>
-          <div className={styles.cardHead}>
-            <div className={styles.headLeft}>
-              {/* Company logo if present (tries /company-logo.svg -> /logo.svg -> /logo.png); else badge */}
-              {logoSrc ? (
-                <img
-                  src={logoSrc}
-                  alt="Company logo"
-                  className={styles.logoImg}
-                  onError={onLogoError}
-                />
-              ) : (
-                <div className={styles.logoBadge}>TT</div>
-              )}
-              <div>
-                <div className={styles.title}>This Week</div>
-                <div className={styles.subtitle}>{fmtMMMdd(weekStart)} — {fmtMMMdd(weekEnd)}</div>
-              </div>
-            </div>
-          </div>
-        </section>
+        {/* summary pills */}
+        <div className={styles.summary}>
+          <span className={styles.pill}>Est: {totals.sumEst.toFixed(2)}h</span>
+          <span className={styles.pill}>Tracked: {totals.sumTracked.toFixed(2)}h</span>
+          <span className={styles.pill}>Δ (Tracked–Est): {(totals.delta).toFixed(2)}h</span>
+          <span className={styles.period}>Period: {viewMode === "week" ? "Week" : "Month"}</span>
+        </div>
 
-        <section className={styles.card}>
-          <div className={styles.tableWrap}>
-            <table className={styles.table}>
-              <thead>
-                <tr>
-                  <th className={styles.thProject}>Project</th>
-                  {["Mon","Tue","Wed","Thu","Fri"].map((d, i) => (
-                    <th key={d}>
-                      <div className={styles.day}>{d} • {fmtMMMdd(weekCols[i])}</div>
+        {/* ===== WEEK VIEW ===== */}
+        {viewMode === "week" && (
+          <section className={styles.card}>
+            <div className={styles.tableWrap}>
+              <table className={styles.table}>
+                <thead>
+                  <tr>
+                    <th className={styles.thProject}>Project</th>
+                    {["Mon","Tue","Wed","Thu","Fri"].map((d, i) => (
+                      <th key={d}>
+                        <div className={styles.day}>{d} • {fmtMMMdd(weekCols[i])}</div>
+                        <div className={styles.daySub}>Est | Tracked</div>
+                      </th>
+                    ))}
+                    <th>
+                      <div className={styles.day}>Total (Week)</div>
                       <div className={styles.daySub}>Est | Tracked</div>
                     </th>
-                  ))}
-                  <th>
-                    <div className={styles.day}>Total (Week)</div>
-                    <div className={styles.daySub}>Est | Tracked</div>
-                  </th>
-                </tr>
-              </thead>
+                  </tr>
+                </thead>
 
-              <tbody>
-                {loading && (
-                  <tr><td className={styles.thProject} colSpan={7}>Loading projects…</td></tr>
-                )}
+                <tbody>
+                  {loading && (
+                    <tr><td className={styles.thProject} colSpan={7}>Loading projects…</td></tr>
+                  )}
 
-                {!loading && rows.map((r) => {
-                  const tEst = clamp2(sumNullable(r.estByDay));
-                  const tTracked = clamp2(sumNullable(r.trackedByDay));
+                  {!loading && rows.map((r) => {
+                    const tEst = clamp2(sumNullable(r.estByDay));
+                    const tTracked = clamp2(sumNullable(r.trackedByDay));
 
-                  return (
-                    <tr key={r.taskId}>
-                      <td className={styles.thProject}>
-                        <div className={styles.projectName} title={r.taskName}>
-                          {r.taskName}
-                        </div>
-                      </td>
-
-                      {[0,1,2,3,4].map((i) => (
-                        <td key={i}>
-                          {/* compact cells */}
-                          <div className="grid grid-cols-[72px_72px] gap-2 items-center">
-                            <input
-                              className={styles.num}
-                              type="number" step="0.25" min="0"
-                              value={r.estByDay[i] ?? ""}
-                              onChange={(e)=> {
-                                const v = e.currentTarget.value === "" ? null : Number(e.currentTarget.value);
-                                setRows(prev => prev.map(row => row.taskId===r.taskId ? {
-                                  ...row, estByDay: prev.find(rr=>rr.taskId===r.taskId)!.estByDay.map((vv,ii)=> ii===i ? (v as any) : vv),
-                                }: row));
-                              }}
-                              onBlur={(e) => {
-                                const v = e.currentTarget.value;
-                                if (v === "" || r.estLockedByDay[i]) return;
-                                saveEstimate(r.taskId, r.taskName, i, Number(v));
-                              }}
-                              disabled={r.estLockedByDay[i]}
-                              placeholder="Est"
-                              style={{ height: 28, minWidth: 72, textAlign: "right", fontSize: 12 }}
-                            />
-                            <button
-                              onClick={() => openTrackModal(r.taskId, r.taskName, i, r.trackedByDay[i], r.noteByDay[i])}
-                              className="h-7 min-w-[72px] text-[12px] font-semibold rounded-md border
-                                         bg-[var(--primary)] text-white border-transparent hover:brightness-95"
-                              title={r.noteByDay[i] || "Track time"}
-                            >
-                              {r.trackedByDay[i] != null ? `${r.trackedByDay[i]}h` : "Track"}
-                            </button>
+                    return (
+                      <tr key={r.taskId}>
+                        <td className={styles.thProject}>
+                          <div className={`${styles.projectName}`} title={r.taskName}>
+                            {r.taskName}
                           </div>
                         </td>
-                      ))}
 
-                      <td>
+                        {[0,1,2,3,4].map((i) => (
+                          <td key={i}>
+                            {/* COMPACT, NON-OVERLAPPING CELLS */}
+                            <div className="grid grid-cols-[72px_72px] gap-2 items-center">
+                              <input
+                                className={`${styles.num}`}
+                                type="number" step="0.25" min="0"
+                                value={r.estByDay[i] ?? ""}
+                                onChange={(e)=> {
+                                  const v = e.currentTarget.value === "" ? null : Number(e.currentTarget.value);
+                                  setRows(prev => prev.map(row => row.taskId===r.taskId ? {
+                                    ...row, estByDay: prev.find(rr=>rr.taskId===r.taskId)!.estByDay.map((vv,ii)=> ii===i ? (v as any) : vv),
+                                  }: row));
+                                }}
+                                onBlur={(e) => {
+                                  const v = e.currentTarget.value;
+                                  if (v === "" || r.estLockedByDay[i]) return;
+                                  saveEstimate(r.taskId, r.taskName, i, Number(v));
+                                }}
+                                disabled={r.estLockedByDay[i]}
+                                placeholder="Est"
+                                style={{ height: 28, minWidth: 72, textAlign: "right", fontSize: 12 }}
+                              />
+
+                              <button
+                                onClick={() => openTrackModal(r.taskId, r.taskName, i, r.trackedByDay[i], r.noteByDay[i])}
+                                className="h-7 min-w-[72px] text-[12px] font-semibold rounded-md border
+                                           bg-[var(--primary)] text-white border-transparent hover:brightness-95"
+                                title={r.noteByDay[i] || "Track time"}
+                              >
+                                {r.trackedByDay[i] != null ? `${r.trackedByDay[i]}h` : "Track"}
+                              </button>
+                            </div>
+                          </td>
+                        ))}
+
+                        <td>
+                          <div className="grid grid-cols-[72px_72px] gap-2 items-center">
+                            <input className={styles.num} disabled value={tEst.toFixed(2)} style={{ height: 28, minWidth: 72, textAlign: "right", fontSize: 12 }} />
+                            <input className={styles.num} disabled value={tTracked.toFixed(2)} style={{ height: 28, minWidth: 72, textAlign: "right", fontSize: 12 }} />
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+
+                  {!loading && rows.length === 0 && (
+                    <tr><td className={styles.thProject} colSpan={7}>No projects found for this consultant.</td></tr>
+                  )}
+                </tbody>
+
+                <tfoot>
+                  <tr>
+                    <td className={styles.thProject}>All Projects Total</td>
+                    {[0,1,2,3,4].map((i) => (
+                      <td key={i}>
                         <div className="grid grid-cols-[72px_72px] gap-2 items-center">
-                          <input className={styles.num} disabled value={tEst.toFixed(2)} style={{ height: 28, minWidth: 72, textAlign: "right", fontSize: 12 }} />
-                          <input className={styles.num} disabled value={tTracked.toFixed(2)} style={{ height: 28, minWidth: 72, textAlign: "right", fontSize: 12 }} />
+                          <input className={styles.num} disabled value={(totals.dayEst[i]||0).toFixed(2)} style={{ height: 28, minWidth: 72, textAlign: "right", fontSize: 12 }} />
+                          <input className={styles.num} disabled value={(totals.dayTracked[i]||0).toFixed(2)} style={{ height: 28, minWidth: 72, textAlign: "right", fontSize: 12 }} />
                         </div>
                       </td>
-                    </tr>
-                  );
-                })}
-
-                {!loading && rows.length === 0 && (
-                  <tr><td className={styles.thProject} colSpan={7}>No projects found for this consultant.</td></tr>
-                )}
-              </tbody>
-
-              <tfoot>
-                <tr>
-                  <td className={styles.thProject}>All Projects Total</td>
-                  {[0,1,2,3,4].map((i) => (
-                    <td key={i}>
+                    ))}
+                    <td>
                       <div className="grid grid-cols-[72px_72px] gap-2 items-center">
-                        <input className={styles.num} disabled value={(totals.dayEst[i]||0).toFixed(2)} style={{ height: 28, minWidth: 72, textAlign: "right", fontSize: 12 }} />
-                        <input className={styles.num} disabled value={(totals.dayTracked[i]||0).toFixed(2)} style={{ height: 28, minWidth: 72, textAlign: "right", fontSize: 12 }} />
+                        <input className={styles.num} disabled value={totals.sumEst.toFixed(2)} style={{ height: 28, minWidth: 72, textAlign: "right", fontSize: 12 }} />
+                        <input className={styles.num} disabled value={totals.sumTracked.toFixed(2)} style={{ height: 28, minWidth: 72, textAlign: "right", fontSize: 12 }} />
                       </div>
                     </td>
-                  ))}
-                  <td>
-                    <div className="grid grid-cols-[72px_72px] gap-2 items-center">
-                      <input className={styles.num} disabled value={totals.sumEst.toFixed(2)} style={{ height: 28, minWidth: 72, textAlign: "right", fontSize: 12 }} />
-                      <input className={styles.num} disabled value={totals.sumTracked.toFixed(2)} style={{ height: 28, minWidth: 72, textAlign: "right", fontSize: 12 }} />
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
+          </section>
+        )}
+
+        {/* ===== MONTH VIEW ===== */}
+        {viewMode === "month" && (
+          <>
+            <div className={styles.summary} style={{ marginTop: 0 }}>
+              <span className={styles.period}>Period: Month</span>
+            </div>
+
+            <div className={styles.weekGrid}>
+              {monthWeeks.map((w, idx) => {
+                const isSelected = ymd(w.start) === ymd(weekStart);
+                const dayEst = isSelected ? totals.dayEst : [0,0,0,0,0];
+                const dayTracked = isSelected ? totals.dayTracked : [0,0,0,0,0];
+
+                return (
+                  <section key={idx} className={`${styles.weekCard} ${isSelected ? styles.weekCardSelected : ""}`}>
+                    <div className={styles.weekHead}>
+                      <h3 className={styles.weekTitle}>Week {idx + 1}</h3>
+                      <div className={styles.subtitle}>{fmtMMMdd(w.start)} — {fmtMMMdd(w.end)}</div>
                     </div>
-                  </td>
-                </tr>
-              </tfoot>
-            </table>
-          </div>
-        </section>
+
+                    <div className={styles.weekDays}>
+                      {["Mon","Tue","Wed","Thu","Fri"].map((d, i) => (
+                        <div key={d} className={styles.dayCard}>
+                          <div className={styles.dayLabel}>{d}</div>
+                          <div className={styles.dayEst}>{clamp2(dayEst[i] || 0).toFixed(2)}</div>
+                          <div className={styles.dayTracked}>{clamp2(dayTracked[i] || 0).toFixed(2)}</div>
+                        </div>
+                      ))}
+                    </div>
+
+                    <div className={styles.weekTotals}>
+                      <span>Est:</span>
+                      <strong>{clamp2(dayEst.reduce((a,b)=>a+(b||0),0)).toFixed(2)}h</strong>
+                      <span className={styles.dot}>•</span>
+                      <span>Tracked:</span>
+                      <strong>{clamp2(dayTracked.reduce((a,b)=>a+(b||0),0)).toFixed(2)}h</strong>
+                    </div>
+                  </section>
+                );
+              })}
+            </div>
+          </>
+        )}
 
         {/* ===== Admin cards + Charts ===== */}
         {isAdmin && viewMode === "week" && (
           <section className={styles.adminPanel}>
-            {/* cards + charts unchanged */}
+            <div className={styles.cardsRow}>
+              <div className={styles.statCard}>
+                <div className={styles.statLabel}>Total Est Hours (Week)</div>
+                <div className={styles.statValue}>{totals.sumEst.toFixed(2)}h</div>
+              </div>
+              <div className={styles.statCard}>
+                <div className={styles.statLabel}>Total Tracked Hours (Week)</div>
+                <div className={styles.statValue}>{totals.sumTracked.toFixed(2)}h</div>
+              </div>
+              <div className={styles.statCard}>
+                <div className={styles.statLabel}>Δ Tracked – Est</div>
+                <div className={styles.statValue}>{totals.delta.toFixed(2)}h</div>
+              </div>
+            </div>
+
+            <div className={styles.chartsRow}>
+              <div className={styles.chartCard} style={{ minHeight: 300 }}>
+                <div className={styles.chartTitle}>Daily Totals (Est vs Tracked) — Week</div>
+                <BarsVertical
+                  labels={["Mon","Tue","Wed","Thu","Fri"]}
+                  a={totals.dayEst.map(clamp2)}
+                  b={totals.dayTracked.map(clamp2)}
+                  titleA="Est"
+                  titleB="Tracked"
+                />
+              </div>
+
+              <div className={styles.chartCard} style={{ minHeight: 300 }}>
+                <div className={styles.chartTitle}>
+                  Consultants (Est vs Tracked) — Selected Week
+                  <a className={styles.chartLink} href="/admin/overview">Open Overview</a>
+                </div>
+                {overviewResolved.length === 0 ? (
+                  <div className="text-sm text-[var(--muted)]">No data for this week.</div>
+                ) : (
+                  <BarsHorizontal
+                    labels={overviewResolved.map(r=>r.name)}
+                    a={overviewResolved.map(r=>r.est)}
+                    b={overviewResolved.map(r=>r.tracked)}
+                    titleA="Est"
+                    titleB="Tracked"
+                    maxBars={8}
+                  />
+                )}
+              </div>
+            </div>
+
+            <div className={styles.adminActions}>
+              <button className={styles.btn} onClick={async () => {
+                if (!selectedUserId) return;
+                const start = ymd(weekStart), end = ymd(weekEnd);
+                const r = await fetch("/api/admin/unlock-estimates", {
+                  method: "POST", headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({ userId: selectedUserId, start, end }),
+                });
+                if (r.ok) {
+                  setRows(prev => prev.map(row => ({ ...row, estLockedByDay: row.estLockedByDay.map(() => false) })));
+                  alert("Estimates unlocked for this week.");
+                } else {
+                  const j = await r.json().catch(()=>({}));
+                  alert(`Unlock failed: ${j.error || r.statusText}${j.details ? ` — ${j.details}` : ""}`);
+                }
+              }}>
+                Unlock all estimates (visible period)
+              </button>
+            </div>
           </section>
         )}
       </div>
 
-      {/* Tracked modal (unchanged) */}
+      {/* Tracked modal */}
       {modalOpen && (
         <div className={styles.modalBackdrop} onClick={closeTrackModal}>
           <div className={styles.modal} onClick={(e)=> e.stopPropagation()}>
@@ -761,7 +849,7 @@ export default function DashboardPage() {
         </div>
       )}
 
-      {/* Add Project modal (unchanged) */}
+      {/* Add Project modal */}
       {isAdmin && addOpen && (
         <div className={styles.modalBackdrop} onClick={()=> setAddOpen(false)}>
           <div className={styles.modal} onClick={(e)=> e.stopPropagation()}>
