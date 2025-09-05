@@ -66,7 +66,7 @@
   border-collapse: separate; border-spacing: 0; width: 100%;
   table-layout: fixed; /* required for fixed col widths below */
 }
-.thProject { width: 45%; min-width: 500px; }
+.thProject { width: 35%; min-width: 320px; }
 
 /* fix width for day columns: everything except first (project) column */
 .table thead th:not(:first-child) { width: var(--day-col-w); }
