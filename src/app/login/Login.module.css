@@ -215,3 +215,14 @@
   .logoBadge { width: 40px; height: 40px; border-radius: 10px; }
   .title { font-size: 16px; }
 }
+
+/* --- keep your existing styles above --- */
+
+/* red border on hover using your --accent token */
+.cta:hover { border-color: var(--accent); }
+
+/* visible keyboard focus with brand accent */
+.cta:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
