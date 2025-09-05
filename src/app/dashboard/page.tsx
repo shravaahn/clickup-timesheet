@@ -54,6 +54,10 @@ type Row = {
   noteByDay: (string | null)[];
 };
 
+/** safe sum for (number|null)[] arrays */
+const sumNullable = (arr: (number | null)[]) =>
+  arr.reduce<number>((acc, v) => acc + (v ?? 0), 0);
+
 /** ---- chart stubs (SVG, no deps) ---- */
 function BarsVertical({
   labels, a, b, titleA = "Est", titleB = "Tracked",
@@ -150,7 +154,6 @@ export default function DashboardPage() {
   const [weekStart, setWeekStart] = useState<Date>(() => startOfWeek());
   const weekEnd = useMemo(() => addDays(weekStart, 4), [weekStart]);
   const weekCols = useMemo(() => [0,1,2,3,4].map(i => addDays(weekStart, i)), [weekStart]);
-  const weekLabel = useMemo(() => `${fmtMMMdd(weekStart)} — ${fmtMMMdd(weekEnd)}`, [weekStart, weekEnd]);
 
   /** Month / Week selectors */
   const [selectedMonth, setSelectedMonth] = useState(() => {
@@ -483,6 +486,24 @@ export default function DashboardPage() {
 
               <div className="h-4 w-px bg-[var(--border)]" />
 
+              {/* Admin-only Consultant dropdown */}
+              {isAdmin && (
+                <>
+                  <label className={styles.selectorLabel}>Consultant:</label>
+                  <select
+                    className={styles.select}
+                    value={selectedUserId ?? ""}
+                    onChange={(e)=> setSelectedUserId(e.target.value)}
+                  >
+                    {(members || []).map(m => (
+                      <option key={m.id} value={m.id}>{m.username || m.email}</option>
+                    ))}
+                  </select>
+
+                  <div className="h-4 w-px bg-[var(--border)]" />
+                </>
+              )}
+
               <button className={styles.btn} onClick={goPrev}>◀ Prev</button>
               <button className={styles.btn} onClick={goThis}>This Week</button>
               <button className={styles.btn} onClick={goNext}>Next ▶</button>
@@ -580,8 +601,8 @@ export default function DashboardPage() {
                   )}
 
                   {!loading && rows.map((r) => {
-                    const tEst = clamp2(r.estByDay.reduce<number>((a, b) => a + (b ?? 0), 0));
-                    const tTracked = clamp2(r.trackedByDay.reduce<number>((a, b) => a + (b ?? 0), 0));
+                    const tEst = clamp2(sumNullable(r.estByDay));
+                    const tTracked = clamp2(sumNullable(r.trackedByDay));
 
                     return (
                       <tr key={r.taskId}>

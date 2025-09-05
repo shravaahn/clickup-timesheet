@@ -162,3 +162,151 @@
 
 .monthKpis { margin-top: 10px; display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 10px; }
 .metric { border: 1px solid var(--border); border-radius: 12px; background: var(--panel); padding: 12px; font-weight: 600; }
+
+/* ===== Everything here is LOCAL to the dashboard (no :global selectors) ===== */
+
+/* page shell (no frame) */
+.page { background: var(--page-bg); color: var(--text);  --cell-h: 28px; --cell-w: 56px; --cell-gap: 6px; }
+.shell { max-width: 1280px; margin: 0 auto; padding: 16px; }
+
+/* header (kept simple, no thick bands) */
+.header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 12px 14px; border: 1px solid var(--border); border-radius: 12px;
+  background: var(--panel);
+}
+.brand { display: flex; gap: 12px; align-items: center; }
+.logoWrap { width: 36px; height: 36px; border-radius: 10px; background: var(--panel-subtle);
+  display: grid; place-items: center; border: 1px solid var(--border); }
+.logoImg { width: 28px; height: 28px; object-fit: contain; }
+.badge { font-weight: 700; font-size: 12px; color: var(--muted); }
+.title { font-weight: 700; font-size: 16px; }
+.subtitle { color: var(--muted); font-size: 12px; }
+
+/* thin card container */
+.card { border: 1px solid var(--border); border-radius: 12px; background: var(--panel); padding: 12px; }
+.cardHead { display: flex; align-items: center; justify-content: space-between; }
+.headLeft { display: flex; align-items: center; gap: 10px; }
+.logoBadge { width: 44px; height: 44px; border-radius: 12px; display: grid; place-items: center;
+  background: var(--panel-subtle); border: 1px solid var(--border); font-weight: 800; }
+
+/* buttons */
+.btn {
+  height: var(--cell-h); padding: 0 10px; border-radius: 8px; border: 1px solid var(--border);
+  background: var(--panel-subtle); color: var(--text); font-size: 12px; font-weight: 600; cursor: pointer;
+}
+.btn:hover { filter: brightness(0.98); border-color: var(--accent); }
+.btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.primary { background: var(--primary); border-color: transparent; color: #fff; }
+.warn { background: #ffdd9a; border-color: #f1b03d; color: #5d3b00; }
+.selected { outline: 2px solid var(--primary); }
+
+/* selectors row – consistent alignment */
+.selectorsBar {
+  margin-top: 12px;
+  display: grid;
+  grid-template-columns: repeat(3, max-content);
+  gap: 16px;
+  align-items: center;
+}
+.selectorCol { display: inline-flex; align-items: center; gap: 8px; }
+.selectorLabel { color: var(--muted); font-size: 12px; }
+.select, .selectWide {
+  height: var(--cell-h);
+  background: var(--panel-subtle);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 0 8px;
+  font-size: 12px;
+}
+
+/* summary pills */
+.summary { margin-top: 12px; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.pill {
+  display: inline-flex; align-items: center; height: 28px; padding: 0 10px;
+  background: var(--panel); border: 1px solid var(--border); border-radius: 999px;
+  font-size: 12px; color: var(--text);
+}
+.period { margin-left: auto; color: var(--muted); font-size: 12px; }
+
+/* table */
+.tableWrap { margin-top: 12px; overflow: auto; }
+.table { width: 100%; border-collapse: separate; border-spacing: 0 8px; }
+.table th, .table td { text-align: left; padding: 8px; }
+.table thead th { color: var(--muted); font-weight: 700; font-size: 12px; }
+.table tbody tr { background: var(--panel); border: 1px solid var(--border); border-radius: 10px; }
+.projectName { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* ===== COMPACT CELLS (precise, geometric) ===== */
+.cellBox {
+  display: grid;
+  grid-template-columns: var(--cell-w) var(--cell-w); /* two compact controls */
+  gap: var(--cell-gap);
+  align-items: center;
+}
+.num {
+  height: var(--cell-h);
+  padding: 0 6px;
+  border: 1px solid var(--border); border-radius: 8px;
+  background: var(--panel-subtle); color: var(--text); font-size: 12px;
+  text-align: right;
+  width: 100%;
+}
+.locked { opacity: .7; }
+
+.trackBtn {
+  height: var(--cell-h);
+  width: 100%;
+  border-radius: 8px; border: 1px solid var(--border);
+  background: var(--primary); color: #fff; font-size: 12px; font-weight: 700; cursor: pointer;
+  padding: 0 8px;
+}
+.trackBtn:hover { filter: brightness(.98); border-color: var(--accent); }
+.trackBtn:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+
+/* totals row look */
+.table tfoot td input { background: var(--panel-subtle); }
+
+/* ===== Admin panel + charts ===== */
+.adminPanel { margin-top: 12px; }
+.cardsRow { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 10px; }
+.statCard { border: 1px solid var(--border); border-radius: 12px; background: var(--panel); padding: 12px; }
+
+/* ===== Month view ===== */
+.weekGrid { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 10px; margin-top: 10px; }
+.weekCard { border: 1px solid var(--border); border-radius: 12px; background: var(--panel); padding: 12px; }
+.weekCardSelected { outline: 2px solid var(--primary); }
+.weekHead { display: flex; align-items: baseline; justify-content: space-between; }
+.weekTitle { margin: 0; font-size: 14px; }
+.weekDays { margin-top: 6px; display: grid; grid-template-columns: repeat(5,1fr); gap: 6px; }
+.dayCard { border: 1px solid var(--border); border-radius: 10px; background: var(--panel-subtle); padding: 8px; }
+.dayLabel { font-size: 12px; color: var(--muted); }
+.dayEst { font-size: 13px; font-weight: 700; }
+.dayTracked { font-size: 12px; color: var(--muted); }
+
+/* tiny responsive tweaks */
+@media (max-width: 520px) {
+  .card { padding: 18px 16px 14px; }
+  .logoBadge { width: 40px; height: 40px; border-radius: 10px; }
+  .title { font-size: 16px; }
+}
+
+
+/* === Minimal compact sizing and red-accent focus === */
+.page {
+  /* compact cell sizing; safe defaults if already present */
+  --cell-h: 28px;
+  --cell-w: 56px;
+  --cell-gap: 6px;
+}
+
+/* red border on hover using your --accent token */
+.btn:hover { border-color: var(--accent); }
+/* visible keyboard focus with brand accent */
+.btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+
+/* tracked button accents (if you use .trackBtn in any cells) */
+.trackBtn:hover { border-color: var(--accent); }
+.trackBtn:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+
