@@ -256,24 +256,39 @@ export default function DashboardPage() {
     if (selectedUserId) setAddAssignee(selectedUserId);
   }, [selectedUserId]);
 
-  /* projects for user */
+  /* projects for user — pass email (fallback username → id) so assignee filter works */
   useEffect(() => {
     if (!selectedUserId) return;
     let mounted = true;
     (async () => {
       setLoading(true);
       try {
-        const r = await fetch(`/api/projects/by-user?assigneeId=${selectedUserId}`, { cache: "no-store" });
+        const selectedMember = members.find(m => m.id === selectedUserId);
+        const assigneeForSearch =
+          selectedMember?.email ||
+          selectedMember?.username ||
+          selectedUserId;
+
+        const r = await fetch(
+          `/api/projects/by-user?assigneeId=${encodeURIComponent(String(assigneeForSearch))}`,
+          { cache: "no-store" }
+        );
         const j = await r.json();
-        const list: Project[] = (j?.projects || []).map((p: any) => ({ id: String(p.id), name: String(p.name || p.id) }));
+        const list: Project[] = (j?.projects || []).map((p: any) => ({
+          id: String(p.id),
+          name: String(p.name || p.id),
+        }));
         if (!mounted) return;
         setProjects(list);
+      } catch (e) {
+        console.error("projects fetch failed", e);
+        if (mounted) setProjects([]);
       } finally {
         if (mounted) setLoading(false);
       }
     })();
     return () => { mounted = false; };
-  }, [selectedUserId]);
+  }, [selectedUserId, members]);
 
   /* merge timesheet for week */
   useEffect(() => {
@@ -448,15 +463,21 @@ export default function DashboardPage() {
     })();
   }, [isAdmin, weekStart, weekEnd]);
 
-  /* Add Project handler */
+  /* Add Project handler — send email if available so assignment sticks */
   async function createProject() {
     if (!addName.trim() || !addAssignee) return;
     setAddBusy(true);
     try {
+      const selectedMember = members.find(m => m.id === addAssignee);
+      const assigneeForCreate =
+        selectedMember?.email ||
+        selectedMember?.username ||
+        addAssignee;
+
       const resp = await fetch("/api/projects", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: addName.trim(), assigneeId: addAssignee }),
+        body: JSON.stringify({ name: addName.trim(), assigneeId: assigneeForCreate }),
       });
       if (!resp.ok) {
         const j = await resp.json().catch(() => ({}));
@@ -466,8 +487,22 @@ export default function DashboardPage() {
       setAddOpen(false);
       setAddName("");
       setAddAssignee(selectedUserId);
-      // Optionally reload projects
-      // You may want to trigger a refresh here
+
+      // Refresh projects list
+      const assigneeForSearch =
+        selectedMember?.email ||
+        selectedMember?.username ||
+        selectedUserId;
+      const r = await fetch(
+        `/api/projects/by-user?assigneeId=${encodeURIComponent(String(assigneeForSearch))}`,
+        { cache: "no-store" }
+      );
+      const j = await r.json();
+      const list: Project[] = (j?.projects || []).map((p: any) => ({
+        id: String(p.id),
+        name: String(p.name || p.id),
+      }));
+      setProjects(list);
     } finally {
       setAddBusy(false);
     }
@@ -488,9 +523,9 @@ export default function DashboardPage() {
               </div>
             </div>
           </div>
-          <div className={styles.brandRight}>
-            <ThemeSwitch />
-          </div>
+            <div className={styles.brandRight}>
+              <ThemeSwitch />
+            </div>
         </div>
 
         {/* ACTION BAR : left (identity/nav) | right (actions) */}
@@ -513,7 +548,9 @@ export default function DashboardPage() {
                     onChange={(e)=> setSelectedUserId(e.target.value)}
                   >
                     {(members || []).map(m => (
-                      <option key={m.id} value={m.id}>{m.username || m.email}</option>
+                      <option key={m.id} value={m.id}>
+                        {m.username || m.email}{m.email && m.username ? ` (${m.email})` : ""}
+                      </option>
                     ))}
                   </select>
                   <div className="h-4 w-px bg-[var(--border)]" />
@@ -710,9 +747,7 @@ export default function DashboardPage() {
         {/* ===== MONTH VIEW ===== */}
         {viewMode === "month" && (
           <>
-            <div className={styles.summary} style={{ marginTop: 0 }}>
-              
-            </div>
+            <div className={styles.summary} style={{ marginTop: 0 }}></div>
 
             <div className={styles.weekGrid}>
               {monthWeeks.map((w, idx) => {
@@ -776,8 +811,6 @@ export default function DashboardPage() {
                   labels={["Mon","Tue","Wed","Thu","Fri"]}
                   a={totals.dayEst.map(clamp2)}
                   b={totals.dayTracked.map(clamp2)}
-                  titleA="Est"
-                  titleB="Tracked"
                 />
               </div>
 
@@ -793,8 +826,6 @@ export default function DashboardPage() {
                     labels={overviewResolved.map(r=>r.name)}
                     a={overviewResolved.map(r=>r.est)}
                     b={overviewResolved.map(r=>r.tracked)}
-                    titleA="Est"
-                    titleB="Tracked"
                     maxBars={8}
                   />
                 )}
@@ -894,7 +925,9 @@ export default function DashboardPage() {
                 onChange={(e)=> setAddAssignee(e.target.value)}
               >
                 {(members || []).map(c => (
-                  <option key={c.id} value={c.id}>{c.username || c.email}</option>
+                  <option key={c.id} value={c.id}>
+                    {c.username || c.email}{c.email && c.username ? ` (${c.email})` : ""}
+                  </option>
                 ))}
               </select>
               <div className={styles.help}>Creates a new ClickUp task in your configured List.</div>
