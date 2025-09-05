@@ -310,3 +310,99 @@
 .trackBtn:hover { border-color: var(--accent); }
 .trackBtn:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 
+/* === Brand bar (logo + context) === */
+.brandBar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 10px;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  background: var(--panel);
+  border-radius: 8px;
+}
+
+.brandLeft {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 36px;
+}
+
+.brandLogo {
+  height: 28px;
+  width: auto;
+  object-fit: contain;
+  filter: saturate(1.05);
+}
+
+.brandText {
+  display: grid;
+  gap: 2px;
+}
+
+.brandTitle {
+  font-weight: 700;
+  font-size: 14px;
+  line-height: 1.2;
+}
+
+.brandTagline {
+  font-size: 12px;
+  color: var(--muted);
+  line-height: 1.2;
+}
+
+.brandRight {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* === Project name: allow long names to wrap cleanly === */
+.projectNameFull {
+  white-space: normal;
+  word-break: break-word;
+  overflow-wrap: anywhere;
+  line-height: 1.25;
+  font-weight: 600;
+}
+
+/* === Compact cells for Est/Track === */
+.cellCompact {
+  display: grid;
+  grid-template-columns: 64px 64px;
+  align-items: center;
+  gap: 6px; /* 1.5 * 4px */
+}
+
+/* base numeric input already styled via .num; add compact size */
+.numSm {
+  height: 24px;
+  min-width: 64px;
+  text-align: right;
+  font-size: 11.5px;
+  padding-right: 6px;
+}
+
+/* Track button: compact but readable */
+.btnTrackSm {
+  height: 24px;
+  min-width: 64px;
+  font-size: 11.5px;
+  line-height: 24px;
+  font-weight: 600;
+  color: #fff;
+  background: var(--primary);
+  border: 1px solid transparent;
+  border-radius: 6px;
+  transition: filter 120ms ease, transform 80ms ease;
+}
+.btnTrackSm:hover { filter: brightness(0.97) saturate(1.05); }
+.btnTrackSm:active { transform: translateY(0.5px); }
+
+/* Keep table tidy when names wrap */
+.tableWrap table.table {
+  width: 100%;
+}

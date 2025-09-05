@@ -437,29 +437,6 @@ export default function DashboardPage() {
     closeTrackModal();
   }
 
-  /* create project */
-  async function createProject() {
-    if (!addName.trim() || !addAssignee) return;
-    setAddBusy(true);
-    try {
-      const r = await fetch("/api/admin/create-project", {
-        method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: addName.trim(), assigneeId: addAssignee })
-      });
-      const j = await r.json().catch(()=> ({}));
-      if (!r.ok) {
-        alert(`Create task failed: ${j?.error || r.statusText}`);
-      } else {
-        try {
-          const rr = await fetch(`/api/projects/by-user?assigneeId=${addAssignee}`, { cache: "no-store" });
-          const jj = await rr.json();
-          setProjects((jj?.projects || []).map((p: any)=>({ id: String(p.id), name: String(p.name || p.id) })));
-        } catch {}
-        setAddOpen(false); setAddName("");
-      }
-    } finally { setAddBusy(false); }
-  }
-
   /* admin summary */
   useEffect(() => {
     if (!isAdmin) return;
@@ -471,20 +448,52 @@ export default function DashboardPage() {
     })();
   }, [isAdmin, weekStart, weekEnd]);
 
+  /* Add Project handler */
+  async function createProject() {
+    if (!addName.trim() || !addAssignee) return;
+    setAddBusy(true);
+    try {
+      const resp = await fetch("/api/projects", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: addName.trim(), assigneeId: addAssignee }),
+      });
+      if (!resp.ok) {
+        const j = await resp.json().catch(() => ({}));
+        alert(`Failed to create project: ${j.error || resp.statusText}${j.details ? ` — ${j.details}` : ""}`);
+        return;
+      }
+      setAddOpen(false);
+      setAddName("");
+      setAddAssignee(selectedUserId);
+      // Optionally reload projects
+      // You may want to trigger a refresh here
+    } finally {
+      setAddBusy(false);
+    }
+  }
+
   /* ---------- render ---------- */
   return (
     <div className={styles.page} data-theme={theme}>
       <div className={styles.shell}>
-        {/* Logo bar */}
-        <div className="flex items-center mb-2">
-          <img
-            src="/company-logo.png"
-            alt="Company logo"
-            style={{ height: 28 }}
-          />
+        {/* Branded header with logo + context */}
+        <div className={styles.brandBar}>
+          <div className={styles.brandLeft}>
+            <img className={styles.brandLogo} src="/company-logo.png" alt="Company logo" />
+            <div className={styles.brandText}>
+              <div className={styles.brandTitle}>Timesheet</div>
+              <div className={styles.brandTagline}>
+                {fmtMMMdd(weekStart)} — {fmtMMMdd(weekEnd)} • {isAdmin ? "Admin view" : "Consultant view"}
+              </div>
+            </div>
+          </div>
+          <div className={styles.brandRight}>
+            <ThemeSwitch />
+          </div>
         </div>
 
-        {/* ACTION BAR : left (identity/nav) | right (actions + theme) */}
+        {/* ACTION BAR : left (identity/nav) | right (actions) */}
         <div className="w-full rounded-lg border bg-[var(--panel)] border-[var(--border)] px-3 py-2 mb-3">
           <div className="flex items-center justify-between gap-3">
             <div className="flex items-center gap-3 flex-wrap">
@@ -495,7 +504,6 @@ export default function DashboardPage() {
 
               <div className="h-4 w-px bg-[var(--border)]" />
 
-              {/* Admin-only Consultant dropdown */}
               {isAdmin && (
                 <>
                   <label className={styles.selectorLabel}>Consultant:</label>
@@ -508,14 +516,13 @@ export default function DashboardPage() {
                       <option key={m.id} value={m.id}>{m.username || m.email}</option>
                     ))}
                   </select>
-
                   <div className="h-4 w-px bg-[var(--border)]" />
                 </>
               )}
 
-              <button className={styles.btn} onClick={goPrev}>◀ Prev</button>
-              <button className={styles.btn} onClick={goThis}>This Week</button>
-              <button className={styles.btn} onClick={goNext}>Next ▶</button>
+              <button className={styles.btn} onClick={()=> setWeekStart(d=>addDays(d,-7))}>◀ Prev</button>
+              <button className={styles.btn} onClick={()=> setWeekStart(startOfWeek())}>This Week</button>
+              <button className={styles.btn} onClick={()=> setWeekStart(d=>addDays(d,7))}>Next ▶</button>
             </div>
 
             <div className="flex items-center gap-2 flex-wrap">
@@ -525,7 +532,6 @@ export default function DashboardPage() {
               <button className={`${styles.btn} ${styles.primary}`} onClick={()=> alert("All changes auto-save on blur / Save.")}>Save</button>
               <button className={styles.btn} onClick={exportCsv}>Export CSV</button>
               <button className={`${styles.btn} ${styles.warn}`} onClick={()=> (window.location.href="/login")}>Log out</button>
-              <ThemeSwitch />
             </div>
           </div>
         </div>
@@ -588,13 +594,12 @@ export default function DashboardPage() {
           <section className={styles.card}>
             <div className={styles.tableWrap}>
               <table className={styles.table} style={{ tableLayout: "auto" }}>
-                {/* Column sizing: Project column grows; day columns are compact & fixed */}
                 <colgroup>
-                  <col /* Project */ />
+                  <col /* Project expands */ />
                   {[0,1,2,3,4].map((i) => (
                     <col key={`d${i}`} width={160} />
                   ))}
-                  <col /* Totals */ width={160} />
+                  <col width={160} />
                 </colgroup>
 
                 <thead>
@@ -625,28 +630,16 @@ export default function DashboardPage() {
                     return (
                       <tr key={r.taskId}>
                         <td className={styles.thProject}>
-                          {/* Make long names fully visible: wrap + break for very long words */}
-                          <div
-                            className={styles.projectName}
-                            title={r.taskName}
-                            style={{
-                              whiteSpace: "normal",
-                              wordBreak: "break-word",
-                              overflowWrap: "anywhere",
-                              lineHeight: 1.25,
-                              fontWeight: 600,
-                            }}
-                          >
+                          <div className={styles.projectNameFull} title={r.taskName}>
                             {r.taskName}
                           </div>
                         </td>
 
                         {[0,1,2,3,4].map((i) => (
                           <td key={i}>
-                            {/* Smaller but neat controls */}
-                            <div className="grid grid-cols-[64px_64px] gap-1.5 items-center">
+                            <div className={styles.cellCompact}>
                               <input
-                                className={styles.num}
+                                className={`${styles.num} ${styles.numSm}`}
                                 type="number" step="0.25" min="0"
                                 value={r.estByDay[i] ?? ""}
                                 onChange={(e)=> {
@@ -662,26 +655,12 @@ export default function DashboardPage() {
                                 }}
                                 disabled={r.estLockedByDay[i]}
                                 placeholder="Est"
-                                style={{
-                                  height: 24,
-                                  minWidth: 64,
-                                  textAlign: "right",
-                                  fontSize: 11.5,
-                                  paddingRight: 6
-                                }}
                               />
 
                               <button
                                 onClick={() => openTrackModal(r.taskId, r.taskName, i, r.trackedByDay[i], r.noteByDay[i])}
-                                className="min-w-[64px] rounded-md border bg-[var(--primary)] text-white font-semibold"
+                                className={styles.btnTrackSm}
                                 title={r.noteByDay[i] || "Track time"}
-                                style={{
-                                  height: 24,
-                                  fontSize: 11.5,
-                                  lineHeight: "24px",
-                                  borderColor: "transparent",
-                                  filter: "saturate(1.05)",
-                                }}
                               >
                                 {r.trackedByDay[i] != null ? `${r.trackedByDay[i]}h` : "Track"}
                               </button>
@@ -690,19 +669,9 @@ export default function DashboardPage() {
                         ))}
 
                         <td>
-                          <div className="grid grid-cols-[64px_64px] gap-1.5 items-center">
-                            <input
-                              className={styles.num}
-                              disabled
-                              value={tEst.toFixed(2)}
-                              style={{ height: 24, minWidth: 64, textAlign: "right", fontSize: 11.5 }}
-                            />
-                            <input
-                              className={styles.num}
-                              disabled
-                              value={tTracked.toFixed(2)}
-                              style={{ height: 24, minWidth: 64, textAlign: "right", fontSize: 11.5 }}
-                            />
+                          <div className={styles.cellCompact}>
+                            <input className={`${styles.num} ${styles.numSm}`} disabled value={tEst.toFixed(2)} />
+                            <input className={`${styles.num} ${styles.numSm}`} disabled value={tTracked.toFixed(2)} />
                           </div>
                         </td>
                       </tr>
@@ -719,16 +688,16 @@ export default function DashboardPage() {
                     <td className={styles.thProject}>All Projects Total</td>
                     {[0,1,2,3,4].map((i) => (
                       <td key={i}>
-                        <div className="grid grid-cols-[64px_64px] gap-1.5 items-center">
-                          <input className={styles.num} disabled value={(totals.dayEst[i]||0).toFixed(2)} style={{ height: 24, minWidth: 64, textAlign: "right", fontSize: 11.5 }} />
-                          <input className={styles.num} disabled value={(totals.dayTracked[i]||0).toFixed(2)} style={{ height: 24, minWidth: 64, textAlign: "right", fontSize: 11.5 }} />
+                        <div className={styles.cellCompact}>
+                          <input className={`${styles.num} ${styles.numSm}`} disabled value={(totals.dayEst[i]||0).toFixed(2)} />
+                          <input className={`${styles.num} ${styles.numSm}`} disabled value={(totals.dayTracked[i]||0).toFixed(2)} />
                         </div>
                       </td>
                     ))}
                     <td>
-                      <div className="grid grid-cols-[64px_64px] gap-1.5 items-center">
-                        <input className={styles.num} disabled value={totals.sumEst.toFixed(2)} style={{ height: 24, minWidth: 64, textAlign: "right", fontSize: 11.5 }} />
-                        <input className={styles.num} disabled value={totals.sumTracked.toFixed(2)} style={{ height: 24, minWidth: 64, textAlign: "right", fontSize: 11.5 }} />
+                      <div className={styles.cellCompact}>
+                        <input className={`${styles.num} ${styles.numSm}`} disabled value={totals.sumEst.toFixed(2)} />
+                        <input className={`${styles.num} ${styles.numSm}`} disabled value={totals.sumTracked.toFixed(2)} />
                       </div>
                     </td>
                   </tr>
