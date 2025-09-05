@@ -475,6 +475,15 @@ export default function DashboardPage() {
   return (
     <div className={styles.page} data-theme={theme}>
       <div className={styles.shell}>
+        {/* Logo bar */}
+        <div className="flex items-center mb-2">
+          <img
+            src="/company-logo.png"
+            alt="Company logo"
+            style={{ height: 28 }}
+          />
+        </div>
+
         {/* ACTION BAR : left (identity/nav) | right (actions + theme) */}
         <div className="w-full rounded-lg border bg-[var(--panel)] border-[var(--border)] px-3 py-2 mb-3">
           <div className="flex items-center justify-between gap-3">
@@ -521,7 +530,7 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        {/* SELECTORS (Month | Week | View) — perfectly aligned */}
+        {/* SELECTORS (Month | Week | View) */}
         <div className="grid grid-cols-3 gap-2 items-center mb-3">
           <div className="flex items-center gap-2">
             <label className={styles.selectorLabel}>Month:</label>
@@ -578,7 +587,16 @@ export default function DashboardPage() {
         {viewMode === "week" && (
           <section className={styles.card}>
             <div className={styles.tableWrap}>
-              <table className={styles.table}>
+              <table className={styles.table} style={{ tableLayout: "auto" }}>
+                {/* Column sizing: Project column grows; day columns are compact & fixed */}
+                <colgroup>
+                  <col /* Project */ />
+                  {[0,1,2,3,4].map((i) => (
+                    <col key={`d${i}`} width={160} />
+                  ))}
+                  <col /* Totals */ width={160} />
+                </colgroup>
+
                 <thead>
                   <tr>
                     <th className={styles.thProject}>Project</th>
@@ -607,17 +625,28 @@ export default function DashboardPage() {
                     return (
                       <tr key={r.taskId}>
                         <td className={styles.thProject}>
-                          <div className={`${styles.projectName}`} title={r.taskName}>
+                          {/* Make long names fully visible: wrap + break for very long words */}
+                          <div
+                            className={styles.projectName}
+                            title={r.taskName}
+                            style={{
+                              whiteSpace: "normal",
+                              wordBreak: "break-word",
+                              overflowWrap: "anywhere",
+                              lineHeight: 1.25,
+                              fontWeight: 600,
+                            }}
+                          >
                             {r.taskName}
                           </div>
                         </td>
 
                         {[0,1,2,3,4].map((i) => (
                           <td key={i}>
-                            {/* COMPACT, NON-OVERLAPPING CELLS */}
-                            <div className="grid grid-cols-[72px_72px] gap-2 items-center">
+                            {/* Smaller but neat controls */}
+                            <div className="grid grid-cols-[64px_64px] gap-1.5 items-center">
                               <input
-                                className={`${styles.num}`}
+                                className={styles.num}
                                 type="number" step="0.25" min="0"
                                 value={r.estByDay[i] ?? ""}
                                 onChange={(e)=> {
@@ -633,14 +662,26 @@ export default function DashboardPage() {
                                 }}
                                 disabled={r.estLockedByDay[i]}
                                 placeholder="Est"
-                                style={{ height: 28, minWidth: 72, textAlign: "right", fontSize: 12 }}
+                                style={{
+                                  height: 24,
+                                  minWidth: 64,
+                                  textAlign: "right",
+                                  fontSize: 11.5,
+                                  paddingRight: 6
+                                }}
                               />
 
                               <button
                                 onClick={() => openTrackModal(r.taskId, r.taskName, i, r.trackedByDay[i], r.noteByDay[i])}
-                                className="h-7 min-w-[72px] text-[12px] font-semibold rounded-md border
-                                           bg-[var(--primary)] text-white border-transparent hover:brightness-95"
+                                className="min-w-[64px] rounded-md border bg-[var(--primary)] text-white font-semibold"
                                 title={r.noteByDay[i] || "Track time"}
+                                style={{
+                                  height: 24,
+                                  fontSize: 11.5,
+                                  lineHeight: "24px",
+                                  borderColor: "transparent",
+                                  filter: "saturate(1.05)",
+                                }}
                               >
                                 {r.trackedByDay[i] != null ? `${r.trackedByDay[i]}h` : "Track"}
                               </button>
@@ -649,9 +690,19 @@ export default function DashboardPage() {
                         ))}
 
                         <td>
-                          <div className="grid grid-cols-[72px_72px] gap-2 items-center">
-                            <input className={styles.num} disabled value={tEst.toFixed(2)} style={{ height: 28, minWidth: 72, textAlign: "right", fontSize: 12 }} />
-                            <input className={styles.num} disabled value={tTracked.toFixed(2)} style={{ height: 28, minWidth: 72, textAlign: "right", fontSize: 12 }} />
+                          <div className="grid grid-cols-[64px_64px] gap-1.5 items-center">
+                            <input
+                              className={styles.num}
+                              disabled
+                              value={tEst.toFixed(2)}
+                              style={{ height: 24, minWidth: 64, textAlign: "right", fontSize: 11.5 }}
+                            />
+                            <input
+                              className={styles.num}
+                              disabled
+                              value={tTracked.toFixed(2)}
+                              style={{ height: 24, minWidth: 64, textAlign: "right", fontSize: 11.5 }}
+                            />
                           </div>
                         </td>
                       </tr>
@@ -668,16 +719,16 @@ export default function DashboardPage() {
                     <td className={styles.thProject}>All Projects Total</td>
                     {[0,1,2,3,4].map((i) => (
                       <td key={i}>
-                        <div className="grid grid-cols-[72px_72px] gap-2 items-center">
-                          <input className={styles.num} disabled value={(totals.dayEst[i]||0).toFixed(2)} style={{ height: 28, minWidth: 72, textAlign: "right", fontSize: 12 }} />
-                          <input className={styles.num} disabled value={(totals.dayTracked[i]||0).toFixed(2)} style={{ height: 28, minWidth: 72, textAlign: "right", fontSize: 12 }} />
+                        <div className="grid grid-cols-[64px_64px] gap-1.5 items-center">
+                          <input className={styles.num} disabled value={(totals.dayEst[i]||0).toFixed(2)} style={{ height: 24, minWidth: 64, textAlign: "right", fontSize: 11.5 }} />
+                          <input className={styles.num} disabled value={(totals.dayTracked[i]||0).toFixed(2)} style={{ height: 24, minWidth: 64, textAlign: "right", fontSize: 11.5 }} />
                         </div>
                       </td>
                     ))}
                     <td>
-                      <div className="grid grid-cols-[72px_72px] gap-2 items-center">
-                        <input className={styles.num} disabled value={totals.sumEst.toFixed(2)} style={{ height: 28, minWidth: 72, textAlign: "right", fontSize: 12 }} />
-                        <input className={styles.num} disabled value={totals.sumTracked.toFixed(2)} style={{ height: 28, minWidth: 72, textAlign: "right", fontSize: 12 }} />
+                      <div className="grid grid-cols-[64px_64px] gap-1.5 items-center">
+                        <input className={styles.num} disabled value={totals.sumEst.toFixed(2)} style={{ height: 24, minWidth: 64, textAlign: "right", fontSize: 11.5 }} />
+                        <input className={styles.num} disabled value={totals.sumTracked.toFixed(2)} style={{ height: 24, minWidth: 64, textAlign: "right", fontSize: 11.5 }} />
                       </div>
                     </td>
                   </tr>
