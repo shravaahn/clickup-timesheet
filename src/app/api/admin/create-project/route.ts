@@ -1,81 +1,37 @@
 // src/app/api/admin/create-project/route.ts
-import { NextRequest, NextResponse } from "next/server";
-import { getIronSession } from "iron-session";
-import { sessionOptions } from "@/lib/session";
+import { NextResponse } from "next/server";
+import { cuCreateTask } from "@/lib/clickup";
 
-/**
- * Creates a top-level task in a specific ClickUp List and assigns it to a user.
- * Env required:
- *  - CLICKUP_LIST_ID: the target List where we create tasks
- */
-export async function POST(req: NextRequest) {
-  const res = new NextResponse();
-  const session: any = await getIronSession(req, res, sessionOptions);
-
-  const rawToken = session?.access_token || session?.accessToken;
-  if (!rawToken) {
-    return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
-  }
-  const Authorization = String(rawToken).startsWith("Bearer ")
-    ? String(rawToken)
-    : `Bearer ${rawToken}`;
-
-  const { name, assigneeId } = await req.json().catch(() => ({}));
-  if (!name || !assigneeId) {
-    return NextResponse.json(
-      { error: "Missing 'name' or 'assigneeId'." },
-      { status: 400 },
-    );
-  }
-
-  const LIST_ID = process.env.CLICKUP_LIST_ID;
-  if (!LIST_ID) {
-    return NextResponse.json(
-      { error: "Server misconfiguration: CLICKUP_LIST_ID not set" },
-      { status: 500 },
-    );
-  }
-
+export async function POST(req: Request) {
   try {
-    const apiUrl = `https://api.clickup.com/api/v2/list/${LIST_ID}/task`;
-    const body = {
-      name,
-      assignees: [String(assigneeId)],
-      // optional defaults you might want:
-      status: undefined, // or "to do"
-      priority: null,
-      time_estimate: null,
-      // make sure we create a top-level task
-      parent: null,
-    };
+    const { name, assigneeId } = await req.json();
 
-    const r = await fetch(apiUrl, {
-      method: "POST",
-      headers: {
-        Authorization,
-        "Content-Type": "application/json",
-        Accept: "application/json",
-      },
-      body: JSON.stringify(body),
-      cache: "no-store",
-    });
-
-    const text = await r.text();
-    let json: any = null;
-    try { json = text ? JSON.parse(text) : null; } catch {}
-
-    if (!r.ok) {
-      return NextResponse.json(
-        { error: "ClickUp create failed", details: json || text },
-        { status: 502 },
-      );
+    if (!name || !String(name).trim()) {
+      return NextResponse.json({ error: "Missing task name" }, { status: 400 });
     }
 
-    return NextResponse.json({ ok: true, task: json });
+    const LIST_ID = process.env.CLICKUP_LIST_ID;
+    if (!LIST_ID) {
+      return NextResponse.json({ error: "CLICKUP_LIST_ID not configured" }, { status: 500 });
+    }
+
+    // ClickUp expects numeric member IDs in `assignees`
+    const assignees: number[] | undefined =
+      assigneeId != null && assigneeId !== ""
+        ? [Number(assigneeId)].filter((n) => Number.isFinite(n))
+        : undefined;
+
+    const created = await cuCreateTask(String(LIST_ID), {
+      name: String(name).trim(),
+      assignees, // <-- critical: ensure assignment on create
+    });
+
+    return NextResponse.json({ task: { id: created.id, name: created.name } });
   } catch (err: any) {
+    console.error("create-project error:", err);
     return NextResponse.json(
-      { error: "Create task error", details: err?.message ?? String(err) },
-      { status: 500 },
+      { error: "Create task failed", details: err?.message || String(err) },
+      { status: 500 }
     );
   }
 }
