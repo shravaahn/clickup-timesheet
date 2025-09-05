@@ -30,7 +30,7 @@
 .btn:hover { filter: brightness(0.98); }
 .primary { background: var(--primary); border-color: transparent; color: #fff; }
 .warn { background: #ffdd9a; border-color: #f1b03d; color: #5d3b00; }
-.selected { outline: 2px solid var(--primary); }
+.selected { outline: 2px solid #d60000; }
 
 /* selectors row – consistent alignment */
 .selectorsBar {
@@ -151,7 +151,7 @@
 /* ===== Month view ===== */
 .weekGrid { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 10px; margin-top: 10px; }
 .weekCard { border: 1px solid var(--border); border-radius: 12px; background: var(--panel); padding: 12px; }
-.weekCardSelected { outline: 2px solid var(--primary); }
+.weekCardSelected { outline: 2px solid #d60000; }
 .weekHead { display: flex; align-items: baseline; justify-content: space-between; }
 .weekTitle { margin: 0; font-size: 14px; }
 .weekDays { margin-top: 6px; display: grid; grid-template-columns: repeat(5,1fr); gap: 6px; }
@@ -195,11 +195,11 @@
   height: var(--cell-h); padding: 0 10px; border-radius: 8px; border: 1px solid var(--border);
   background: var(--panel-subtle); color: var(--text); font-size: 12px; font-weight: 600; cursor: pointer;
 }
-.btn:hover { filter: brightness(0.98); border-color: var(--accent); }
-.btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.btn:hover { filter: brightness(0.98); border-color: #d60000; }
+.btn:focus-visible { outline: 2px solid #d60000; outline-offset: 1px; }
 .primary { background: var(--primary); border-color: transparent; color: #fff; }
 .warn { background: #ffdd9a; border-color: #f1b03d; color: #5d3b00; }
-.selected { outline: 2px solid var(--primary); }
+.selected { outline: 2px solid #d60000; }
 
 /* selectors row – consistent alignment */
 .selectorsBar {
@@ -262,8 +262,8 @@
   background: var(--primary); color: #fff; font-size: 12px; font-weight: 700; cursor: pointer;
   padding: 0 8px;
 }
-.trackBtn:hover { filter: brightness(.98); border-color: var(--accent); }
-.trackBtn:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.trackBtn:hover { filter: brightness(.98); border-color: #d60000; }
+.trackBtn:focus-visible { outline: 2px solid #d60000; outline-offset: 1px; }
 
 /* totals row look */
 .table tfoot td input { background: var(--panel-subtle); }
@@ -276,7 +276,7 @@
 /* ===== Month view ===== */
 .weekGrid { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 10px; margin-top: 10px; }
 .weekCard { border: 1px solid var(--border); border-radius: 12px; background: var(--panel); padding: 12px; }
-.weekCardSelected { outline: 2px solid var(--primary); }
+.weekCardSelected { outline: 2px solid #d60000; }
 .weekHead { display: flex; align-items: baseline; justify-content: space-between; }
 .weekTitle { margin: 0; font-size: 14px; }
 .weekDays { margin-top: 6px; display: grid; grid-template-columns: repeat(5,1fr); gap: 6px; }
@@ -302,13 +302,13 @@
 }
 
 /* red border on hover using your --accent token */
-.btn:hover { border-color: var(--accent); }
+.btn:hover { border-color: #d60000; }
 /* visible keyboard focus with brand accent */
-.btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.btn:focus-visible { outline: 2px solid #d60000; outline-offset: 1px; }
 
 /* tracked button accents (if you use .trackBtn in any cells) */
-.trackBtn:hover { border-color: var(--accent); }
-.trackBtn:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.trackBtn:hover { border-color: #d60000; }
+.trackBtn:focus-visible { outline: 2px solid #d60000; outline-offset: 1px; }
 
 /* === Brand bar (logo + context) === */
 .brandBar {
