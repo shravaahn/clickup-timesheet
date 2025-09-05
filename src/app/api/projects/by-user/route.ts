@@ -4,31 +4,25 @@ import { getIronSession } from "iron-session";
 import { sessionOptions } from "@/lib/session";
 
 /**
- * Strategy:
- * - Fetch ALL lists in the Space (archived=false)
- * - Exclude the one list you asked to hide (ID=32299969)
- * - For each list, page through tasks with include_closed=false & subtasks=false
- * - Aggregate all tasks, THEN (optionally) filter by assignee in-memory
- *   (ClickUp’s search filters are inconsistent across endpoints/workspaces)
+ * Fetch ALL lists in a space:
+ *  - folderless lists: GET /space/{space_id}/list?archived=false
+ *  - folders in space: GET /space/{space_id}/folder?archived=false
+ *  - lists inside each folder: GET /folder/{folder_id}/list?archived=false
  *
- * Result: You will always get the real tasks from the space,
- * and you won’t be blocked if the assignee filter returns 0 from ClickUp.
+ * Then page tasks from each list, exclude one list (32299969), and finally
+ * filter by assignee in-memory (fallback to all if empty).
  */
 
 const EXCLUDED_LIST_IDS = new Set<string>(["32299969"]);
 
-// --- utils
 function bearer(v: string) {
   return v.startsWith("Bearer ") ? v : `Bearer ${v}`;
-}
-function isNumericId(v: unknown): v is number {
-  return typeof v === "number" && Number.isFinite(v);
 }
 function isNumericString(v: unknown): v is string {
   return typeof v === "string" && /^[0-9]+$/.test(v);
 }
+
 async function getAuthHeader(req: NextRequest, res: NextResponse): Promise<string> {
-  // Prefer per-user session token; fall back to Personal API token from env
   const session: any = await getIronSession(req, res, sessionOptions);
   const sess = session?.access_token || session?.accessToken;
   if (sess) return bearer(String(sess));
@@ -38,9 +32,9 @@ async function getAuthHeader(req: NextRequest, res: NextResponse): Promise<strin
   return bearer(envToken);
 }
 
-// --- ClickUp fetch helpers
-async function fetchListsInSpace(authHeader: string, spaceId: string) {
-  // GET /api/v2/space/{space_id}/list?archived=false
+/* ---------- ClickUp helpers ---------- */
+
+async function fetchFolderlessLists(authHeader: string, spaceId: string) {
   const url = new URL(`https://api.clickup.com/api/v2/space/${spaceId}/list`);
   url.searchParams.set("archived", "false");
 
@@ -51,21 +45,45 @@ async function fetchListsInSpace(authHeader: string, spaceId: string) {
   const text = await r.text();
   let json: any = null;
   try { json = text ? JSON.parse(text) : null; } catch {}
-  if (!r.ok) throw new Error(`Lists failed ${r.status}: ${text || ""}`);
-
-  const lists = Array.isArray(json?.lists) ? json.lists : [];
-  return lists.map((l: any) => ({
-    id: String(l?.id),
-    name: String(l?.name ?? l?.id ?? "Unnamed"),
-  }));
+  if (!r.ok) throw new Error(`Folderless lists failed ${r.status}: ${text || ""}`);
+  const arr = Array.isArray(json?.lists) ? json.lists : [];
+  return arr.map((l: any) => ({ id: String(l?.id), name: String(l?.name ?? l?.id ?? "Unnamed") }));
 }
 
-async function fetchTasksForList(
-  authHeader: string,
-  listId: string,
-  maxPages = 25
-): Promise<any[]> {
-  // GET /api/v2/list/{list_id}/task?include_closed=false&subtasks=false&page=...
+async function fetchFoldersInSpace(authHeader: string, spaceId: string) {
+  const url = new URL(`https://api.clickup.com/api/v2/space/${spaceId}/folder`);
+  url.searchParams.set("archived", "false");
+
+  const r = await fetch(url.toString(), {
+    headers: { Authorization: authHeader, Accept: "application/json" },
+    cache: "no-store",
+  });
+  const text = await r.text();
+  let json: any = null;
+  try { json = text ? JSON.parse(text) : null; } catch {}
+  if (!r.ok) throw new Error(`Folders failed ${r.status}: ${text || ""}`);
+  const arr = Array.isArray(json?.folders) ? json.folders : [];
+  // normalize to { id, name }
+  return arr.map((f: any) => ({ id: String(f?.id), name: String(f?.name ?? f?.id ?? "Unnamed") }));
+}
+
+async function fetchListsInFolder(authHeader: string, folderId: string) {
+  const url = new URL(`https://api.clickup.com/api/v2/folder/${folderId}/list`);
+  url.searchParams.set("archived", "false");
+
+  const r = await fetch(url.toString(), {
+    headers: { Authorization: authHeader, Accept: "application/json" },
+    cache: "no-store",
+  });
+  const text = await r.text();
+  let json: any = null;
+  try { json = text ? JSON.parse(text) : null; } catch {}
+  if (!r.ok) throw new Error(`Folder lists failed ${r.status}: ${text || ""}`);
+  const arr = Array.isArray(json?.lists) ? json.lists : [];
+  return arr.map((l: any) => ({ id: String(l?.id), name: String(l?.name ?? l?.id ?? "Unnamed") }));
+}
+
+async function fetchTasksForList(authHeader: string, listId: string, maxPages = 25) {
   const all: any[] = [];
   for (let page = 0; page < maxPages; page++) {
     const url = new URL(`https://api.clickup.com/api/v2/list/${listId}/task`);
@@ -78,30 +96,23 @@ async function fetchTasksForList(
       headers: { Authorization: authHeader, Accept: "application/json" },
       cache: "no-store",
     });
-
     const text = await r.text();
     let json: any = null;
     try { json = text ? JSON.parse(text) : null; } catch {}
-
-    if (!r.ok) {
-      // If a particular list errors, don't kill the whole request — just skip it
-      // (You still get other lists’ tasks)
-      break;
-    }
+    if (!r.ok) break; // skip problematic list, continue others
 
     const items = Array.isArray(json?.tasks) ? json.tasks : [];
     if (!items.length) break;
 
-    // Normalize: only top-level tasks (ClickUp sometimes sneaks subtasks in)
     for (const t of items) {
-      if (t?.parent) continue;
+      if (t?.parent) continue; // keep only top-level tasks
       all.push(t);
     }
   }
   return all;
 }
 
-// optional: resolve assigneeId (string) to numeric if needed
+/* --- resolve assignee (optional) --- */
 type TeamMember = { id: number; username: string; email: string };
 async function fetchTeamMembers(authHeader: string, teamId: string): Promise<TeamMember[]> {
   if (!teamId) return [];
@@ -121,14 +132,10 @@ async function fetchTeamMembers(authHeader: string, teamId: string): Promise<Tea
       username: String(m?.user?.username ?? ""),
       email: String(m?.user?.email ?? ""),
     }))
-    .filter((m: TeamMember) => isNumericId(m.id));
+    .filter((m: any) => Number.isFinite(m.id));
 }
 
-async function resolveAssigneeNumeric(
-  authHeader: string,
-  teamId: string,
-  incoming: string | null
-): Promise<number | undefined> {
+async function resolveAssigneeNumeric(authHeader: string, teamId: string, incoming: string | null) {
   if (!incoming) return undefined;
   if (isNumericString(incoming)) return Number(incoming);
   if (!teamId) return undefined;
@@ -136,17 +143,18 @@ async function resolveAssigneeNumeric(
   try {
     const members = await fetchTeamMembers(authHeader, teamId);
     const needle = String(incoming).toLowerCase();
-    let match =
-      members.find((m) => String(m.email || "").toLowerCase() === needle) ||
-      members.find((m) => String(m.username || "").toLowerCase() === needle) ||
-      members.find((m) => String(m.id) === String(incoming));
+    const match =
+      members.find(m => (m.email || "").toLowerCase() === needle) ||
+      members.find(m => (m.username || "").toLowerCase() === needle) ||
+      members.find(m => String(m.id) === String(incoming));
     return match?.id;
   } catch {
     return undefined;
   }
 }
 
-// --- route
+/* ---------- Route ---------- */
+
 export async function GET(req: NextRequest) {
   const res = new NextResponse();
   try {
@@ -158,64 +166,77 @@ export async function GET(req: NextRequest) {
 
     const SPACE_ID = String(process.env.CLICKUP_SPACE_ID || "");
     const TEAM_ID = String(process.env.CLICKUP_TEAM_ID || "");
-
     if (!SPACE_ID) {
       return NextResponse.json({ error: "Missing CLICKUP_SPACE_ID env" }, { status: 500 });
     }
 
-    // Resolve assignee (if any) to numeric ID; if not found, we still return all tasks
     const assigneeNumeric = await resolveAssigneeNumeric(authHeader, TEAM_ID, assigneeRaw);
 
-    // 1) get all lists
-    const lists = await fetchListsInSpace(authHeader, SPACE_ID);
-    const listsFiltered = lists.filter((l: { id: string }) => !EXCLUDED_LIST_IDS.has(String(l.id)));
+    // 1) collect lists: folderless + lists inside each folder
+    const folderless = await fetchFolderlessLists(authHeader, SPACE_ID);
 
-    // 2) get tasks from each list
-    const allTasks: any[] = [];
-    for (const l of listsFiltered) {
-      const ts = await fetchTasksForList(authHeader, String(l.id));
-      allTasks.push(...ts);
+    const folders = await fetchFoldersInSpace(authHeader, SPACE_ID);
+    let listsInFolders: { id: string; name: string }[] = [];
+    for (const f of folders) {
+      try {
+        const ls = await fetchListsInFolder(authHeader, f.id);
+        listsInFolders.push(...ls);
+      } catch {
+        // skip this folder if it errors
+      }
     }
 
-    // 3) filter by assignee (in-memory) if we have a numeric id
+    const allLists = [...folderless, ...listsInFolders].filter(
+      (l) => !EXCLUDED_LIST_IDS.has(String(l.id))
+    );
+
+    // 2) fetch tasks for each list
+    const allTasks: any[] = [];
+    for (const l of allLists) {
+      try {
+        const ts = await fetchTasksForList(authHeader, l.id);
+        allTasks.push(...ts);
+      } catch {
+        // skip list on error
+      }
+    }
+
+    // 3) optional in-memory filter by assignee (fallback to all if none match)
     let tasksFiltered = allTasks;
     if (typeof assigneeNumeric === "number") {
-      tasksFiltered = allTasks.filter((t) => {
-        const arr = Array.isArray(t?.assignees) ? t.assignees : [];
-        // ClickUp returns assignees: [{id, username, email, ...}]
-        return arr.some((a: any) => Number(a?.id) === assigneeNumeric);
-      });
-      // Safety: if no tasks matched the assignee, still show all tasks
+      tasksFiltered = allTasks.filter((t) =>
+        (Array.isArray(t?.assignees) ? t.assignees : []).some((a: any) => Number(a?.id) === assigneeNumeric)
+      );
       if (tasksFiltered.length === 0) {
-        tasksFiltered = allTasks;
+        tasksFiltered = allTasks; // show something rather than empty screen
       }
     }
 
-    // 4) Normalize to {id,name}
+    // 4) normalize for UI
     const projects = tasksFiltered
-      .map((t: any) => ({
-        id: String(t?.id),
-        name: String(t?.name ?? t?.id ?? "Untitled"),
-      }))
-      .sort((a: any, b: any) => a.name.localeCompare(b.name));
+      .map((t: any) => ({ id: String(t?.id), name: String(t?.name ?? t?.id ?? "Untitled") }))
+      .sort((a, b) => a.name.localeCompare(b.name));
 
     if (debug) {
-      // Some visibility to help you verify
+      // helpful debug payload
       const uniqAssignees = new Set<string>();
       for (const t of allTasks) {
-        const arr = Array.isArray(t?.assignees) ? t.assignees : [];
-        for (const a of arr) uniqAssignees.add(String(a?.id));
+        for (const a of (Array.isArray(t?.assignees) ? t.assignees : [])) {
+          if (a?.id != null) uniqAssignees.add(String(a.id));
+        }
       }
       return NextResponse.json({
-        listsCount: lists.length,
-        listsUsed: listsFiltered.length,
+        folderlessCount: folderless.length,
+        foldersCount: folders.length,
+        listsInFoldersCount: listsInFolders.length,
+        listsUsed: allLists.length,
         excludedListIds: Array.from(EXCLUDED_LIST_IDS),
         countFetched: allTasks.length,
         countFiltered: tasksFiltered.length,
         assigneeResolved: assigneeNumeric ?? null,
         uniqAssigneeIdCount: uniqAssignees.size,
-        projects,
         sample: projects.slice(0, 5),
+        projects,
       });
     }
 
