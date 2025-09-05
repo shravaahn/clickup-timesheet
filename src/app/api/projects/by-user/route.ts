@@ -2,151 +2,168 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getIronSession } from "iron-session";
 import { sessionOptions } from "@/lib/session";
+import { makeAuthHeader } from "@/lib/clickupAuth";
 
-/* ========= Helpers ========= */
+/** ---------- Config ---------- */
+const EXCLUDED_LIST_IDS = new Set<string>(["32299969"]);
+const PAGE_LIMIT = 100;
+const MAX_PAGES = 20;
 
-function isNumericId(v: string | null): v is string {
+/** ---------- Safe string helpers (kill the never error) ---------- */
+const str = (v: unknown): string => String(v ?? "");
+const lc  = (v: unknown): string => str(v).toLowerCase();
+
+/** ---------- Types ---------- */
+type TeamMember = { id: number; username: string; email: string };
+type CUAssignee = { id?: number; email?: string; username?: string };
+type ClickUpTask = {
+  id: string;
+  name: string;
+  list?: { id?: string };
+  assignees?: CUAssignee[];
+  parent?: string | null;
+};
+
+/** ---------- Helpers ---------- */
+function isNumericId(v: string | null | undefined): v is string {
   return !!v && /^[0-9]+$/.test(v);
 }
 
-function bearer(v: string) {
-  return v.startsWith("Bearer ") ? v : `Bearer ${v}`;
-}
-
 async function getAuthHeader(req: NextRequest, res: NextResponse): Promise<string> {
-  // Prefer user session OAuth token (per-user permissions),
-  // otherwise fall back to the env Personal API token.
   const session: any = await getIronSession(req, res, sessionOptions);
   const sess = session?.access_token || session?.accessToken;
-  if (sess) return bearer(String(sess));
+  if (sess) return makeAuthHeader(String(sess));
 
-  const envToken = process.env.CLICKUP_API_TOKEN;
-  if (!envToken) {
-    throw new Error("Missing session access_token and CLICKUP_API_TOKEN");
-  }
-  return bearer(envToken);
+  const envToken = process.env.CLICKUP_API_TOKEN || "";
+  if (!envToken) throw new Error("Missing session access_token and CLICKUP_API_TOKEN");
+  return makeAuthHeader(envToken);
 }
 
-/** Team members: used to resolve email/username -> numeric ClickUp member id */
-type TeamMember = { id: number; username: string; email: string };
-
 async function fetchTeamMembers(authHeader: string, teamId: string): Promise<TeamMember[]> {
+  if (!teamId) return [];
   const r = await fetch(`https://api.clickup.com/api/v2/team/${teamId}`, {
     headers: { Authorization: authHeader, Accept: "application/json" },
     cache: "no-store",
   });
-  if (!r.ok) {
-    const t = await r.text().catch(() => "");
-    throw new Error(`Get team failed ${r.status}: ${t}`);
-  }
-  const j = await r.json();
-  const members = Array.isArray(j?.members) ? j.members : [];
-  return members
+  const text = await r.text();
+  if (!r.ok) throw new Error(`Get team failed ${r.status}: ${text}`);
+
+  let j: any = {};
+  try { j = text ? JSON.parse(text) : {}; } catch {}
+  const membersRaw: any[] = Array.isArray(j?.members) ? j.members : [];
+
+  const members: TeamMember[] = membersRaw
     .map((m: any) => ({
       id: Number(m?.user?.id),
-      username: String(m?.user?.username ?? ""),
-      email: String(m?.user?.email ?? ""),
+      username: str(m?.user?.username),
+      email: str(m?.user?.email),
     }))
     .filter((m: TeamMember) => Number.isFinite(m.id));
+
+  return members;
 }
 
-/** Resolve incoming assignee (could be email/username/internal) to numeric ClickUp member id */
+/** Resolve email/username/string -> numeric member id (safe) */
 async function resolveAssigneeToNumeric(
   authHeader: string,
   teamId: string,
   incoming: string
 ): Promise<number | undefined> {
-  const incomingStr = String(incoming || "");
+  const incomingStr: string = str(incoming);
   if (isNumericId(incomingStr)) return Number(incomingStr);
+  if (!teamId) return undefined;
 
-  if (!teamId) return undefined; // cannot resolve without team id
   try {
     const members = await fetchTeamMembers(authHeader, teamId);
-    const needle = String(incomingStr).toLowerCase();
+    const needle = lc(incomingStr);
 
-    // match by email
-    let match = members.find((m) => String(m.email).toLowerCase() === needle);
+    let match = members.find(m => lc(m.email) === needle);
     if (match) return match.id;
 
-    // match by username
-    match = members.find((m) => String(m.username).toLowerCase() === needle);
+    match = members.find(m => lc(m.username) === needle);
     if (match) return match.id;
 
-    // last resort: exact id-as-string
-    match = members.find((m) => String(m.id) === incomingStr);
+    match = members.find(m => str(m.id) === incomingStr);
     if (match) return match.id;
   } catch {
-    // swallow resolution errors; we can still fetch without assignee filter
+    // ignore; continue without resolved id
   }
   return undefined;
 }
 
-/* ========= Pagers (apply assignee filter only if numeric resolved) ========= */
+/** Page through all tasks in a Space */
+async function fetchAllSpaceTasks(authHeader: string, spaceId: string): Promise<ClickUpTask[]> {
+  const tasks: ClickUpTask[] = [];
+  let page = 0;
 
-async function fetchTeamTasksPage(opts: {
-  authHeader: string;
-  teamId: string;
-  spaceId: string;
-  assigneeNumeric?: number; // <-- numeric or undefined
-  page: number;
-}) {
-  const { authHeader, teamId, spaceId, assigneeNumeric, page } = opts;
+  while (page < MAX_PAGES) {
+    const url = new URL(`https://api.clickup.com/api/v2/space/${spaceId}/task`);
+    url.searchParams.set("include_closed", "false");
+    url.searchParams.set("subtasks", "false");
+    url.searchParams.set("order_by", "created");
+    url.searchParams.set("page", String(page));
+    url.searchParams.set("limit", String(PAGE_LIMIT));
 
-  const url = new URL(`https://api.clickup.com/api/v2/team/${teamId}/task`);
-  url.searchParams.set("include_closed", "false");
-  url.searchParams.set("subtasks", "false");
-  url.searchParams.set("order_by", "created");
-  url.searchParams.set("page", String(page));
-  url.searchParams.append("space_ids[]", spaceId);
+    const r = await fetch(url.toString(), {
+      headers: { Authorization: authHeader, Accept: "application/json" },
+      cache: "no-store",
+    });
 
-  if (Number.isFinite(assigneeNumeric)) {
-    url.searchParams.append("assignees[]", String(assigneeNumeric));
+    const text = await r.text();
+    if (!r.ok) throw new Error(`Space tasks failed ${r.status}: ${text}`);
+
+    let j: any = {};
+    try { j = text ? JSON.parse(text) : {}; } catch {}
+    const arr: any[] = Array.isArray(j?.tasks) ? j.tasks : [];
+    if (arr.length === 0) break;
+
+    for (const t of arr) {
+      if (t?.parent) continue; // top-level only
+      const assignees: CUAssignee[] = Array.isArray(t?.assignees) ? t.assignees : [];
+      tasks.push({
+        id: str(t.id),
+        name: str(t.name || t.id),
+        list: { id: str(t?.list?.id) },
+        assignees,
+        parent: t?.parent ?? null,
+      });
+    }
+
+    if (arr.length < PAGE_LIMIT) break;
+    page += 1;
   }
 
-  const r = await fetch(url.toString(), {
-    headers: { Authorization: authHeader, Accept: "application/json" },
-    cache: "no-store",
-  });
-
-  const text = await r.text();
-  let json: any = null;
-  try { json = text ? JSON.parse(text) : null; } catch { /* keep as text */ }
-
-  return { ok: r.ok, status: r.status, json, text, url: url.toString() };
+  return tasks;
 }
 
-async function fetchSpaceTasksPage(opts: {
-  authHeader: string;
-  spaceId: string;
-  assigneeNumeric?: number;
-  page: number;
-}) {
-  const { authHeader, spaceId, assigneeNumeric, page } = opts;
-
-  const url = new URL(`https://api.clickup.com/api/v2/space/${spaceId}/task`);
-  url.searchParams.set("include_closed", "false");
-  url.searchParams.set("subtasks", "false");
-  url.searchParams.set("order_by", "created");
-  url.searchParams.set("page", String(page));
+/** Local filter by consultant (assignee) */
+function matchesAssignee(
+  task: ClickUpTask,
+  opts: { assigneeNumeric?: number; assigneeRaw?: string }
+): boolean {
+  const { assigneeNumeric, assigneeRaw } = opts;
+  const as: CUAssignee[] = Array.isArray(task.assignees) ? task.assignees : [];
 
   if (Number.isFinite(assigneeNumeric)) {
-    url.searchParams.append("assignees[]", String(assigneeNumeric));
+    return as.some(a => Number(a?.id) === Number(assigneeNumeric));
   }
 
-  const r = await fetch(url.toString(), {
-    headers: { Authorization: authHeader, Accept: "application/json" },
-    cache: "no-store",
-  });
+  const needle = lc(assigneeRaw);
+  if (!needle) return true; // no assignee filter provided
 
-  const text = await r.text();
-  let json: any = null;
-  try { json = text ? JSON.parse(text) : null; } catch {}
-
-  return { ok: r.ok, status: r.status, json, text, url: url.toString() };
+  return as.some(a =>
+    lc(a?.email) === needle ||
+    lc(a?.username) === needle ||
+    lc(a?.id) === needle
+  );
 }
 
-/* ========= Route ========= */
+function notExcludedList(task: ClickUpTask): boolean {
+  const lid = str(task?.list?.id);
+  return !EXCLUDED_LIST_IDS.has(lid);
+}
 
+/** ---------- Route ---------- */
 export async function GET(req: NextRequest) {
   const res = new NextResponse();
 
@@ -154,102 +171,41 @@ export async function GET(req: NextRequest) {
     const authHeader = await getAuthHeader(req, res);
 
     const sp = req.nextUrl.searchParams;
-    const assigneeRaw = sp.get("assigneeId") || "";
+    const assigneeRaw: string = str(sp.get("assigneeId"));
     const debug = sp.get("debug") === "1";
 
-    const TEAM_ID = String(process.env.CLICKUP_TEAM_ID || "");
-    const SPACE_ID = String(process.env.CLICKUP_SPACE_ID || "");
-
+    const TEAM_ID = str(process.env.CLICKUP_TEAM_ID);
+    const SPACE_ID = str(process.env.CLICKUP_SPACE_ID);
     if (!SPACE_ID) {
       return NextResponse.json({ error: "Missing CLICKUP_SPACE_ID env" }, { status: 500 });
     }
 
-    // Resolve assignee to numeric (only if provided)
     let assigneeNumeric: number | undefined = undefined;
     if (assigneeRaw) {
-      assigneeNumeric = await resolveAssigneeToNumeric(authHeader, TEAM_ID, String(assigneeRaw));
+      assigneeNumeric = await resolveAssigneeToNumeric(authHeader, TEAM_ID, assigneeRaw);
     }
 
-    // Page through tasks (team endpoint first; fallback to space endpoint on 404)
-    const projectsMap = new Map<string, string>();
-    const debugInfo: any = { used: "team", calls: [] as any[], assigneeResolved: assigneeNumeric ?? null };
-    let page = 0;
-    const maxPages = 15;
+    // 1) Fetch all space tasks
+    const allSpaceTasks = await fetchAllSpaceTasks(authHeader, SPACE_ID);
 
-    // Try Team Tasks search
-    while (page < maxPages) {
-      const out = await fetchTeamTasksPage({
-        authHeader,
-        teamId: TEAM_ID,
-        spaceId: SPACE_ID,
-        assigneeNumeric,
-        page,
-      });
-      debugInfo.calls.push({ url: out.url, status: out.status });
+    // 2) Local filtering (assignee + exclude lists)
+    const filtered = allSpaceTasks
+      .filter(notExcludedList)
+      .filter(t => matchesAssignee(t, { assigneeNumeric, assigneeRaw }));
 
-      if (!out.ok) {
-        if (out.status === 404 || String(out.text || "").includes("Route not found")) {
-          debugInfo.used = "space_fallback";
-          break;
-        }
-        return NextResponse.json(
-          { error: "ClickUp error", details: out.text || out.json, from: "team", urlTried: out.url },
-          { status: 502 }
-        );
-      }
-
-      const items = Array.isArray(out.json?.tasks) ? out.json.tasks : [];
-      for (const t of items) {
-        if (t?.parent) continue; // exclude subtasks
-        const id = String(t.id);
-        const name = String(t.name || id);
-        projectsMap.set(id, name);
-      }
-
-      if (items.length === 0) break;
-      page += 1;
-    }
-
-    // Fallback to Space if needed
-    if ((debugInfo.used === "space_fallback" || projectsMap.size === 0) && SPACE_ID) {
-      page = 0;
-      while (page < maxPages) {
-        const out = await fetchSpaceTasksPage({
-          authHeader,
-          spaceId: SPACE_ID,
-          assigneeNumeric,
-          page,
-        });
-        debugInfo.calls.push({ url: out.url, status: out.status });
-
-        if (!out.ok) {
-          return NextResponse.json(
-            { error: "ClickUp error", details: out.text || out.json, from: "space", urlTried: out.url },
-            { status: 502 }
-          );
-        }
-
-        const items = Array.isArray(out.json?.tasks) ? out.json.tasks : [];
-        for (const t of items) {
-          if (t?.parent) continue;
-          const id = String(t.id);
-          const name = String(t.name || id);
-          projectsMap.set(id, name);
-        }
-        if (items.length === 0) break;
-        page += 1;
-      }
-    }
-
-    const projects = Array.from(projectsMap.entries())
-      .map(([id, name]) => ({ id, name }))
+    // 3) Shape
+    const projects = filtered
+      .map(t => ({ id: t.id, name: t.name }))
       .sort((a, b) => a.name.localeCompare(b.name));
 
     if (debug) {
       return NextResponse.json({
+        countAll: allSpaceTasks.length,
+        countFiltered: projects.length,
+        excludedListIds: Array.from(EXCLUDED_LIST_IDS),
+        assigneeResolved: assigneeNumeric ?? null,
+        sample: projects.slice(0, 5),
         projects,
-        count: projects.length,
-        debug: debugInfo,
       });
     }
 
