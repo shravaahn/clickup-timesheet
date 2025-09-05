@@ -236,14 +236,17 @@ export default function DashboardPage() {
         if (u.is_admin) {
           const cs = await fetch("/api/consultants", { cache: "no-store" }).then(r => r.json());
           const list: Member[] = (cs?.members || []).map((m: any) => ({
-            id: String(m.id), username: m.username || m.email, email: m.email,
+            id: String(m.id),
+            // label: prefer username; fall back to neat handle (no email exposure)
+            username: (m.username && String(m.username)) || (m.email ? String(m.email).split("@")[0] : ""),
+            email: m.email ?? undefined,
           }));
           const sorted = list.filter(m => m.id).sort((a,b)=> (a.username||"").localeCompare(b.username||""));
-          const withMeTop = [{ id: u.id, username: u.username || u.email, email: u.email },
+          const withMeTop = [{ id: u.id, username: u.username || (u.email?.split("@")[0] ?? "me"), email: u.email },
             ...sorted.filter(m => m.id !== u.id)];
           setMembers(withMeTop);
         } else {
-          setMembers([{ id: u.id, username: u.username || u.email, email: u.email }]);
+          setMembers([{ id: u.id, username: u.username || (u.email?.split("@")[0] ?? u.id), email: u.email }]);
         }
       } catch {
         window.location.href = "/login";
@@ -256,39 +259,24 @@ export default function DashboardPage() {
     if (selectedUserId) setAddAssignee(selectedUserId);
   }, [selectedUserId]);
 
-  /* projects for user — pass email (fallback username → id) so assignee filter works */
+  /* projects for user */
   useEffect(() => {
     if (!selectedUserId) return;
     let mounted = true;
     (async () => {
       setLoading(true);
       try {
-        const selectedMember = members.find(m => m.id === selectedUserId);
-        const assigneeForSearch =
-          selectedMember?.email ||
-          selectedMember?.username ||
-          selectedUserId;
-
-        const r = await fetch(
-          `/api/projects/by-user?assigneeId=${encodeURIComponent(String(assigneeForSearch))}`,
-          { cache: "no-store" }
-        );
+        const r = await fetch(`/api/projects/by-user?assigneeId=${encodeURIComponent(selectedUserId)}`, { cache: "no-store" });
         const j = await r.json();
-        const list: Project[] = (j?.projects || []).map((p: any) => ({
-          id: String(p.id),
-          name: String(p.name || p.id),
-        }));
+        const list: Project[] = (j?.projects || []).map((p: any) => ({ id: String(p.id), name: String(p.name || p.id) }));
         if (!mounted) return;
         setProjects(list);
-      } catch (e) {
-        console.error("projects fetch failed", e);
-        if (mounted) setProjects([]);
       } finally {
         if (mounted) setLoading(false);
       }
     })();
     return () => { mounted = false; };
-  }, [selectedUserId, members]);
+  }, [selectedUserId, weekStart]); // re-pull if you jump weeks (optional)
 
   /* merge timesheet for week */
   useEffect(() => {
@@ -296,7 +284,7 @@ export default function DashboardPage() {
     let mounted = true;
     (async () => {
       const start = ymd(weekStart), end = ymd(weekEnd);
-      const ts = await fetch(`/api/timesheet?userId=${selectedUserId}&start=${start}&end=${end}`, { cache: "no-store" }).then(r => r.json());
+      const ts = await fetch(`/api/timesheet?userId=${encodeURIComponent(selectedUserId)}&start=${start}&end=${end}`, { cache: "no-store" }).then(r => r.json());
       const entries = ts?.entries || [];
 
       const byKey = new Map<string, any>();
@@ -352,7 +340,7 @@ export default function DashboardPage() {
   /* names for chart */
   const memberNameById = useMemo(() => {
     const m = new Map<string,string>();
-    for (const mem of members) m.set(mem.id, mem.username || mem.email || mem.id);
+    for (const mem of members) m.set(mem.id, mem.username || mem.id);
     return m;
   }, [members]);
   const overviewResolved = useMemo(() => {
@@ -463,21 +451,15 @@ export default function DashboardPage() {
     })();
   }, [isAdmin, weekStart, weekEnd]);
 
-  /* Add Project handler — send email if available so assignment sticks */
+  /* Add Project handler */
   async function createProject() {
     if (!addName.trim() || !addAssignee) return;
     setAddBusy(true);
     try {
-      const selectedMember = members.find(m => m.id === addAssignee);
-      const assigneeForCreate =
-        selectedMember?.email ||
-        selectedMember?.username ||
-        addAssignee;
-
       const resp = await fetch("/api/projects", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: addName.trim(), assigneeId: assigneeForCreate }),
+        body: JSON.stringify({ name: addName.trim(), assigneeId: addAssignee }),
       });
       if (!resp.ok) {
         const j = await resp.json().catch(() => ({}));
@@ -487,22 +469,14 @@ export default function DashboardPage() {
       setAddOpen(false);
       setAddName("");
       setAddAssignee(selectedUserId);
-
-      // Refresh projects list
-      const assigneeForSearch =
-        selectedMember?.email ||
-        selectedMember?.username ||
-        selectedUserId;
-      const r = await fetch(
-        `/api/projects/by-user?assigneeId=${encodeURIComponent(String(assigneeForSearch))}`,
-        { cache: "no-store" }
-      );
-      const j = await r.json();
-      const list: Project[] = (j?.projects || []).map((p: any) => ({
-        id: String(p.id),
-        name: String(p.name || p.id),
-      }));
-      setProjects(list);
+      // optional: re-fetch projects after create
+      try {
+        if (selectedUserId) {
+          const r = await fetch(`/api/projects/by-user?assigneeId=${encodeURIComponent(selectedUserId)}`, { cache: "no-store" });
+          const j = await r.json();
+          setProjects((j?.projects || []).map((p: any) => ({ id: String(p.id), name: String(p.name || p.id) })));
+        }
+      } catch {}
     } finally {
       setAddBusy(false);
     }
@@ -523,9 +497,9 @@ export default function DashboardPage() {
               </div>
             </div>
           </div>
-            <div className={styles.brandRight}>
-              <ThemeSwitch />
-            </div>
+          <div className={styles.brandRight}>
+            <ThemeSwitch />
+          </div>
         </div>
 
         {/* ACTION BAR : left (identity/nav) | right (actions) */}
@@ -549,7 +523,8 @@ export default function DashboardPage() {
                   >
                     {(members || []).map(m => (
                       <option key={m.id} value={m.id}>
-                        {m.username || m.email}{m.email && m.username ? ` (${m.email})` : ""}
+                        {/* username only (no email) */}
+                        {m.username || m.id}
                       </option>
                     ))}
                   </select>
@@ -557,9 +532,9 @@ export default function DashboardPage() {
                 </>
               )}
 
-              <button className={styles.btn} onClick={()=> setWeekStart(d=>addDays(d,-7))}>◀ Prev</button>
-              <button className={styles.btn} onClick={()=> setWeekStart(startOfWeek())}>This Week</button>
-              <button className={styles.btn} onClick={()=> setWeekStart(d=>addDays(d,7))}>Next ▶</button>
+              <button className={styles.btn} onClick={goPrev}>◀ Prev</button>
+              <button className={styles.btn} onClick={goThis}>This Week</button>
+              <button className={styles.btn} onClick={goNext}>Next ▶</button>
             </div>
 
             <div className="flex items-center gap-2 flex-wrap">
@@ -667,6 +642,7 @@ export default function DashboardPage() {
                     return (
                       <tr key={r.taskId}>
                         <td className={styles.thProject}>
+                          {/* Full name, wraps naturally (long names OK) */}
                           <div className={styles.projectNameFull} title={r.taskName}>
                             {r.taskName}
                           </div>
@@ -748,7 +724,6 @@ export default function DashboardPage() {
         {viewMode === "month" && (
           <>
             <div className={styles.summary} style={{ marginTop: 0 }}></div>
-
             <div className={styles.weekGrid}>
               {monthWeeks.map((w, idx) => {
                 const isSelected = ymd(w.start) === ymd(weekStart);
@@ -811,6 +786,8 @@ export default function DashboardPage() {
                   labels={["Mon","Tue","Wed","Thu","Fri"]}
                   a={totals.dayEst.map(clamp2)}
                   b={totals.dayTracked.map(clamp2)}
+                  titleA="Est"
+                  titleB="Tracked"
                 />
               </div>
 
@@ -826,6 +803,8 @@ export default function DashboardPage() {
                     labels={overviewResolved.map(r=>r.name)}
                     a={overviewResolved.map(r=>r.est)}
                     b={overviewResolved.map(r=>r.tracked)}
+                    titleA="Est"
+                    titleB="Tracked"
                     maxBars={8}
                   />
                 )}
@@ -925,9 +904,7 @@ export default function DashboardPage() {
                 onChange={(e)=> setAddAssignee(e.target.value)}
               >
                 {(members || []).map(c => (
-                  <option key={c.id} value={c.id}>
-                    {c.username || c.email}{c.email && c.username ? ` (${c.email})` : ""}
-                  </option>
+                  <option key={c.id} value={c.id}>{c.username || c.id}</option>
                 ))}
               </select>
               <div className={styles.help}>Creates a new ClickUp task in your configured List.</div>
