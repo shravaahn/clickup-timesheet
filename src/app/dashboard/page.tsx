@@ -711,7 +711,7 @@ export default function DashboardPage() {
         {viewMode === "month" && (
           <>
             <div className={styles.summary} style={{ marginTop: 0 }}>
-              <span className={styles.period}>Period: Month</span>
+              
             </div>
 
             <div className={styles.weekGrid}>
