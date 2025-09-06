@@ -1,140 +1,178 @@
-// src/app/api/admin/create-project/route.ts
-import { NextResponse } from "next/server";
+// src/app/api/projects/by-user/route.ts
+import { NextRequest, NextResponse } from "next/server";
 import { getIronSession } from "iron-session";
 import { sessionOptions } from "@/lib/session";
 
-/* ------------ small helpers (inline to avoid missing imports) ------------ */
+/* ---------- helpers ---------- */
+type TaskLite = { id: string; name: string; list?: { id?: string } | null };
 
-function bearer(tok: string) {
-  return tok.startsWith("Bearer ") ? tok : `Bearer ${tok}`;
-}
+const EXCLUDED = new Set(String(process.env.CLICKUP_EXCLUDED_LIST_IDS || "")
+  .split(",")
+  .map(s => s.trim())
+  .filter(Boolean)
+);
 
-async function getAuthHeader(req: Request): Promise<string> {
-  const res = new NextResponse();
-  const session: any = await getIronSession(req as any, res as any, sessionOptions);
-  const sessTok = session?.access_token || session?.accessToken;
-  if (sessTok) return bearer(String(sessTok));
-  const envTok = process.env.CLICKUP_API_TOKEN;
-  if (!envTok) throw new Error("No ClickUp token in session and CLICKUP_API_TOKEN is missing");
-  return bearer(envTok);
-}
+async function fetchTeamTasksPage(opts: {
+  authHeader: string;
+  teamId: string;
+  spaceId: string;
+  assigneeId: string; // numeric or empty
+  page: number;
+}) {
+  const { authHeader, teamId, spaceId, assigneeId, page } = opts;
+  const url = new URL(`https://api.clickup.com/api/v2/team/${teamId}/task`);
+  url.searchParams.set("include_closed", "false");
+  url.searchParams.set("subtasks", "false");
+  url.searchParams.set("order_by", "created");
+  url.searchParams.set("page", String(page));
+  url.searchParams.append("space_ids[]", spaceId);
+  if (assigneeId) url.searchParams.append("assignees[]", assigneeId);
 
-type TeamMember = { id: number; username: string; email: string };
-
-async function fetchTeamMembers(authHeader: string, teamId: string): Promise<TeamMember[]> {
-  if (!teamId) return [];
-  const r = await fetch(`https://api.clickup.com/api/v2/team/${teamId}`, {
+  const r = await fetch(url.toString(), {
     headers: { Authorization: authHeader, Accept: "application/json" },
     cache: "no-store",
   });
-  if (!r.ok) {
-    const t = await r.text().catch(() => "");
-    throw new Error(`Get team failed ${r.status}: ${t}`);
-  }
-  const j = await r.json();
-  const members = Array.isArray(j?.members) ? j.members : [];
-  return members
-    .map((m: any) => ({
-      id: Number(m?.user?.id),
-      username: String(m?.user?.username ?? ""),
-      email: String(m?.user?.email ?? ""),
-    }))
-    .filter((m: TeamMember) => Number.isFinite(m.id));
+  const text = await r.text();
+  let json: any = null;
+  try { json = text ? JSON.parse(text) : null; } catch {}
+  return { ok: r.ok, status: r.status, json, text, url: url.toString() };
 }
 
-function isNumericId(v: string | null): v is string {
-  return !!v && /^[0-9]+$/.test(v);
+async function fetchSpaceTasksPage(opts: {
+  authHeader: string;
+  spaceId: string;
+  assigneeId: string;
+  page: number;
+}) {
+  const { authHeader, spaceId, assigneeId, page } = opts;
+  const url = new URL(`https://api.clickup.com/api/v2/space/${spaceId}/task`);
+  url.searchParams.set("include_closed", "false");
+  url.searchParams.set("subtasks", "false");
+  url.searchParams.set("order_by", "created");
+  url.searchParams.set("page", String(page));
+  if (assigneeId) url.searchParams.append("assignees[]", assigneeId);
+
+  const r = await fetch(url.toString(), {
+    headers: { Authorization: authHeader, Accept: "application/json" },
+    cache: "no-store",
+  });
+  const text = await r.text();
+  let json: any = null;
+  try { json = text ? JSON.parse(text) : null; } catch {}
+  return { ok: r.ok, status: r.status, json, text, url: url.toString() };
 }
 
-/* --------------------------------- POST --------------------------------- */
-/**
- * Create a ClickUp task in a specific List, optionally assigning it.
- *
- * Body:
- * { name: string, code?: string, assigneeId?: string|number|email|username }
- */
-export async function POST(req: Request) {
-  try {
-    const Authorization = await getAuthHeader(req);
+/* ---------- route ---------- */
+export async function GET(req: NextRequest) {
+  const res = new NextResponse();
 
-    const { name, code, assigneeId } = await req.json().catch(() => ({}));
-    if (!name) {
-      return NextResponse.json({ error: "Missing name" }, { status: 400 });
-    }
+  // auth from session (OAuth) or personal token already stored as Bearer in session
+  const session: any = await getIronSession(req, res, sessionOptions);
+  const raw = session?.access_token || session?.accessToken;
+  if (!raw) return NextResponse.json({ error: "Not logged in" }, { status: 401 });
+  const authHeader = String(raw).startsWith("Bearer ") ? String(raw) : `Bearer ${raw}`;
 
-    const LIST_ID = process.env.CLICKUP_LIST_ID || "";
-    if (!LIST_ID) {
-      return NextResponse.json({ error: "CLICKUP_LIST_ID not set" }, { status: 500 });
-    }
+  const sp = req.nextUrl.searchParams;
+  const assigneeId = sp.get("assigneeId") || "";       // (string) ClickUp member id
+  const debug = sp.get("debug") === "1";
 
-    const TEAM_ID =
-      process.env.CLICKUP_TEAM_ID ||
-      process.env.TEAM_ID || // (seen in your Vercel screenshots)
-      "";
+  const TEAM_ID = process.env.CLICKUP_TEAM_ID || "";
+  const SPACE_ID = process.env.CLICKUP_SPACE_ID || "";
+  if (!SPACE_ID) return NextResponse.json({ error: "Missing CLICKUP_SPACE_ID env" }, { status: 500 });
 
-    // Resolve assignee to numeric member id if provided
-    let assignees: number[] | undefined;
-    if (assigneeId != null && assigneeId !== "") {
-      let numeric: number | undefined = isNumericId(String(assigneeId))
-        ? Number(assigneeId)
-        : undefined;
+  const projectsMap = new Map<string, string>();
+  const debugInfo: any = { used: "team", calls: [] as any[], excludedListIds: Array.from(EXCLUDED) };
 
-      if (!numeric && TEAM_ID) {
-        try {
-          const members = await fetchTeamMembers(Authorization, TEAM_ID);
-          const needle = String(assigneeId).toLowerCase();
-          let match =
-            members.find((m) => String(m.email).toLowerCase() === needle) ||
-            members.find((m) => String(m.username).toLowerCase() === needle) ||
-            members.find((m) => String(m.id) === String(assigneeId));
-          if (match) numeric = match.id;
-        } catch (e) {
-          console.warn("Assignee resolution failed:", e);
-        }
-      }
+  let page = 0;
+  const maxPages = 20;
 
-      if (Number.isFinite(numeric)) assignees = [Number(numeric)];
-    }
-
-    const body: any = {
-      name: String(name),
-      // If you tag tasks with a short code, keep it; otherwise omit.
-      ...(code ? { tags: [String(code)] } : {}),
-      ...(assignees ? { assignees } : {}),
-    };
-
-    const r = await fetch(`https://api.clickup.com/api/v2/list/${LIST_ID}/task`, {
-      method: "POST",
-      headers: {
-        Authorization,
-        "Content-Type": "application/json",
-        Accept: "application/json",
-      },
-      body: JSON.stringify(body),
-      cache: "no-store",
+  // Try team endpoint first
+  while (page < maxPages) {
+    const out = await fetchTeamTasksPage({
+      authHeader,
+      teamId: TEAM_ID,
+      spaceId: SPACE_ID,
+      assigneeId,
+      page,
     });
+    debugInfo.calls.push({ url: out.url, status: out.status });
 
-    const text = await r.text();
-    let json: any = null;
-    try {
-      json = text ? JSON.parse(text) : null;
-    } catch {
-      /* noop */
-    }
-
-    if (!r.ok) {
+    if (!out.ok) {
+      if (out.status === 404 || String(out.text || "").includes("Route not found")) {
+        debugInfo.used = "space_fallback";
+        break;
+      }
       return NextResponse.json(
-        { error: "ClickUp create failed", details: json || text },
+        { error: "ClickUp error", details: out.text || out.json, from: "team", urlTried: out.url },
         { status: 502 }
       );
     }
 
-    return NextResponse.json({ ok: true, task: json });
-  } catch (err: any) {
-    console.error("/api/admin/create-project POST error:", err);
-    return NextResponse.json(
-      { error: "Create failed", details: err?.message || String(err) },
-      { status: 500 }
-    );
+    const items: TaskLite[] = Array.isArray(out.json?.tasks) ? out.json.tasks : [];
+    if (items.length === 0) break;
+
+    for (const t of items) {
+      // exclude subtasks (ClickUp gives parent on subtasks)
+      // and exclude the undesired LIST id
+  const listId = String(t?.list?.id || "");
+  if ((t as any)?.parent) continue;
+  if (EXCLUDED.has(listId)) continue;
+
+  const id = String(t.id);
+  const name = String(t.name || id);
+  projectsMap.set(id, name);
+    }
+    page++;
   }
+
+  // fallback to space endpoint if nothing found
+  if ((debugInfo.used === "space_fallback" || projectsMap.size === 0) && SPACE_ID) {
+    page = 0;
+    while (page < maxPages) {
+      const out = await fetchSpaceTasksPage({
+        authHeader,
+        spaceId: SPACE_ID,
+        assigneeId,
+        page,
+      });
+      debugInfo.calls.push({ url: out.url, status: out.status });
+
+      if (!out.ok) {
+        return NextResponse.json(
+          { error: "ClickUp error", details: out.text || out.json, from: "space", urlTried: out.url },
+          { status: 502 }
+        );
+      }
+
+      const items: TaskLite[] = Array.isArray(out.json?.tasks) ? out.json.tasks : [];
+      if (items.length === 0) break;
+
+      for (const t of items) {
+  const listId = String(t?.list?.id || "");
+  if ((t as any)?.parent) continue;
+  if (EXCLUDED.has(listId)) continue;
+
+  const id = String(t.id);
+  const name = String(t.name || id);
+  projectsMap.set(id, name);
+      }
+      page++;
+    }
+  }
+
+  const projects = Array.from(projectsMap.entries())
+    .map(([id, name]) => ({ id, name }))
+    .sort((a, b) => a.name.localeCompare(b.name));
+
+  if (debug) {
+    return NextResponse.json({
+      projects,
+      count: projects.length,
+  excludedListIds: Array.from(EXCLUDED),
+      assigneeUsed: assigneeId || null,
+      debug: debugInfo,
+    });
+  }
+
+  return NextResponse.json({ projects });
 }
