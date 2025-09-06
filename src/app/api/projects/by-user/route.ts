@@ -6,7 +6,11 @@ import { sessionOptions } from "@/lib/session";
 /* ---------- helpers ---------- */
 type TaskLite = { id: string; name: string; list?: { id?: string } | null };
 
-const EXCLUDED_LIST_ID = process.env.CLICKUP_EXCLUDED_LIST_ID || ""; // single list to hide
+const EXCLUDED = new Set(String(process.env.CLICKUP_EXCLUDED_LIST_IDS || "")
+  .split(",")
+  .map(s => s.trim())
+  .filter(Boolean)
+);
 
 async function fetchTeamTasksPage(opts: {
   authHeader: string;
@@ -77,7 +81,7 @@ export async function GET(req: NextRequest) {
   if (!SPACE_ID) return NextResponse.json({ error: "Missing CLICKUP_SPACE_ID env" }, { status: 500 });
 
   const projectsMap = new Map<string, string>();
-  const debugInfo: any = { used: "team", calls: [] as any[], excludedListIds: [EXCLUDED_LIST_ID].filter(Boolean) };
+  const debugInfo: any = { used: "team", calls: [] as any[], excludedListIds: Array.from(EXCLUDED) };
 
   let page = 0;
   const maxPages = 20;
@@ -110,13 +114,13 @@ export async function GET(req: NextRequest) {
     for (const t of items) {
       // exclude subtasks (ClickUp gives parent on subtasks)
       // and exclude the undesired LIST id
-      const listId = String(t?.list?.id || "");
-      if ((t as any)?.parent) continue;
-      if (EXCLUDED_LIST_ID && listId === EXCLUDED_LIST_ID) continue;
+  const listId = String(t?.list?.id || "");
+  if ((t as any)?.parent) continue;
+  if (EXCLUDED.has(listId)) continue;
 
-      const id = String(t.id);
-      const name = String(t.name || id);
-      projectsMap.set(id, name);
+  const id = String(t.id);
+  const name = String(t.name || id);
+  projectsMap.set(id, name);
     }
     page++;
   }
@@ -144,13 +148,13 @@ export async function GET(req: NextRequest) {
       if (items.length === 0) break;
 
       for (const t of items) {
-        const listId = String(t?.list?.id || "");
-        if ((t as any)?.parent) continue;
-        if (EXCLUDED_LIST_ID && listId === EXCLUDED_LIST_ID) continue;
+  const listId = String(t?.list?.id || "");
+  if ((t as any)?.parent) continue;
+  if (EXCLUDED.has(listId)) continue;
 
-        const id = String(t.id);
-        const name = String(t.name || id);
-        projectsMap.set(id, name);
+  const id = String(t.id);
+  const name = String(t.name || id);
+  projectsMap.set(id, name);
       }
       page++;
     }
@@ -164,7 +168,7 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({
       projects,
       count: projects.length,
-      excludedListIds: [EXCLUDED_LIST_ID].filter(Boolean),
+  excludedListIds: Array.from(EXCLUDED),
       assigneeUsed: assigneeId || null,
       debug: debugInfo,
     });
