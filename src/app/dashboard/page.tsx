@@ -55,8 +55,7 @@ type Row = {
 };
 
 /** safe sum for (number|null)[] arrays */
-const sumNullable = (arr: (number | null)[]) =>
-  arr.reduce<number>((acc, v) => acc + (v ?? 0), 0);
+const sumNullable = (arr: (number | null)[]) => arr.reduce<number>((acc, v) => acc + (v ?? 0), 0);
 
 /** ---- chart stubs (SVG, no deps) ---- */
 function BarsVertical({
@@ -217,7 +216,7 @@ export default function DashboardPage() {
   /** admin summary */
   const [overviewRows, setOverviewRows] = useState<{ name: string; est: number; tracked: number }[]>([]);
 
-  /* load me */
+  /* load me + consultants (no emails in dropdown) */
   useEffect(() => {
     let mounted = true;
     (async () => {
@@ -237,16 +236,15 @@ export default function DashboardPage() {
           const cs = await fetch("/api/consultants", { cache: "no-store" }).then(r => r.json());
           const list: Member[] = (cs?.members || []).map((m: any) => ({
             id: String(m.id),
-            // label: prefer username; fall back to neat handle (no email exposure)
-            username: (m.username && String(m.username)) || (m.email ? String(m.email).split("@")[0] : ""),
-            email: m.email ?? undefined,
+            username: m.username || m.email?.split("@")[0] || m.id, // no email in label
+            email: m.email,
           }));
           const sorted = list.filter(m => m.id).sort((a,b)=> (a.username||"").localeCompare(b.username||""));
-          const withMeTop = [{ id: u.id, username: u.username || (u.email?.split("@")[0] ?? "me"), email: u.email },
+          const withMeTop = [{ id: u.id, username: u.username || (u.email?.split("@")[0]) || u.id, email: u.email },
             ...sorted.filter(m => m.id !== u.id)];
           setMembers(withMeTop);
         } else {
-          setMembers([{ id: u.id, username: u.username || (u.email?.split("@")[0] ?? u.id), email: u.email }]);
+          setMembers([{ id: u.id, username: u.username || (u.email?.split("@")[0]) || u.id, email: u.email }]);
         }
       } catch {
         window.location.href = "/login";
@@ -259,7 +257,7 @@ export default function DashboardPage() {
     if (selectedUserId) setAddAssignee(selectedUserId);
   }, [selectedUserId]);
 
-  /* projects for user */
+  /* projects for user (ALWAYS set projects; show them even if timesheet is empty) */
   useEffect(() => {
     if (!selectedUserId) return;
     let mounted = true;
@@ -268,60 +266,86 @@ export default function DashboardPage() {
       try {
         const r = await fetch(`/api/projects/by-user?assigneeId=${encodeURIComponent(selectedUserId)}`, { cache: "no-store" });
         const j = await r.json();
-        const list: Project[] = (j?.projects || []).map((p: any) => ({ id: String(p.id), name: String(p.name || p.id) }));
+        const list: Project[] = Array.isArray(j?.projects)
+          ? j.projects.map((p: any) => ({ id: String(p.id), name: String(p.name || p.id) }))
+          : [];
         if (!mounted) return;
         setProjects(list);
+      } catch (e) {
+        console.error("projects fetch failed", e);
+        if (mounted) setProjects([]);
       } finally {
         if (mounted) setLoading(false);
       }
     })();
     return () => { mounted = false; };
-  }, [selectedUserId, weekStart]); // re-pull if you jump weeks (optional)
+  }, [selectedUserId]);
 
-  /* merge timesheet for week */
+  /* merge timesheet for week -> ALWAYS produce rows for every project */
   useEffect(() => {
     if (!selectedUserId) return;
-    let mounted = true;
+
+    let cancelled = false;
+
     (async () => {
-      const start = ymd(weekStart), end = ymd(weekEnd);
-      const ts = await fetch(`/api/timesheet?userId=${encodeURIComponent(selectedUserId)}&start=${start}&end=${end}`, { cache: "no-store" }).then(r => r.json());
-      const entries = ts?.entries || [];
+      // Build a blank row set first so UI shows immediately
+      const baseRows: Row[] = (projects || []).map((p) => ({
+        taskId: p.id,
+        taskName: p.name,
+        estByDay: [null, null, null, null, null],
+        estLockedByDay: [false, false, false, false, false],
+        trackedByDay: [null, null, null, null, null],
+        noteByDay: [null, null, null, null, null],
+      }));
 
-      const byKey = new Map<string, any>();
-      const nameFromEntries = new Map<string, string>();
-      for (const e of entries) {
-        const pid = String(e.task_id);
-        byKey.set(`${pid}|${e.date}`, e);
-        if (e.task_name && !nameFromEntries.has(pid)) nameFromEntries.set(pid, e.task_name);
-      }
+      // Show base immediately (avoids empty table even if timesheet lags/empty)
+      setRows(baseRows);
 
-      const projMap = new Map<string, { id: string; name: string }>();
-      for (const p of projects) projMap.set(p.id, { id: p.id, name: p.name });
-      for (const [pid, pname] of nameFromEntries.entries())
-        if (!projMap.has(pid)) projMap.set(pid, { id: pid, name: pname || pid });
-      const allProjects = Array.from(projMap.values()).sort((a,b)=> a.name.localeCompare(b.name));
+      // Then merge in actual timesheet data if present
+      try {
+        const start = ymd(weekStart), end = ymd(weekEnd);
+        const ts = await fetch(`/api/timesheet?userId=${encodeURIComponent(selectedUserId)}&start=${start}&end=${end}`, { cache: "no-store" }).then(r => r.json());
+        if (cancelled) return;
 
-      const newRows: Row[] = allProjects.map((p) => {
-        const estByDay: (number|null)[] = [null,null,null,null,null];
-        const estLockedByDay: boolean[] = [false,false,false,false,false];
-        const trackedByDay: (number|null)[] = [null,null,null,null,null];
-        const noteByDay: (string|null)[] = [null,null,null,null,null];
+        const entries = ts?.entries || [];
+        if (!Array.isArray(entries) || entries.length === 0) {
+          // nothing else to merge — baseRows stay visible
+          return;
+        }
 
-        weekCols.forEach((d, i) => {
-          const it = byKey.get(`${p.id}|${ymd(d)}`);
-          if (it) {
-            estByDay[i] = it.estimate_hours ?? null;
-            estLockedByDay[i] = !!it.estimate_locked;
-            trackedByDay[i] = it.tracked_hours ?? null;
-            noteByDay[i] = it.tracked_note ?? null;
-          }
+        const byKey = new Map<string, any>();
+        for (const e of entries) {
+          const pid = String(e.task_id);
+          byKey.set(`${pid}|${e.date}`, e);
+        }
+
+        const mergedRows: Row[] = baseRows.map((pRow) => {
+          const estByDay: (number|null)[] = [...pRow.estByDay];
+          const estLockedByDay: boolean[] = [...pRow.estLockedByDay];
+          const trackedByDay: (number|null)[] = [...pRow.trackedByDay];
+          const noteByDay: (string|null)[] = [...pRow.noteByDay];
+
+          weekCols.forEach((d, i) => {
+            const it = byKey.get(`${pRow.taskId}|${ymd(d)}`);
+            if (it) {
+              estByDay[i] = it.estimate_hours ?? null;
+              estLockedByDay[i] = !!it.estimate_locked;
+              trackedByDay[i] = it.tracked_hours ?? null;
+              noteByDay[i] = it.tracked_note ?? null;
+            }
+          });
+
+          return { ...pRow, estByDay, estLockedByDay, trackedByDay, noteByDay };
         });
-        return { taskId: p.id, taskName: p.name, estByDay, estLockedByDay, trackedByDay, noteByDay };
-      });
 
-      if (mounted) setRows(newRows);
+        setRows(mergedRows);
+      } catch (e) {
+        console.warn("timesheet merge failed (showing projects without entries)", e);
+        // baseRows are already shown
+      }
     })();
-    return () => { mounted = false; };
+
+    return () => { cancelled = true; };
   }, [projects, selectedUserId, weekStart, weekEnd, weekCols]);
 
   /* totals */
@@ -451,7 +475,7 @@ export default function DashboardPage() {
     })();
   }, [isAdmin, weekStart, weekEnd]);
 
-  /* Add Project handler */
+  /* Add Project handler (reload projects afterwards) */
   async function createProject() {
     if (!addName.trim() || !addAssignee) return;
     setAddBusy(true);
@@ -461,22 +485,23 @@ export default function DashboardPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ name: addName.trim(), assigneeId: addAssignee }),
       });
+      const j = await resp.json().catch(()=> ({}));
       if (!resp.ok) {
-        const j = await resp.json().catch(() => ({}));
         alert(`Failed to create project: ${j.error || resp.statusText}${j.details ? ` — ${j.details}` : ""}`);
         return;
       }
       setAddOpen(false);
       setAddName("");
       setAddAssignee(selectedUserId);
-      // optional: re-fetch projects after create
-      try {
-        if (selectedUserId) {
-          const r = await fetch(`/api/projects/by-user?assigneeId=${encodeURIComponent(selectedUserId)}`, { cache: "no-store" });
-          const j = await r.json();
-          setProjects((j?.projects || []).map((p: any) => ({ id: String(p.id), name: String(p.name || p.id) })));
-        }
-      } catch {}
+
+      // reload list so new task shows up
+      if (selectedUserId) {
+        setLoading(true);
+        const r = await fetch(`/api/projects/by-user?assigneeId=${encodeURIComponent(selectedUserId)}`, { cache: "no-store" });
+        const jj = await r.json().catch(()=>({ projects: [] }));
+        setProjects(Array.isArray(jj.projects) ? jj.projects.map((p: any)=>({ id: String(p.id), name: String(p.name||p.id) })) : []);
+        setLoading(false);
+      }
     } finally {
       setAddBusy(false);
     }
@@ -522,10 +547,7 @@ export default function DashboardPage() {
                     onChange={(e)=> setSelectedUserId(e.target.value)}
                   >
                     {(members || []).map(m => (
-                      <option key={m.id} value={m.id}>
-                        {/* username only (no email) */}
-                        {m.username || m.id}
-                      </option>
+                      <option key={m.id} value={m.id}>{m.username || m.id}</option>
                     ))}
                   </select>
                   <div className="h-4 w-px bg-[var(--border)]" />
@@ -607,10 +629,8 @@ export default function DashboardPage() {
             <div className={styles.tableWrap}>
               <table className={styles.table} style={{ tableLayout: "auto" }}>
                 <colgroup>
-                  <col /* Project expands */ />
-                  {[0,1,2,3,4].map((i) => (
-                    <col key={`d${i}`} width={160} />
-                  ))}
+                  <col />
+                  {[0,1,2,3,4].map((i) => (<col key={`d${i}`} width={160} />))}
                   <col width={160} />
                 </colgroup>
 
@@ -642,7 +662,6 @@ export default function DashboardPage() {
                     return (
                       <tr key={r.taskId}>
                         <td className={styles.thProject}>
-                          {/* Full name, wraps naturally (long names OK) */}
                           <div className={styles.projectNameFull} title={r.taskName}>
                             {r.taskName}
                           </div>
@@ -658,7 +677,8 @@ export default function DashboardPage() {
                                 onChange={(e)=> {
                                   const v = e.currentTarget.value === "" ? null : Number(e.currentTarget.value);
                                   setRows(prev => prev.map(row => row.taskId===r.taskId ? {
-                                    ...row, estByDay: prev.find(rr=>rr.taskId===r.taskId)!.estByDay.map((vv,ii)=> ii===i ? (v as any) : vv),
+                                    ...row,
+                                    estByDay: row.estByDay.map((vv,ii)=> ii===i ? (v as any) : vv),
                                   }: row));
                                 }}
                                 onBlur={(e) => {
@@ -723,7 +743,7 @@ export default function DashboardPage() {
         {/* ===== MONTH VIEW ===== */}
         {viewMode === "month" && (
           <>
-            <div className={styles.summary} style={{ marginTop: 0 }}></div>
+            <div className={styles.summary} style={{ marginTop: 0 }} />
             <div className={styles.weekGrid}>
               {monthWeeks.map((w, idx) => {
                 const isSelected = ymd(w.start) === ymd(weekStart);
