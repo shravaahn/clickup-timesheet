@@ -3,7 +3,6 @@ import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/db";
 import { getAuthHeader, cuUpdateTimeEstimate, cuCreateManualTimeEntry } from "@/lib/clickup";
 
-/** Request bodies we accept */
 type Body =
   | {
       type: "estimate";
@@ -25,12 +24,11 @@ type Body =
       syncToClickUp?: boolean;
     };
 
-/** normalize → epoch ms at noon UTC to avoid DST weirdness for tracked entries */
 function noonUtcMs(ymd: string) {
   return Date.parse(`${ymd}T12:00:00.000Z`);
 }
 
-/** ---------- GET: fetch entries for a user & date range ---------- */
+/** ---------- GET ---------- */
 export async function GET(req: NextRequest) {
   try {
     const sp = req.nextUrl.searchParams;
@@ -39,13 +37,9 @@ export async function GET(req: NextRequest) {
     const end = sp.get("end") || "";
 
     if (!userId || !start || !end) {
-      return NextResponse.json(
-        { error: "Missing userId/start/end" },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: "Missing userId/start/end" }, { status: 400 });
     }
 
-    // Read with service-role (bypasses RLS), so data persists/reloads reliably
     const { data, error } = await supabaseAdmin
       .from("timesheet_entries")
       .select(
@@ -57,39 +51,28 @@ export async function GET(req: NextRequest) {
       .order("task_name", { ascending: true });
 
     if (error) {
-      return NextResponse.json(
-        { error: "DB read failed", details: error.message },
-        { status: 500 }
-      );
+      return NextResponse.json({ error: "DB read failed", details: error.message }, { status: 500 });
     }
 
     return NextResponse.json({ entries: data || [] });
   } catch (err: any) {
-    return NextResponse.json(
-      { error: "Failed", details: err?.message || String(err) },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: "Failed", details: err?.message || String(err) }, { status: 500 });
   }
 }
 
-/** ---------- POST: upsert + sync (estimate or tracked) ---------- */
+/** ---------- POST ---------- */
 export async function POST(req: NextRequest) {
   try {
     const body = (await req.json()) as Body;
     const { userId, taskId, date } = body;
-
     if (!userId || !taskId || !date) {
-      return NextResponse.json(
-        { error: "Missing userId/taskId/date" },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: "Missing userId/taskId/date" }, { status: 400 });
     }
 
-    // Build row for upsert
     const upsertRow: any = {
       user_id: String(userId),
       task_id: String(taskId),
-      date, // YYYY-MM-DD
+      date,
       task_name: (body as any).taskName ?? null,
     };
 
@@ -101,27 +84,20 @@ export async function POST(req: NextRequest) {
       upsertRow.tracked_note = (body as any).note ?? null;
     }
 
-    // Persist (requires unique index on (user_id, task_id, date) for onConflict to work)
     const { error: upsertErr } = await supabaseAdmin
       .from("timesheet_entries")
       .upsert(upsertRow, { onConflict: "user_id,task_id,date" });
 
     if (upsertErr) {
-      return NextResponse.json(
-        { error: "DB upsert failed", details: upsertErr.message },
-        { status: 500 }
-      );
+      return NextResponse.json({ error: "DB upsert failed", details: upsertErr.message }, { status: 500 });
     }
 
-    // Optional: sync to ClickUp
+    // Sync to ClickUp if requested
     if (body.syncToClickUp) {
-      const authHeader = await getAuthHeader(req as any);
+      const authHeader = await getAuthHeader(req);
 
       if (body.type === "estimate") {
-        // === ESTIMATE SYNC ===
-        // ClickUp `time_estimate` is a *task total* (ms).
-        // We compute the TOTAL of all estimate_hours for this task across the table,
-        // then push that cumulative value to ClickUp.
+        // Recompute total estimate for this task and push TOTAL to ClickUp
         const { data: sumRows, error: sumErr } = await supabaseAdmin
           .from("timesheet_entries")
           .select("estimate_hours")
@@ -129,10 +105,7 @@ export async function POST(req: NextRequest) {
           .not("estimate_hours", "is", null);
 
         if (sumErr) {
-          return NextResponse.json(
-            { error: "DB sum failed", details: sumErr.message },
-            { status: 500 }
-          );
+          return NextResponse.json({ error: "DB sum failed", details: sumErr.message }, { status: 500 });
         }
 
         const totalHours =
@@ -141,14 +114,12 @@ export async function POST(req: NextRequest) {
             0
           ) || 0;
 
-        const totalMs = Math.max(0, Math.floor(totalHours * 3600_000));
-        await cuUpdateTimeEstimate(authHeader, taskId, totalMs);
+        await cuUpdateTimeEstimate(authHeader, taskId, Math.floor(totalHours * 3600_000));
       } else {
-        // === TRACKED SYNC (unchanged) ===
+        // TRACKED: use team endpoint (works consistently)
         const startMs = noonUtcMs(date);
         const timeMs = Math.max(1, Math.floor(Number(body.hours) * 3600_000));
-        const maybeAssignee =
-          /^[0-9]+$/.test(String(userId)) ? Number(userId) : undefined;
+        const maybeAssignee = /^[0-9]+$/.test(String(userId)) ? Number(userId) : undefined;
 
         await cuCreateManualTimeEntry({
           authHeader,
@@ -165,9 +136,6 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: true });
   } catch (err: any) {
     console.error("/api/timesheet POST error:", err);
-    return NextResponse.json(
-      { error: "Failed", details: err?.message || String(err) },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: "Failed", details: err?.message || String(err) }, { status: 500 });
   }
 }

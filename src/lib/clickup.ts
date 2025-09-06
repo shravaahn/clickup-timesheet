@@ -2,47 +2,62 @@
 /**
  * ClickUp helpers:
  *  - Creates the correct Authorization header for either OAuth or Personal token
- *  - Exposes estimate and time-entry helpers
- *  - Also exposes getAuthHeader(req) that prefers user OAuth (iron-session) and falls back to env token
+ *  - Exposes estimate, time-entry, and create-task helpers
+ *  - Exposes getAuthHeader(req,res?) that prefers user OAuth (iron-session) and falls back to env token
+ *
+ * IMPORTANT:
+ *  - Personal API tokens must be sent RAW (no "Bearer " prefix).
+ *  - OAuth tokens must be sent with "Bearer " prefix.
  */
 
 import { getIronSession } from "iron-session";
 import { sessionOptions } from "@/lib/session";
 
-/** Important:
- *  - If value already starts with "Bearer ", return as-is (OAuth).
- *  - Otherwise, return token raw (Personal API token). DO NOT prepend "Bearer".
- */
-export function makeAuthHeader(token: string) {
+/* ================= Auth ================= */
+
+export function makeAuthHeader(token: string): string {
   const t = (token || "").trim();
-  return t.startsWith("Bearer ") ? t : t; // raw personal token
+  // If already "Bearer ...", pass through; otherwise keep raw (personal token)
+  return t.startsWith("Bearer ") ? t : t;
 }
 
-/** Prefer OAuth token from session; else fall back to CLICKUP_API_TOKEN (personal) */
+/**
+ * Prefer OAuth token from session (iron-session). If missing, use:
+ *  - request "authorization" header if present (rare)
+ *  - env CLICKUP_API_TOKEN (personal token)
+ */
 export async function getAuthHeader(req: Request, res?: Response): Promise<string> {
-  // (1) Try user session
+  // 1) Try session OAuth token
   try {
-    // @ts-ignore – Next Request/Response is fine for iron-session on API routes
+    // @ts-ignore – Next's Request/Response works with iron-session in API routes
     const session: any = await getIronSession(req as any, (res as any) || {}, sessionOptions);
     const sessTok = session?.access_token || session?.accessToken;
     if (sessTok) return makeAuthHeader(String(sessTok));
   } catch {
-    // ignore; we'll fall back
+    // ignore; continue to next sources
   }
 
-  // (2) Try request header (rare, but allow it)
+  // 2) Request header (if someone proxied a token through)
   const incoming = (req.headers.get("authorization") || "").trim();
   if (incoming) return makeAuthHeader(incoming);
 
-  // (3) Fall back to env Personal token
+  // 3) Env personal token
   const envTok = process.env.CLICKUP_API_TOKEN || "";
-  if (!envTok) throw new Error("No ClickUp token available (session/env)");
+  if (!envTok) throw new Error("No ClickUp token available (session/header/env)");
   return makeAuthHeader(envTok);
 }
 
-/* ---------- Estimates ---------- */
+/* ================= Estimates ================= */
 
-export async function cuUpdateTimeEstimate(authHeader: string, taskId: string, timeEstimateMs: number) {
+/**
+ * ClickUp expects TOTAL task estimate in milliseconds on the task object.
+ * This overwrites the task's aggregate estimate (not a per-day value).
+ */
+export async function cuUpdateTimeEstimate(
+  authHeader: string,
+  taskId: string,
+  timeEstimateMs: number
+): Promise<void> {
   const url = `https://api.clickup.com/api/v2/task/${encodeURIComponent(taskId)}`;
   const r = await fetch(url, {
     method: "PUT",
@@ -61,18 +76,27 @@ export async function cuUpdateTimeEstimate(authHeader: string, taskId: string, t
   }
 }
 
-/* ---------- Time tracking ---------- */
+/* ================= Time Tracking ================= */
 
 type CreateTimeParams = {
   authHeader: string;
   taskId: string;
-  startMs: number;       // epoch ms
-  timeMs: number;        // duration in ms
+  startMs: number;        // epoch ms
+  timeMs: number;         // duration in ms (>0)
   description?: string;
-  assignee?: number;     // ClickUp member id
-  billable?: boolean;
+  assignee?: number;      // ClickUp member id (optional)
+  billable?: boolean;     // default true
 };
 
+/**
+ * Robust tracked-time creator:
+ *  1) Try TEAM endpoint (recommended): POST /team/{TEAM_ID}/time_entries with duration
+ *  2) Fallback to TASK endpoint:     POST /task/{taskId}/time with "time" (duration)
+ *
+ * Uses whichever token you provide in Authorization:
+ *   - raw personal token (no Bearer) OR
+ *   - "Bearer <oauth>"
+ */
 export async function cuCreateManualTimeEntry({
   authHeader,
   taskId,
@@ -81,16 +105,18 @@ export async function cuCreateManualTimeEntry({
   description,
   assignee,
   billable = true,
-}: CreateTimeParams) {
+}: CreateTimeParams): Promise<void> {
   const cleanStart = Math.max(0, Math.floor(startMs));
   const cleanTime = Math.max(1, Math.floor(timeMs));
 
-  // 1) Primary: task-scoped endpoint (start + time)
-  {
-    const url = `https://api.clickup.com/api/v2/task/${encodeURIComponent(taskId)}/time`;
+  /* ---- Primary: TEAM endpoint with duration ---- */
+  const TEAM_ID = process.env.CLICKUP_TEAM_ID || "";
+  if (TEAM_ID) {
+    const url = `https://api.clickup.com/api/v2/team/${encodeURIComponent(TEAM_ID)}/time_entries`;
     const body: any = {
       start: cleanStart,
-      time: cleanTime,
+      duration: cleanTime,
+      task_id: String(taskId), // <-- team endpoint expects "task_id"
       description: description || undefined,
       billable,
     };
@@ -109,28 +135,24 @@ export async function cuCreateManualTimeEntry({
 
     if (r.ok) return;
 
+    // Only fall back on conditions we know we can recover from
     const txt = await r.text().catch(() => "");
     const shouldFallback =
       r.status === 404 ||
       txt.includes("Route not found") ||
-      txt.includes("Must time spent if providing interval without an end");
+      // in case workspace doesn't allow team endpoint or needs different shape
+      r.status === 400;
+
     if (!shouldFallback) {
-      throw new Error(`Task time entry failed ${r.status}: ${txt || r.statusText}`);
+      throw new Error(`Team time entry failed ${r.status}: ${txt || r.statusText}`);
     }
   }
 
-  // 2) Fallback: team-level time_entries (requires TEAM_ID), uses start + end + tid
-  const TEAM_ID = process.env.CLICKUP_TEAM_ID || "";
-  if (!TEAM_ID) {
-    throw new Error("Task time entry failed and no CLICKUP_TEAM_ID set for team-level fallback");
-  }
-
-  const endMs = cleanStart + cleanTime;
-  const url2 = `https://api.clickup.com/api/v2/team/${encodeURIComponent(TEAM_ID)}/time_entries`;
+  /* ---- Fallback: TASK endpoint with "time" (duration) ---- */
+  const url2 = `https://api.clickup.com/api/v2/task/${encodeURIComponent(taskId)}/time`;
   const body2: any = {
     start: cleanStart,
-    end: endMs,
-    tid: String(taskId),
+    time: cleanTime, // <-- task endpoint expects "time" for duration
     description: description || undefined,
     billable,
   };
@@ -149,11 +171,11 @@ export async function cuCreateManualTimeEntry({
 
   if (!r2.ok) {
     const txt2 = await r2.text().catch(() => "");
-    throw new Error(`Team time entry failed ${r2.status}: ${txt2 || r2.statusText}`);
+    throw new Error(`Task time entry failed ${r2.status}: ${txt2 || r2.statusText}`);
   }
 }
 
-/* ---------- Create Task ---------- */
+/* ================= Create Task ================= */
 
 type CreateTaskBody = {
   name: string;
@@ -164,7 +186,11 @@ type CreateTaskBody = {
   priority?: number;
 };
 
-export async function cuCreateTask(authHeader: string, listId: string, body: CreateTaskBody) {
+export async function cuCreateTask(
+  authHeader: string,
+  listId: string,
+  body: CreateTaskBody
+): Promise<any> {
   const url = `https://api.clickup.com/api/v2/list/${encodeURIComponent(listId)}/task`;
   const r = await fetch(url, {
     method: "POST",
@@ -179,7 +205,11 @@ export async function cuCreateTask(authHeader: string, listId: string, body: Cre
 
   const text = await r.text().catch(() => "");
   let json: any = null;
-  try { json = text ? JSON.parse(text) : null; } catch {}
+  try {
+    json = text ? JSON.parse(text) : null;
+  } catch {
+    // keep null
+  }
 
   if (!r.ok) {
     throw new Error(`ClickUp create failed ${r.status}: ${text || r.statusText}`);
