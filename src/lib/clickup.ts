@@ -1,78 +1,66 @@
 // src/lib/clickup.ts
-/* Minimal ClickUp REST v2 helper focused on tasks and time entries.
-   Uses default time fields: `time_estimate` and time entries API.
-*/
-const API = "https://api.clickup.com/api/v2";
-
-function requiredEnv(name: string): string {
-  const v = process.env[name];
-  if (!v) throw new Error(`Missing env ${name}`);
-  return v;
+/**
+ * Minimal ClickUp helpers:
+ * - makeAuthHeader
+ * - pushEstimateToClickUp(taskId, hours)
+ * - createTimeEntry(teamId, taskId, assigneeId, hours, note)
+ *
+ * Notes:
+ * - ClickUp time_estimate is milliseconds on the task.
+ * - Time entries are created at team level.
+ */
+export function makeAuthHeader(token: string) {
+  return token.startsWith("Bearer ") ? token : `Bearer ${token}`;
 }
 
-function headers() {
-  return {
-    "Authorization": requiredEnv("CLICKUP_API_TOKEN"),
-    "Content-Type": "application/json",
-  };
-}
-
-export type ClickUpTask = {
-  id: string;
-  name: string;
-  time_estimate?: number | null; // ms
-};
-
-export async function cuCreateTask(listId: string, payload: {
-  name: string;
-  assignees?: number[]; // ClickUp member IDs (numbers)
-  description?: string;
-}): Promise<ClickUpTask> {
-  const res = await fetch(`${API}/list/${listId}/task`, {
-    method: "POST",
-    headers: headers(),
-    body: JSON.stringify(payload),
-    // NOTE: ClickUp sometimes needs "assignees" as array of numbers on create.
-  });
-  if (!res.ok) {
-    const txt = await res.text().catch(()=>"");
-    throw new Error(`ClickUp create task failed: ${res.status} ${txt}`);
-  }
-  return res.json();
-}
-
-export async function cuUpdateTask(taskId: string, patch: Partial<ClickUpTask>) {
-  const res = await fetch(`${API}/task/${taskId}`, {
+export async function pushEstimateToClickUp(auth: string, taskId: string, hours: number) {
+  // ClickUp expects ms for time_estimate
+  const ms = Math.max(0, Math.round(hours * 3600_000));
+  const r = await fetch(`https://api.clickup.com/api/v2/task/${encodeURIComponent(taskId)}`, {
     method: "PUT",
-    headers: headers(),
-    body: JSON.stringify(patch),
+    headers: { Authorization: auth, "Content-Type": "application/json", Accept: "application/json" },
+    body: JSON.stringify({ time_estimate: ms }),
+    cache: "no-store",
   });
-  if (!res.ok) {
-    const txt = await res.text().catch(()=>"");
-    throw new Error(`ClickUp update task failed: ${res.status} ${txt}`);
+  if (!r.ok) {
+    const t = await r.text().catch(() => "");
+    throw new Error(`ClickUp estimate update failed ${r.status}: ${t}`);
   }
-  return res.json();
 }
 
-/** Create a time entry using team-level endpoint (works with default time tracking).
-    start: epoch ms UTC; duration: ms; assignee: ClickUp user ID (number)
-*/
-export async function cuCreateTimeEntry(teamId: string, payload: {
-  start: number;          // epoch ms UTC
-  duration: number;       // ms
-  task_id: string;
-  assignee?: number;
-  description?: string;
-  billable?: boolean;
+export async function createTimeEntry(opts: {
+  auth: string;
+  teamId: string;
+  taskId: string;
+  assigneeId?: string | number | null;
+  hours: number;
+  note?: string;
 }) {
-  const res = await fetch(`${API}/team/${teamId}/time_entries`, {
+  const { auth, teamId, taskId, assigneeId, hours, note } = opts;
+  const durationMs = Math.max(1, Math.round(hours * 3600_000)); // at least 1ms
+
+  // Create a time entry starting "now - duration"
+  const end = Date.now();
+  const start = end - durationMs;
+
+  const payload: any = {
+    description: note || "",
+    tags: [],
+    start,
+    end,
+    tid: String(taskId), // task id
+  };
+  if (assigneeId != null) payload.assignee = String(assigneeId);
+
+  const r = await fetch(`https://api.clickup.com/api/v2/team/${encodeURIComponent(teamId)}/time_entries`, {
     method: "POST",
-    headers: headers(),
+    headers: { Authorization: auth, "Content-Type": "application/json", Accept: "application/json" },
     body: JSON.stringify(payload),
+    cache: "no-store",
   });
-  if (!res.ok) {
-    const txt = await res.text().catch(()=>"");
-    throw new Error(`ClickUp time entry failed: ${res.status} ${txt}`);
+
+  if (!r.ok) {
+    const t = await r.text().catch(() => "");
+    throw new Error(`ClickUp time entry failed ${r.status}: ${t}`);
   }
-  return res.json();
 }
