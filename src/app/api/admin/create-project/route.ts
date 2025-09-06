@@ -2,7 +2,6 @@
 import { NextResponse } from "next/server";
 import { cuCreateTask, getAuthHeader } from "@/lib/clickup";
 
-/** simple numeric check */
 const isNum = (v: string | null) => !!v && /^[0-9]+$/.test(v);
 
 export async function POST(req: Request) {
@@ -13,9 +12,10 @@ export async function POST(req: Request) {
     const listId = process.env.CLICKUP_LIST_ID || "";
     if (!listId) return NextResponse.json({ error: "CLICKUP_LIST_ID not set" }, { status: 500 });
 
+    // creating a task requires a token; be strict here
     const authHeader = await getAuthHeader();
 
-    let assignees: number[] | undefined = undefined;
+    let assignees: number[] | undefined;
     if (isNum(assigneeId)) assignees = [Number(assigneeId)];
 
     const task = await cuCreateTask({
