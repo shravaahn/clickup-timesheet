@@ -55,7 +55,8 @@ type Row = {
 };
 
 /** safe sum for (number|null)[] arrays */
-const sumNullable = (arr: (number | null)[]) => arr.reduce<number>((acc, v) => acc + (v ?? 0), 0);
+const sumNullable = (arr: (number | null)[]) =>
+  arr.reduce<number>((acc, v) => acc + (v ?? 0), 0);
 
 /** ---- chart stubs (SVG, no deps) ---- */
 function BarsVertical({
@@ -199,6 +200,9 @@ export default function DashboardPage() {
   const [rows, setRows] = useState<Row[]>([]);
   const [loading, setLoading] = useState(true);
 
+  /** weekly estimates state: map weekStart (YYYY-MM-DD) -> { hours, locked } */
+  const [weeklyEstimates, setWeeklyEstimates] = useState<Record<string, { hours: number; locked: boolean }>>({});
+
   /** tracked modal */
   const [modalOpen, setModalOpen] = useState(false);
   const [modalTaskId, setModalTaskId] = useState("");
@@ -206,6 +210,12 @@ export default function DashboardPage() {
   const [modalDayIndex, setModalDayIndex] = useState(0);
   const [modalType, setModalType] = useState<TRACK_NOTE>("");
   const [modalHours, setModalHours] = useState<string>("");
+
+  /** Add Weekly Estimate modal (Option A) */
+  const [estimateModalOpen, setEstimateModalOpen] = useState(false);
+  const [estimateWeekStart, setEstimateWeekStart] = useState<string>(ymd(startOfWeek()));
+  const [estimateHoursInput, setEstimateHoursInput] = useState<string>("");
+  const [estimateBusy, setEstimateBusy] = useState(false);
 
   /** Add Project modal */
   const [addOpen, setAddOpen] = useState(false);
@@ -216,7 +226,7 @@ export default function DashboardPage() {
   /** admin summary */
   const [overviewRows, setOverviewRows] = useState<{ name: string; est: number; tracked: number }[]>([]);
 
-  /* load me + consultants (no emails in dropdown) */
+  /* load me */
   useEffect(() => {
     let mounted = true;
     (async () => {
@@ -235,16 +245,14 @@ export default function DashboardPage() {
         if (u.is_admin) {
           const cs = await fetch("/api/consultants", { cache: "no-store" }).then(r => r.json());
           const list: Member[] = (cs?.members || []).map((m: any) => ({
-            id: String(m.id),
-            username: m.username || m.email?.split("@")[0] || m.id, // no email in label
-            email: m.email,
+            id: String(m.id), username: m.username || m.email, email: m.email,
           }));
           const sorted = list.filter(m => m.id).sort((a,b)=> (a.username||"").localeCompare(b.username||""));
-          const withMeTop = [{ id: u.id, username: u.username || (u.email?.split("@")[0]) || u.id, email: u.email },
+          const withMeTop = [{ id: u.id, username: u.username || u.email, email: u.email },
             ...sorted.filter(m => m.id !== u.id)];
           setMembers(withMeTop);
         } else {
-          setMembers([{ id: u.id, username: u.username || (u.email?.split("@")[0]) || u.id, email: u.email }]);
+          setMembers([{ id: u.id, username: u.username || u.email, email: u.email }]);
         }
       } catch {
         window.location.href = "/login";
@@ -257,23 +265,42 @@ export default function DashboardPage() {
     if (selectedUserId) setAddAssignee(selectedUserId);
   }, [selectedUserId]);
 
-  /* projects for user (ALWAYS set projects; show them even if timesheet is empty) */
+  /* fetch weekly estimates for selected user (current week + next week) */
+  useEffect(() => {
+    if (!selectedUserId) return;
+    let mounted = true;
+    (async () => {
+      try {
+        const curr = ymd(startOfWeek());
+        const next = ymd(addDays(startOfWeek(), 7));
+        const r = await fetch(`/api/weekly-estimates?userId=${encodeURIComponent(selectedUserId)}&weeks=${encodeURIComponent(curr)},${encodeURIComponent(next)}`, { cache: "no-store" });
+        const j = await r.json();
+        // j.rows expected array of { user_id, week_start, hours, locked }
+        const map: Record<string, { hours: number; locked: boolean }> = {};
+        (j.rows || []).forEach((rec: any) => {
+          map[String(rec.week_start)] = { hours: Number(rec.hours || 0), locked: !!rec.locked };
+        });
+        if (!mounted) return;
+        setWeeklyEstimates(map);
+      } catch (e) {
+        // ignore
+      }
+    })();
+    return () => { mounted = false; };
+  }, [selectedUserId, weekStart]);
+
+  /* projects for user */
   useEffect(() => {
     if (!selectedUserId) return;
     let mounted = true;
     (async () => {
       setLoading(true);
       try {
-        const r = await fetch(`/api/projects/by-user?assigneeId=${encodeURIComponent(selectedUserId)}`, { cache: "no-store" });
+        const r = await fetch(`/api/projects/by-user?assigneeId=${selectedUserId}`, { cache: "no-store" });
         const j = await r.json();
-        const list: Project[] = Array.isArray(j?.projects)
-          ? j.projects.map((p: any) => ({ id: String(p.id), name: String(p.name || p.id) }))
-          : [];
+        const list: Project[] = (j?.projects || []).map((p: any) => ({ id: String(p.id), name: String(p.name || p.id) }));
         if (!mounted) return;
         setProjects(list);
-      } catch (e) {
-        console.error("projects fetch failed", e);
-        if (mounted) setProjects([]);
       } finally {
         if (mounted) setLoading(false);
       }
@@ -281,90 +308,73 @@ export default function DashboardPage() {
     return () => { mounted = false; };
   }, [selectedUserId]);
 
-  /* merge timesheet for week -> ALWAYS produce rows for every project */
+  /* merge timesheet for week */
   useEffect(() => {
     if (!selectedUserId) return;
-
-    let cancelled = false;
-
+    let mounted = true;
     (async () => {
-      // Build a blank row set first so UI shows immediately
-      const baseRows: Row[] = (projects || []).map((p) => ({
-        taskId: p.id,
-        taskName: p.name,
-        estByDay: [null, null, null, null, null],
-        estLockedByDay: [false, false, false, false, false],
-        trackedByDay: [null, null, null, null, null],
-        noteByDay: [null, null, null, null, null],
-      }));
+      const start = ymd(weekStart), end = ymd(weekEnd);
+      const ts = await fetch(`/api/timesheet?userId=${selectedUserId}&start=${start}&end=${end}`, { cache: "no-store" }).then(r => r.json());
+      const entries = ts?.entries || [];
 
-      // Show base immediately (avoids empty table even if timesheet lags/empty)
-      setRows(baseRows);
-
-      // Then merge in actual timesheet data if present
-      try {
-        const start = ymd(weekStart), end = ymd(weekEnd);
-        const ts = await fetch(`/api/timesheet?userId=${encodeURIComponent(selectedUserId)}&start=${start}&end=${end}`, { cache: "no-store" }).then(r => r.json());
-        if (cancelled) return;
-
-        const entries = ts?.entries || [];
-        if (!Array.isArray(entries) || entries.length === 0) {
-          // nothing else to merge — baseRows stay visible
-          return;
-        }
-
-        const byKey = new Map<string, any>();
-        for (const e of entries) {
-          const pid = String(e.task_id);
-          byKey.set(`${pid}|${e.date}`, e);
-        }
-
-        const mergedRows: Row[] = baseRows.map((pRow) => {
-          const estByDay: (number|null)[] = [...pRow.estByDay];
-          const estLockedByDay: boolean[] = [...pRow.estLockedByDay];
-          const trackedByDay: (number|null)[] = [...pRow.trackedByDay];
-          const noteByDay: (string|null)[] = [...pRow.noteByDay];
-
-          weekCols.forEach((d, i) => {
-            const it = byKey.get(`${pRow.taskId}|${ymd(d)}`);
-            if (it) {
-              estByDay[i] = it.estimate_hours ?? null;
-              estLockedByDay[i] = !!it.estimate_locked;
-              trackedByDay[i] = it.tracked_hours ?? null;
-              noteByDay[i] = it.tracked_note ?? null;
-            }
-          });
-
-          return { ...pRow, estByDay, estLockedByDay, trackedByDay, noteByDay };
-        });
-
-        setRows(mergedRows);
-      } catch (e) {
-        console.warn("timesheet merge failed (showing projects without entries)", e);
-        // baseRows are already shown
+      const byKey = new Map<string, any>();
+      const nameFromEntries = new Map<string, string>();
+      for (const e of entries) {
+        const pid = String(e.task_id);
+        byKey.set(`${pid}|${e.date}`, e);
+        if (e.task_name && !nameFromEntries.has(pid)) nameFromEntries.set(pid, e.task_name);
       }
-    })();
 
-    return () => { cancelled = true; };
+      const projMap = new Map<string, { id: string; name: string }>();
+      for (const p of projects) projMap.set(p.id, { id: p.id, name: p.name });
+      for (const [pid, pname] of nameFromEntries.entries())
+        if (!projMap.has(pid)) projMap.set(pid, { id: pid, name: pname || pid });
+      const allProjects = Array.from(projMap.values()).sort((a,b)=> a.name.localeCompare(b.name));
+
+      const newRows: Row[] = allProjects.map((p) => {
+        const estByDay: (number|null)[] = [null,null,null,null,null];
+        const estLockedByDay: boolean[] = [false,false,false,false,false];
+        const trackedByDay: (number|null)[] = [null,null,null,null,null];
+        const noteByDay: (string|null)[] = [null,null,null,null,null];
+
+        weekCols.forEach((d, i) => {
+          const it = byKey.get(`${p.id}|${ymd(d)}`);
+          if (it) {
+            estByDay[i] = it.estimate_hours ?? null;
+            estLockedByDay[i] = !!it.estimate_locked;
+            trackedByDay[i] = it.tracked_hours ?? null;
+            noteByDay[i] = it.tracked_note ?? null;
+          }
+        });
+        return { taskId: p.id, taskName: p.name, estByDay, estLockedByDay, trackedByDay, noteByDay };
+      });
+
+      if (mounted) setRows(newRows);
+    })();
+    return () => { mounted = false; };
   }, [projects, selectedUserId, weekStart, weekEnd, weekCols]);
 
   /* totals */
   const totals = useMemo(() => {
+    // Est is now weekly estimate (current week) from weeklyEstimates if available
+    const currWeek = ymd(weekStart);
+    const weeklyEst = weeklyEstimates[currWeek]?.hours ?? 0;
+
     const dayEst = [0,0,0,0,0], dayTracked = [0,0,0,0,0];
     rows.forEach(r => {
-      r.estByDay.forEach((v,i)=> dayEst[i]+= (v||0));
+      // We no longer count per-day ests for totals; tracked totals still from rows
       r.trackedByDay.forEach((v,i)=> dayTracked[i]+= (v||0));
     });
-    const sumEst = clamp2(dayEst.reduce((a,b)=>a+b,0));
+    const sumEst = clamp2(weeklyEst);
     const sumTracked = clamp2(dayTracked.reduce((a,b)=>a+b,0));
     const delta = clamp2(sumTracked - sumEst);
     return { dayEst, dayTracked, sumEst, sumTracked, delta };
-  }, [rows]);
+  }, [rows, weeklyEstimates, weekStart]);
 
   /* names for chart */
   const memberNameById = useMemo(() => {
     const m = new Map<string,string>();
-    for (const mem of members) m.set(mem.id, mem.username || mem.id);
+    for (const mem of members) m.set(mem.id, mem.username || mem.email || mem.id);
     return m;
   }, [members]);
   const overviewResolved = useMemo(() => {
@@ -381,26 +391,8 @@ export default function DashboardPage() {
   const goThis = () => setWeekStart(startOfWeek());
 
   async function saveEstimate(taskId: string, taskName: string, i: number, val: number) {
-    if (!selectedUserId) return;
-    const date = ymd(weekCols[i]);
-    setRows(prev => prev.map(row => {
-      if (row.taskId !== taskId) return row;
-      const est = [...row.estByDay]; const lock = [...row.estLockedByDay];
-      est[i] = Number(val); lock[i] = true; return { ...row, estByDay: est, estLockedByDay: lock };
-    }));
-    const r = await fetch("/api/timesheet", {
-      method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ type: "estimate", userId: selectedUserId, taskId, taskName, date, hours: Number(val), syncToClickUp: true }),
-    });
-    if (!r.ok) {
-      setRows(prev => prev.map(row => {
-        if (row.taskId !== taskId) return row;
-        const est = [...row.estByDay]; const lock = [...row.estLockedByDay];
-        est[i] = null; lock[i] = false; return { ...row, estByDay: est, estLockedByDay: lock };
-      }));
-      const j = await r.json().catch(()=>({}));
-      alert(`Failed to save estimate: ${j.error || r.statusText}${j.details ? ` — ${j.details}` : ""}`);
-    }
+    // Intentionally disabled: per-day estimates removed.
+    return;
   }
 
   async function saveTracked(taskId: string, taskName: string, i: number, val: number, note: string) {
@@ -428,16 +420,16 @@ export default function DashboardPage() {
   }
 
   function exportCsv() {
-    const header = ["Project","Mon Est","Mon Tracked","Mon Note","Tue Est","Tue Tracked","Tue Note","Wed Est","Wed Tracked","Wed Note","Thu Est","Thu Tracked","Thu Note","Fri Est","Fri Tracked","Fri Note","Total Est","Total Tracked"];
+    const header = ["Project","Mon Tracked","Mon Note","Tue Tracked","Tue Note","Wed Tracked","Wed Note","Thu Tracked","Thu Note","Fri Tracked","Fri Note","Total Tracked"];
     const lines = [header.join(",")];
     rows.forEach(r => {
-      let te=0, tt=0;
+      let tt=0;
       const cells: (string|number)[] = [r.taskName || r.taskId];
       for (let i=0;i<5;i++){
-        const e=r.estByDay[i]||0, t=r.trackedByDay[i]||0, n=(r.noteByDay[i]||"").replaceAll(",",";");
-        te+=e; tt+=t; cells.push(e, t, n);
+        const t=r.trackedByDay[i]||0, n=(r.noteByDay[i]||"").replaceAll(",",";");
+        tt+=t; cells.push(t, n);
       }
-      cells.push(clamp2(te), clamp2(tt));
+      cells.push(clamp2(tt));
       lines.push(cells.join(","));
     });
     const csv = lines.join("\n");
@@ -464,18 +456,64 @@ export default function DashboardPage() {
     closeTrackModal();
   }
 
-  /* admin summary */
-  useEffect(() => {
-    if (!isAdmin) return;
-    const start = ymd(weekStart), end = ymd(weekEnd);
-    (async () => {
-      const r = await fetch(`/api/admin/summary?start=${start}&end=${end}`, { cache: "no-store" });
-      const j = await r.json().catch(()=>({ rows: [] }));
-      setOverviewRows((j.rows || []).map((x: any)=>({ name: String(x.name), est: x.est || 0, tracked: x.tracked || 0 })));
-    })();
-  }, [isAdmin, weekStart, weekEnd]);
+  /* weekly estimate modal handlers */
+  function openEstimateModalForWeek(ws: Date) {
+    const key = ymd(ws);
+    setEstimateWeekStart(key);
+    setEstimateHoursInput(String(weeklyEstimates[key]?.hours ?? ""));
+    setEstimateModalOpen(true);
+  }
 
-  /* Add Project handler (reload projects afterwards) */
+  async function submitWeeklyEstimate() {
+    if (!selectedUserId) return alert("No user selected");
+    const weekStartKey = estimateWeekStart;
+    const hoursNum = Number(estimateHoursInput);
+    if (!Number.isFinite(hoursNum) || hoursNum < 0) return alert("Enter a valid hours number");
+    // Only allow current or next week
+    const curr = ymd(startOfWeek());
+    const nxt = ymd(addDays(startOfWeek(), 7));
+    if (![curr, nxt].includes(weekStartKey)) return alert("You may only submit for current or next week.");
+    // If existing and locked, prevent
+    if (weeklyEstimates[weekStartKey]?.locked) return alert("Estimate already submitted and locked for that week.");
+
+    setEstimateBusy(true);
+    try {
+      const r = await fetch("/api/weekly-estimates", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ userId: selectedUserId, weekStart: weekStartKey, hours: hoursNum }),
+      });
+      const j = await r.json().catch(()=> ({}));
+      if (!r.ok) {
+        alert(`Failed to save estimate: ${j.error || r.statusText}${j.details ? ` — ${j.details}` : ""}`);
+        return;
+      }
+      // update local map
+      setWeeklyEstimates(prev => ({ ...prev, [weekStartKey]: { hours: hoursNum, locked: true } }));
+      setEstimateModalOpen(false);
+    } finally {
+      setEstimateBusy(false);
+    }
+  }
+
+  /* admin unlock endpoint helper: unlock a user's week */
+  async function adminUnlock(userId: string, weekStartKey: string) {
+    if (!isAdmin) return alert("Only admins can unlock");
+    const ok = confirm(`Unlock estimates for user ${userId} for week ${weekStartKey}?`);
+    if (!ok) return;
+    const r = await fetch("/api/weekly-estimates/unlock", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ userId, weekStart: weekStartKey }),
+    });
+    const j = await r.json().catch(()=>({}));
+    if (!r.ok) return alert(`Unlock failed: ${j.error || j.details || r.statusText}`);
+    // reload local estimate
+    setWeeklyEstimates(prev => ({ ...prev, [weekStartKey]: { hours: prev[weekStartKey]?.hours ?? 0, locked: false } }));
+    alert("Unlocked.");
+  }
+
+  /* Add Project handler (kept as-is) */
   async function createProject() {
     if (!addName.trim() || !addAssignee) return;
     setAddBusy(true);
@@ -485,23 +523,15 @@ export default function DashboardPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ name: addName.trim(), assigneeId: addAssignee }),
       });
-      const j = await resp.json().catch(()=> ({}));
       if (!resp.ok) {
+        const j = await resp.json().catch(() => ({}));
         alert(`Failed to create project: ${j.error || resp.statusText}${j.details ? ` — ${j.details}` : ""}`);
         return;
       }
       setAddOpen(false);
       setAddName("");
       setAddAssignee(selectedUserId);
-
-      // reload list so new task shows up
-      if (selectedUserId) {
-        setLoading(true);
-        const r = await fetch(`/api/projects/by-user?assigneeId=${encodeURIComponent(selectedUserId)}`, { cache: "no-store" });
-        const jj = await r.json().catch(()=>({ projects: [] }));
-        setProjects(Array.isArray(jj.projects) ? jj.projects.map((p: any)=>({ id: String(p.id), name: String(p.name||p.id) })) : []);
-        setLoading(false);
-      }
+      // Optionally refresh projects
     } finally {
       setAddBusy(false);
     }
@@ -527,7 +557,7 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        {/* ACTION BAR : left (identity/nav) | right (actions) */}
+        {/* ACTION BAR */}
         <div className="w-full rounded-lg border bg-[var(--panel)] border-[var(--border)] px-3 py-2 mb-3">
           <div className="flex items-center justify-between gap-3">
             <div className="flex items-center gap-3 flex-wrap">
@@ -547,16 +577,16 @@ export default function DashboardPage() {
                     onChange={(e)=> setSelectedUserId(e.target.value)}
                   >
                     {(members || []).map(m => (
-                      <option key={m.id} value={m.id}>{m.username || m.id}</option>
+                      <option key={m.id} value={m.id}>{m.username || m.email}</option>
                     ))}
                   </select>
                   <div className="h-4 w-px bg-[var(--border)]" />
                 </>
               )}
 
-              <button className={styles.btn} onClick={goPrev}>◀ Prev</button>
-              <button className={styles.btn} onClick={goThis}>This Week</button>
-              <button className={styles.btn} onClick={goNext}>Next ▶</button>
+              <button className={styles.btn} onClick={()=> setWeekStart(d=>addDays(d,-7))}>◀ Prev</button>
+              <button className={styles.btn} onClick={()=> setWeekStart(startOfWeek())}>This Week</button>
+              <button className={styles.btn} onClick={()=> setWeekStart(d=>addDays(d,7))}>Next ▶</button>
             </div>
 
             <div className="flex items-center gap-2 flex-wrap">
@@ -617,10 +647,28 @@ export default function DashboardPage() {
 
         {/* summary pills */}
         <div className={styles.summary}>
-          <span className={styles.pill}>Est: {totals.sumEst.toFixed(2)}h</span>
+          <span className={styles.pill}>Est (week): {totals.sumEst.toFixed(2)}h</span>
           <span className={styles.pill}>Tracked: {totals.sumTracked.toFixed(2)}h</span>
           <span className={styles.pill}>Δ (Tracked–Est): {(totals.delta).toFixed(2)}h</span>
-          <span className={styles.period}>Period: {viewMode === "week" ? "Week" : "Month"}</span>
+          <span className={styles.period}>
+            Period: {viewMode === "week" ? "Week" : "Month"}
+            <button
+              className={`${styles.btn} ${styles.btnSm}`}
+              onClick={()=> openEstimateModalForWeek(weekStart)}
+              title="Add / view estimate for this week"
+              style={{ marginLeft: 8 }}
+            >
+              {weeklyEstimates[ymd(weekStart)] ? (weeklyEstimates[ymd(weekStart)].locked ? "View Estimate" : "Edit Estimate") : "Add Estimate"}
+            </button>
+            <button
+              className={`${styles.btn} ${styles.btnSm}`}
+              onClick={()=> openEstimateModalForWeek(addDays(weekStart, 7))}
+              title="Add / view estimate for next week"
+              style={{ marginLeft: 8 }}
+            >
+              {weeklyEstimates[ymd(addDays(weekStart,7))] ? (weeklyEstimates[ymd(addDays(weekStart,7))].locked ? "View (Next)" : "Edit (Next)") : "Add (Next)"}
+            </button>
+          </span>
         </div>
 
         {/* ===== WEEK VIEW ===== */}
@@ -629,8 +677,10 @@ export default function DashboardPage() {
             <div className={styles.tableWrap}>
               <table className={styles.table} style={{ tableLayout: "auto" }}>
                 <colgroup>
-                  <col />
-                  {[0,1,2,3,4].map((i) => (<col key={`d${i}`} width={160} />))}
+                  <col /* Project expands */ />
+                  {[0,1,2,3,4].map((i) => (
+                    <col key={`d${i}`} width={160} />
+                  ))}
                   <col width={160} />
                 </colgroup>
 
@@ -640,12 +690,12 @@ export default function DashboardPage() {
                     {["Mon","Tue","Wed","Thu","Fri"].map((d, i) => (
                       <th key={d}>
                         <div className={styles.day}>{d} • {fmtMMMdd(weekCols[i])}</div>
-                        <div className={styles.daySub}>Est | Tracked</div>
+                        <div className={styles.daySub}>Tracked</div>
                       </th>
                     ))}
                     <th>
                       <div className={styles.day}>Total (Week)</div>
-                      <div className={styles.daySub}>Est | Tracked</div>
+                      <div className={styles.daySub}>Tracked</div>
                     </th>
                   </tr>
                 </thead>
@@ -656,7 +706,6 @@ export default function DashboardPage() {
                   )}
 
                   {!loading && rows.map((r) => {
-                    const tEst = clamp2(sumNullable(r.estByDay));
                     const tTracked = clamp2(sumNullable(r.trackedByDay));
 
                     return (
@@ -670,26 +719,7 @@ export default function DashboardPage() {
                         {[0,1,2,3,4].map((i) => (
                           <td key={i}>
                             <div className={styles.cellCompact}>
-                              <input
-                                className={`${styles.num} ${styles.numSm}`}
-                                type="number" step="0.25" min="0"
-                                value={r.estByDay[i] ?? ""}
-                                onChange={(e)=> {
-                                  const v = e.currentTarget.value === "" ? null : Number(e.currentTarget.value);
-                                  setRows(prev => prev.map(row => row.taskId===r.taskId ? {
-                                    ...row,
-                                    estByDay: row.estByDay.map((vv,ii)=> ii===i ? (v as any) : vv),
-                                  }: row));
-                                }}
-                                onBlur={(e) => {
-                                  const v = e.currentTarget.value;
-                                  if (v === "" || r.estLockedByDay[i]) return;
-                                  saveEstimate(r.taskId, r.taskName, i, Number(v));
-                                }}
-                                disabled={r.estLockedByDay[i]}
-                                placeholder="Est"
-                              />
-
+                              {/* only tracked button (no per-day estimate) */}
                               <button
                                 onClick={() => openTrackModal(r.taskId, r.taskName, i, r.trackedByDay[i], r.noteByDay[i])}
                                 className={styles.btnTrackSm}
@@ -703,7 +733,6 @@ export default function DashboardPage() {
 
                         <td>
                           <div className={styles.cellCompact}>
-                            <input className={`${styles.num} ${styles.numSm}`} disabled value={tEst.toFixed(2)} />
                             <input className={`${styles.num} ${styles.numSm}`} disabled value={tTracked.toFixed(2)} />
                           </div>
                         </td>
@@ -722,14 +751,12 @@ export default function DashboardPage() {
                     {[0,1,2,3,4].map((i) => (
                       <td key={i}>
                         <div className={styles.cellCompact}>
-                          <input className={`${styles.num} ${styles.numSm}`} disabled value={(totals.dayEst[i]||0).toFixed(2)} />
                           <input className={`${styles.num} ${styles.numSm}`} disabled value={(totals.dayTracked[i]||0).toFixed(2)} />
                         </div>
                       </td>
                     ))}
                     <td>
                       <div className={styles.cellCompact}>
-                        <input className={`${styles.num} ${styles.numSm}`} disabled value={totals.sumEst.toFixed(2)} />
                         <input className={`${styles.num} ${styles.numSm}`} disabled value={totals.sumTracked.toFixed(2)} />
                       </div>
                     </td>
@@ -744,10 +771,10 @@ export default function DashboardPage() {
         {viewMode === "month" && (
           <>
             <div className={styles.summary} style={{ marginTop: 0 }} />
+
             <div className={styles.weekGrid}>
               {monthWeeks.map((w, idx) => {
                 const isSelected = ymd(w.start) === ymd(weekStart);
-                const dayEst = isSelected ? totals.dayEst : [0,0,0,0,0];
                 const dayTracked = isSelected ? totals.dayTracked : [0,0,0,0,0];
 
                 return (
@@ -761,16 +788,13 @@ export default function DashboardPage() {
                       {["Mon","Tue","Wed","Thu","Fri"].map((d, i) => (
                         <div key={d} className={styles.dayCard}>
                           <div className={styles.dayLabel}>{d}</div>
-                          <div className={styles.dayEst}>{clamp2(dayEst[i] || 0).toFixed(2)}</div>
+                          <div className={styles.dayEst}>—</div>
                           <div className={styles.dayTracked}>{clamp2(dayTracked[i] || 0).toFixed(2)}</div>
                         </div>
                       ))}
                     </div>
 
                     <div className={styles.weekTotals}>
-                      <span>Est:</span>
-                      <strong>{clamp2(dayEst.reduce((a,b)=>a+(b||0),0)).toFixed(2)}h</strong>
-                      <span className={styles.dot}>•</span>
                       <span>Tracked:</span>
                       <strong>{clamp2(dayTracked.reduce((a,b)=>a+(b||0),0)).toFixed(2)}h</strong>
                     </div>
@@ -786,8 +810,8 @@ export default function DashboardPage() {
           <section className={styles.adminPanel}>
             <div className={styles.cardsRow}>
               <div className={styles.statCard}>
-                <div className={styles.statLabel}>Total Est Hours (Week)</div>
-                <div className={styles.statValue}>{totals.sumEst.toFixed(2)}h</div>
+                <div className={styles.statLabel}>Weekly Estimate (current)</div>
+                <div className={styles.statValue}>{(weeklyEstimates[ymd(weekStart)]?.hours ?? 0).toFixed(2)}h</div>
               </div>
               <div className={styles.statCard}>
                 <div className={styles.statLabel}>Total Tracked Hours (Week)</div>
@@ -801,12 +825,12 @@ export default function DashboardPage() {
 
             <div className={styles.chartsRow}>
               <div className={styles.chartCard} style={{ minHeight: 300 }}>
-                <div className={styles.chartTitle}>Daily Totals (Est vs Tracked) — Week</div>
+                <div className={styles.chartTitle}>Daily Totals (Week)</div>
                 <BarsVertical
                   labels={["Mon","Tue","Wed","Thu","Fri"]}
-                  a={totals.dayEst.map(clamp2)}
+                  a={[0,0,0,0,0].map(clamp2)}
                   b={totals.dayTracked.map(clamp2)}
-                  titleA="Est"
+                  titleA="Est (N/A per day)"
                   titleB="Tracked"
                 />
               </div>
@@ -834,20 +858,11 @@ export default function DashboardPage() {
             <div className={styles.adminActions}>
               <button className={styles.btn} onClick={async () => {
                 if (!selectedUserId) return;
-                const start = ymd(weekStart), end = ymd(weekEnd);
-                const r = await fetch("/api/admin/unlock-estimates", {
-                  method: "POST", headers: { "Content-Type": "application/json" },
-                  body: JSON.stringify({ userId: selectedUserId, start, end }),
-                });
-                if (r.ok) {
-                  setRows(prev => prev.map(row => ({ ...row, estLockedByDay: row.estLockedByDay.map(() => false) })));
-                  alert("Estimates unlocked for this week.");
-                } else {
-                  const j = await r.json().catch(()=>({}));
-                  alert(`Unlock failed: ${j.error || r.statusText}${j.details ? ` — ${j.details}` : ""}`);
-                }
+                // unlock current week estimate for selected user
+                const week = ymd(weekStart);
+                await adminUnlock(selectedUserId, week);
               }}>
-                Unlock all estimates (visible period)
+                Unlock current week's estimate for selected consultant
               </button>
             </div>
           </section>
@@ -899,6 +914,54 @@ export default function DashboardPage() {
         </div>
       )}
 
+      {/* Weekly Estimate modal (Option A) */}
+      {estimateModalOpen && (
+        <div className={styles.modalBackdrop} onClick={()=> setEstimateModalOpen(false)}>
+          <div className={styles.modal} onClick={(e)=> e.stopPropagation()}>
+            <div className={styles.modalHeader}>
+              <div className={styles.modalTitle}>Weekly Estimate</div>
+              <div className={styles.modalMeta}>
+                Enter total estimated hours for the week (once submitted, locked for consultants).
+              </div>
+            </div>
+
+            <div className={styles.modalBody}>
+              <label className={styles.label}>Week</label>
+              <input className={styles.num} disabled value={estimateWeekStart} />
+
+              <label className={styles.label} style={{ marginTop: 12 }}>Hours</label>
+              <input
+                className={styles.num}
+                type="number"
+                inputMode="decimal"
+                step="0.25"
+                min="0"
+                placeholder="e.g., 20"
+                value={estimateHoursInput}
+                onChange={(e)=> setEstimateHoursInput(e.currentTarget.value)}
+              />
+              <div className={styles.help}>You can only submit for the current week or next week. Admins can unlock.</div>
+              {weeklyEstimates[estimateWeekStart] && (
+                <div style={{ marginTop: 8 }}>
+                  <strong>Existing:</strong> {weeklyEstimates[estimateWeekStart].hours}h — {weeklyEstimates[estimateWeekStart].locked ? "Locked" : "Unlocked"}
+                </div>
+              )}
+            </div>
+
+            <div className={styles.modalActions}>
+              <button className={styles.btn} onClick={()=> setEstimateModalOpen(false)}>Cancel</button>
+              <button
+                className={`${styles.btn} ${styles.primary}`}
+                onClick={submitWeeklyEstimate}
+                disabled={estimateBusy || !estimateHoursInput}
+              >
+                {estimateBusy ? "Saving…" : (weeklyEstimates[estimateWeekStart]?.locked ? "View (Locked)" : "Save Estimate")}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Add Project modal */}
       {isAdmin && addOpen && (
         <div className={styles.modalBackdrop} onClick={()=> setAddOpen(false)}>
@@ -924,7 +987,7 @@ export default function DashboardPage() {
                 onChange={(e)=> setAddAssignee(e.target.value)}
               >
                 {(members || []).map(c => (
-                  <option key={c.id} value={c.id}>{c.username || c.id}</option>
+                  <option key={c.id} value={c.id}>{c.username || c.email}</option>
                 ))}
               </select>
               <div className={styles.help}>Creates a new ClickUp task in your configured List.</div>
