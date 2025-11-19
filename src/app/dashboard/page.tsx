@@ -4,6 +4,7 @@
 import { useEffect, useMemo, useState } from "react";
 import styles from "./Dashboard.module.css";
 import ThemeSwitch from "@/components/ThemeSwitch";
+import DashboardNavbar from "@/components/DashboardNavbar/DashboardNavbar";
 
 /* ---------- Theme helpers ---------- */
 type Scheme = "light" | "dark";
@@ -149,6 +150,9 @@ export default function DashboardPage() {
       window.removeEventListener("storage", onStorage);
     };
   }, []);
+
+  // NEW: active tab for dashboard
+  const [activeTab, setActiveTab] = useState<"profile"|"timesheets"|"analytics">("timesheets");
 
   /** week state */
   const [weekStart, setWeekStart] = useState<Date>(() => startOfWeek());
@@ -538,474 +542,536 @@ export default function DashboardPage() {
   }
 
   /* ---------- render ---------- */
+
+  // Analytics content (moved from admin area to analytics tab)
+  function AnalyticsSection() {
+    return (
+      <section className={styles.card}>
+        <div className={styles.chartsRow}>
+          <div className={styles.chartCard} style={{ minHeight: 300 }}>
+            <div className={styles.chartTitle}>Daily Totals (Week)</div>
+            <BarsVertical
+              labels={["Mon","Tue","Wed","Thu","Fri"]}
+              a={[0,0,0,0,0].map(clamp2)}
+              b={totals.dayTracked.map(clamp2)}
+              titleA="Est (N/A per day)"
+              titleB="Tracked"
+            />
+          </div>
+
+          <div className={styles.chartCard} style={{ minHeight: 300 }}>
+            <div className={styles.chartTitle}>
+              Consultants (Est vs Tracked) — Selected Week
+              <a className={styles.chartLink} href="/admin/overview">Open Overview</a>
+            </div>
+            {overviewResolved.length === 0 ? (
+              <div className="text-sm text-[var(--muted)]">No data for this week.</div>
+            ) : (
+              <BarsHorizontal
+                labels={overviewResolved.map(r=>r.name)}
+                a={overviewResolved.map(r=>r.est)}
+                b={overviewResolved.map(r=>r.tracked)}
+                titleA="Est"
+                titleB="Tracked"
+                maxBars={8}
+              />
+            )}
+          </div>
+        </div>
+      </section>
+    );
+  }
+
+  // Profile content
+  function ProfileSection() {
+    return (
+      <section className={styles.card}>
+        <div className={styles.cardHead}>
+          <div className={styles.headLeft}>
+            <div className={styles.logoBadge}> {me?.username ? me.username[0].toUpperCase() : "U"} </div>
+            <div>
+              <div style={{ fontWeight: 700 }}>{me?.username || me?.email}</div>
+              <div style={{ color: "var(--muted)", fontSize: 13 }}>{isAdmin ? "Admin" : "Consultant"}</div>
+            </div>
+          </div>
+          <div>
+            <button className={styles.btn} onClick={()=> alert("Profile editing not implemented")}>Edit profile</button>
+          </div>
+        </div>
+
+        <div style={{ marginTop: 12 }}>
+          <div style={{ color: "var(--muted)", fontSize: 13 }}>Quick info</div>
+          <ul style={{ marginTop: 8 }}>
+            <li>Email: {me?.email}</li>
+            <li>Role: {isAdmin ? "Admin" : "Consultant"}</li>
+            <li>Assigned projects: {projects.length}</li>
+          </ul>
+        </div>
+      </section>
+    );
+  }
+
   return (
-    <div className={styles.page} data-theme={theme}>
-      <div className={styles.shell}>
-        {/* Branded header with logo + context */}
-        <div className={styles.brandBar}>
-          <div className={styles.brandLeft}>
-            <img className={styles.brandLogo} src="/company-logo.png" alt="Company logo" />
-            <div className={styles.brandText}>
-              <div className={styles.brandTitle}>Timesheet</div>
-              <div className={styles.brandTagline}>
-                {fmtMMMdd(weekStart)} — {fmtMMMdd(weekEnd)} • {isAdmin ? "Admin view" : "Consultant view"}
+    <div style={{ display: "flex", width: "100%", minHeight: "100vh" }}>
+      {/* Dashboard-local auto-hiding navbar (safe — only on this page) */}
+      <DashboardNavbar activeTab={activeTab} onTabChange={(t: "profile"|"timesheets"|"analytics") => setActiveTab(t)} me={me} />
+
+      {/* main column */}
+      <div style={{ flex: 1 }}>
+        <div className={styles.page} data-theme={theme}>
+          <div className={styles.shell}>
+            {/* Branded header with logo + context */}
+            <div className={styles.brandBar}>
+              <div className={styles.brandLeft}>
+                <img className={styles.brandLogo} src="/company-logo.png" alt="Company logo" />
+                <div className={styles.brandText}>
+                  <div className={styles.brandTitle}>Timesheet</div>
+                  <div className={styles.brandTagline}>
+                    {fmtMMMdd(weekStart)} — {fmtMMMdd(weekEnd)} • {isAdmin ? "Admin view" : "Consultant view"}
+                  </div>
+                </div>
+              </div>
+              <div className={styles.brandRight}>
+                <ThemeSwitch />
               </div>
             </div>
-          </div>
-          <div className={styles.brandRight}>
-            <ThemeSwitch />
-          </div>
-        </div>
 
-        {/* ACTION BAR */}
-        <div className="w-full rounded-lg border bg-[var(--panel)] border-[var(--border)] px-3 py-2 mb-3">
-          <div className="flex items-center justify-between gap-3">
-            <div className="flex items-center gap-3 flex-wrap">
-              <div className="text-xs text-[var(--muted)] font-semibold px-2 py-1 border rounded-full border-[var(--border)]">
-                {isAdmin ? "ADMIN" : "CONSULTANT"}
-              </div>
-              <div className="text-sm font-semibold">{displayName}</div>
-
-              <div className="h-4 w-px bg-[var(--border)]" />
-
-              {isAdmin && (
-                <>
-                  <label className={styles.selectorLabel}>Consultant:</label>
-                  <select
-                    className={styles.select}
-                    value={selectedUserId ?? ""}
-                    onChange={(e)=> setSelectedUserId(e.target.value)}
-                  >
-                    {(members || []).map(m => (
-                      <option key={m.id} value={m.id}>{m.username || m.email}</option>
-                    ))}
-                  </select>
-                  <div className="h-4 w-px bg-[var(--border)]" />
-                </>
-              )}
-
-              <button className={styles.btn} onClick={()=> setWeekStart(d=>addDays(d,-7))}>◀ Prev</button>
-              <button className={styles.btn} onClick={()=> setWeekStart(startOfWeek())}>This Week</button>
-              <button className={styles.btn} onClick={()=> setWeekStart(d=>addDays(d,7))}>Next ▶</button>
-            </div>
-
-            <div className="flex items-center gap-2 flex-wrap">
-              {isAdmin && (
-                <button className={styles.btn} onClick={()=> setAddOpen(true)}>+ Add Project</button>
-              )}
-              <button className={`${styles.btn} ${styles.primary}`} onClick={()=> alert("All changes auto-save on blur / Save.")}>Save</button>
-              <button className={styles.btn} onClick={exportCsv}>Export CSV</button>
-              <button className={`${styles.btn} ${styles.warn}`} onClick={()=> (window.location.href="/login")}>Log out</button>
-            </div>
-          </div>
-        </div>
-
-        {/* SELECTORS (Month | Week | View) */}
-        <div className="grid grid-cols-3 gap-2 items-center mb-3">
-          <div className="flex items-center gap-2">
-            <label className={styles.selectorLabel}>Month:</label>
-            <select
-              className={styles.selectWide}
-              value={selectedMonth}
-              onChange={(e)=> onChangeMonth(e.target.value)}
-            >
-              {Array.from({length: 12}).map((_,i) => {
-                const y = monthYear.y;
-                const v = `${y}-${String(i+1).padStart(2,"0")}`;
-                return <option key={v} value={v}>{`${MONTHS[i]} ${y}`}</option>;
-              })}
-            </select>
-          </div>
-
-          <div className="flex items-center gap-2">
-            <label className={styles.selectorLabel}>Week:</label>
-            <select
-              className={styles.selectWide}
-              value={String(selectedWeekIdx)}
-              onChange={(e)=> onChangeWeek(e.target.value)}
-            >
-              {monthWeeks.map((w, i) => (
-                <option key={i} value={String(i)}>{`Week ${i+1}: ${w.label}`}</option>
-              ))}
-            </select>
-          </div>
-
-          <div className="flex items-center gap-2 justify-start sm:justify-end">
-            <label className={styles.selectorLabel}>View:</label>
-            <div className={styles.viewToggle}>
-              <button
-                className={`${styles.btn} ${viewMode === "week" ? styles.selected : ""}`}
-                onClick={()=> setViewMode("week")}
-              >Week</button>
-              <button
-                className={`${styles.btn} ${viewMode === "month" ? styles.selected : ""}`}
-                onClick={()=> setViewMode("month")}
-              >Month</button>
-            </div>
-          </div>
-        </div>
-
-        {/* summary pills */}
-        <div className={styles.summary}>
-          <span className={styles.pill}>Est (week): {totals.sumEst.toFixed(2)}h</span>
-          <span className={styles.pill}>Tracked: {totals.sumTracked.toFixed(2)}h</span>
-          <span className={styles.pill}>Δ (Tracked–Est): {(totals.delta).toFixed(2)}h</span>
-          <span className={styles.period}>
-            Period: {viewMode === "week" ? "Week" : "Month"}
-            <button
-              className={`${styles.btn} ${styles.btnSm}`}
-              onClick={()=> openEstimateModalForWeek(weekStart)}
-              title="Add / view estimate for this week"
-              style={{ marginLeft: 8 }}
-            >
-              {weeklyEstimates[ymd(weekStart)] ? (weeklyEstimates[ymd(weekStart)].locked ? "View Estimate" : "Edit Estimate") : "Add Estimate"}
-            </button>
-            <button
-              className={`${styles.btn} ${styles.btnSm}`}
-              onClick={()=> openEstimateModalForWeek(addDays(weekStart, 7))}
-              title="Add / view estimate for next week"
-              style={{ marginLeft: 8 }}
-            >
-              {weeklyEstimates[ymd(addDays(weekStart,7))] ? (weeklyEstimates[ymd(addDays(weekStart,7))].locked ? "View (Next)" : "Edit (Next)") : "Add (Next)"}
-            </button>
-          </span>
-        </div>
-
-        {/* ===== WEEK VIEW ===== */}
-        {viewMode === "week" && (
-          <section className={styles.card}>
-            <div className={styles.tableWrap}>
-              <table className={styles.table} style={{ tableLayout: "auto" }}>
-                <colgroup>
-                  <col /* Project expands */ />
-                  {[0,1,2,3,4].map((i) => (
-                    <col key={`d${i}`} width={160} />
-                  ))}
-                  <col width={160} />
-                </colgroup>
-
-                <thead>
-                  <tr>
-                    <th className={styles.thProject}>Project</th>
-                    {["Mon","Tue","Wed","Thu","Fri"].map((d, i) => (
-                      <th key={d}>
-                        <div className={styles.day}>{d} • {fmtMMMdd(weekCols[i])}</div>
-                        <div className={styles.daySub}>Tracked</div>
-                      </th>
-                    ))}
-                    <th>
-                      <div className={styles.day}>Total (Week)</div>
-                      <div className={styles.daySub}>Tracked</div>
-                    </th>
-                  </tr>
-                </thead>
-
-                <tbody>
-                  {loading && (
-                    <tr><td className={styles.thProject} colSpan={7}>Loading projects…</td></tr>
-                  )}
-
-                  {!loading && rows.map((r) => {
-                    const tTracked = clamp2(sumNullable(r.trackedByDay));
-
-                    return (
-                      <tr key={r.taskId}>
-                        <td className={styles.thProject}>
-                          <div className={styles.projectNameFull} title={r.taskName}>
-                            {r.taskName}
-                          </div>
-                        </td>
-
-                        {[0,1,2,3,4].map((i) => (
-                          <td key={i}>
-                            <div className={styles.cellCompact}>
-                              {/* only tracked button (no per-day estimate) */}
-                              <button
-                                onClick={() => openTrackModal(r.taskId, r.taskName, i, r.trackedByDay[i], r.noteByDay[i])}
-                                className={styles.btnTrackSm}
-                                title={r.noteByDay[i] || "Track time"}
-                              >
-                                {r.trackedByDay[i] != null ? `${r.trackedByDay[i]}h` : "Track"}
-                              </button>
-                            </div>
-                          </td>
-                        ))}
-
-                        <td>
-                          <div className={styles.cellCompact}>
-                            <input className={`${styles.num} ${styles.numSm}`} disabled value={tTracked.toFixed(2)} />
-                          </div>
-                        </td>
-                      </tr>
-                    );
-                  })}
-
-                  {!loading && rows.length === 0 && (
-                    <tr><td className={styles.thProject} colSpan={7}>No projects found for this consultant.</td></tr>
-                  )}
-                </tbody>
-
-                <tfoot>
-                  <tr>
-                    <td className={styles.thProject}>All Projects Total</td>
-                    {[0,1,2,3,4].map((i) => (
-                      <td key={i}>
-                        <div className={styles.cellCompact}>
-                          <input className={`${styles.num} ${styles.numSm}`} disabled value={(totals.dayTracked[i]||0).toFixed(2)} />
-                        </div>
-                      </td>
-                    ))}
-                    <td>
-                      <div className={styles.cellCompact}>
-                        <input className={`${styles.num} ${styles.numSm}`} disabled value={totals.sumTracked.toFixed(2)} />
+            {/* If analytics tab is active, show analytics only and skip the large timesheet UI below */}
+            {activeTab === "analytics" ? (
+              <>
+                <div style={{ marginTop: 12 }}>
+                  {AnalyticsSection()}
+                </div>
+              </>
+            ) : activeTab === "profile" ? (
+              <>
+                <div style={{ marginTop: 12 }}>
+                  {ProfileSection()}
+                </div>
+              </>
+            ) : (
+              /* TIMESHEETS U I (unchanged, original code) */
+              <>
+                {/* ACTION BAR */}
+                <div className="w-full rounded-lg border bg-[var(--panel)] border-[var(--border)] px-3 py-2 mb-3">
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-3 flex-wrap">
+                      <div className="text-xs text-[var(--muted)] font-semibold px-2 py-1 border rounded-full border-[var(--border)]">
+                        {isAdmin ? "ADMIN" : "CONSULTANT"}
                       </div>
-                    </td>
-                  </tr>
-                </tfoot>
-              </table>
-            </div>
-          </section>
-        )}
+                      <div className="text-sm font-semibold">{displayName}</div>
 
-        {/* ===== MONTH VIEW ===== */}
-        {viewMode === "month" && (
-          <>
-            <div className={styles.summary} style={{ marginTop: 0 }} />
+                      <div className="h-4 w-px bg-[var(--border)]" />
 
-            <div className={styles.weekGrid}>
-              {monthWeeks.map((w, idx) => {
-                const isSelected = ymd(w.start) === ymd(weekStart);
-                const dayTracked = isSelected ? totals.dayTracked : [0,0,0,0,0];
+                      {isAdmin && (
+                        <>
+                          <label className={styles.selectorLabel}>Consultant:</label>
+                          <select
+                            className={styles.select}
+                            value={selectedUserId ?? ""}
+                            onChange={(e)=> setSelectedUserId(e.target.value)}
+                          >
+                            {(members || []).map(m => (
+                              <option key={m.id} value={m.id}>{m.username || m.email}</option>
+                            ))}
+                          </select>
+                          <div className="h-4 w-px bg-[var(--border)]" />
+                        </>
+                      )}
 
-                return (
-                  <section key={idx} className={`${styles.weekCard} ${isSelected ? styles.weekCardSelected : ""}`}>
-                    <div className={styles.weekHead}>
-                      <h3 className={styles.weekTitle}>Week {idx + 1}</h3>
-                      <div className={styles.subtitle}>{fmtMMMdd(w.start)} — {fmtMMMdd(w.end)}</div>
+                      <button className={styles.btn} onClick={()=> setWeekStart(d=>addDays(d,-7))}>◀ Prev</button>
+                      <button className={styles.btn} onClick={()=> setWeekStart(startOfWeek())}>This Week</button>
+                      <button className={styles.btn} onClick={()=> setWeekStart(d=>addDays(d,7))}>Next ▶</button>
                     </div>
 
-                    <div className={styles.weekDays}>
-                      {["Mon","Tue","Wed","Thu","Fri"].map((d, i) => (
-                        <div key={d} className={styles.dayCard}>
-                          <div className={styles.dayLabel}>{d}</div>
-                          <div className={styles.dayEst}>—</div>
-                          <div className={styles.dayTracked}>{clamp2(dayTracked[i] || 0).toFixed(2)}</div>
-                        </div>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      {isAdmin && (
+                        <button className={styles.btn} onClick={()=> setAddOpen(true)}>+ Add Project</button>
+                      )}
+                      <button className={`${styles.btn} ${styles.primary}`} onClick={()=> alert("All changes auto-save on blur / Save.")}>Save</button>
+                      <button className={styles.btn} onClick={exportCsv}>Export CSV</button>
+                      <button className={`${styles.btn} ${styles.warn}`} onClick={()=> (window.location.href="/login")}>Log out</button>
+                    </div>
+                  </div>
+                </div>
+
+                {/* SELECTORS (Month | Week | View) */}
+                <div className="grid grid-cols-3 gap-2 items-center mb-3">
+                  <div className="flex items-center gap-2">
+                    <label className={styles.selectorLabel}>Month:</label>
+                    <select
+                      className={styles.selectWide}
+                      value={selectedMonth}
+                      onChange={(e)=> onChangeMonth(e.target.value)}
+                    >
+                      {Array.from({length: 12}).map((_,i) => {
+                        const y = monthYear.y;
+                        const v = `${y}-${String(i+1).padStart(2,"0")}`;
+                        return <option key={v} value={v}>{`${MONTHS[i]} ${y}`}</option>;
+                      })}
+                    </select>
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    <label className={styles.selectorLabel}>Week:</label>
+                    <select
+                      className={styles.selectWide}
+                      value={String(selectedWeekIdx)}
+                      onChange={(e)=> onChangeWeek(e.target.value)}
+                    >
+                      {monthWeeks.map((w, i) => (
+                        <option key={i} value={String(i)}>{`Week ${i+1}: ${w.label}`}</option>
                       ))}
-                    </div>
+                    </select>
+                  </div>
 
-                    <div className={styles.weekTotals}>
-                      <span>Tracked:</span>
-                      <strong>{clamp2(dayTracked.reduce((a,b)=>a+(b||0),0)).toFixed(2)}h</strong>
+                  <div className="flex items-center gap-2 justify-start sm:justify-end">
+                    <label className={styles.selectorLabel}>View:</label>
+                    <div className={styles.viewToggle}>
+                      <button
+                        className={`${styles.btn} ${viewMode === "week" ? styles.selected : ""}`}
+                        onClick={()=> setViewMode("week")}
+                      >Week</button>
+                      <button
+                        className={`${styles.btn} ${viewMode === "month" ? styles.selected : ""}`}
+                        onClick={()=> setViewMode("month")}
+                      >Month</button>
+                    </div>
+                  </div>
+                </div>
+
+                {/* summary pills */}
+                <div className={styles.summary}>
+                  <span className={styles.pill}>Est (week): {totals.sumEst.toFixed(2)}h</span>
+                  <span className={styles.pill}>Tracked: {totals.sumTracked.toFixed(2)}h</span>
+                  <span className={styles.pill}>Δ (Tracked–Est): {(totals.delta).toFixed(2)}h</span>
+                  <span className={styles.period}>
+                    Period: {viewMode === "week" ? "Week" : "Month"}
+                    <button
+                      className={`${styles.btn} ${styles.btnSm}`}
+                      onClick={()=> openEstimateModalForWeek(weekStart)}
+                      title="Add / view estimate for this week"
+                      style={{ marginLeft: 8 }}
+                    >
+                      {weeklyEstimates[ymd(weekStart)] ? (weeklyEstimates[ymd(weekStart)].locked ? "View Estimate" : "Edit Estimate") : "Add Estimate"}
+                    </button>
+                    <button
+                      className={`${styles.btn} ${styles.btnSm}`}
+                      onClick={()=> openEstimateModalForWeek(addDays(weekStart, 7))}
+                      title="Add / view estimate for next week"
+                      style={{ marginLeft: 8 }}
+                    >
+                      {weeklyEstimates[ymd(addDays(weekStart,7))] ? (weeklyEstimates[ymd(addDays(weekStart,7))].locked ? "View (Next)" : "Edit (Next)") : "Add (Next)"}
+                    </button>
+                  </span>
+                </div>
+
+                {/* ===== WEEK VIEW (unchanged) ===== */}
+                {viewMode === "week" && (
+                  <section className={styles.card}>
+                    <div className={styles.tableWrap}>
+                      <table className={styles.table} style={{ tableLayout: "auto" }}>
+                        <colgroup>
+                          <col /* Project expands */ />
+                          {[0,1,2,3,4].map((i) => (
+                            <col key={`d${i}`} width={160} />
+                          ))}
+                          <col width={160} />
+                        </colgroup>
+
+                        <thead>
+                          <tr>
+                            <th className={styles.thProject}>Project</th>
+                            {["Mon","Tue","Wed","Thu","Fri"].map((d, i) => (
+                              <th key={d}>
+                                <div className={styles.day}>{d} • {fmtMMMdd(weekCols[i])}</div>
+                                <div className={styles.daySub}>Tracked</div>
+                              </th>
+                            ))}
+                            <th>
+                              <div className={styles.day}>Total (Week)</div>
+                              <div className={styles.daySub}>Tracked</div>
+                            </th>
+                          </tr>
+                        </thead>
+
+                        <tbody>
+                          {loading && (
+                            <tr><td className={styles.thProject} colSpan={7}>Loading projects…</td></tr>
+                          )}
+
+                          {!loading && rows.map((r) => {
+                            const tTracked = clamp2(sumNullable(r.trackedByDay));
+
+                            return (
+                              <tr key={r.taskId}>
+                                <td className={styles.thProject}>
+                                  <div className={styles.projectNameFull} title={r.taskName}>
+                                    {r.taskName}
+                                  </div>
+                                </td>
+
+                                {[0,1,2,3,4].map((i) => (
+                                  <td key={i}>
+                                    <div className={styles.cellCompact}>
+                                      {/* only tracked button (no per-day estimate) */}
+                                      <button
+                                        onClick={() => openTrackModal(r.taskId, r.taskName, i, r.trackedByDay[i], r.noteByDay[i])}
+                                        className={styles.btnTrackSm}
+                                        title={r.noteByDay[i] || "Track time"}
+                                      >
+                                        {r.trackedByDay[i] != null ? `${r.trackedByDay[i]}h` : "Track"}
+                                      </button>
+                                    </div>
+                                  </td>
+                                ))}
+
+                                <td>
+                                  <div className={styles.cellCompact}>
+                                    <input className={`${styles.num} ${styles.numSm}`} disabled value={tTracked.toFixed(2)} />
+                                  </div>
+                                </td>
+                              </tr>
+                            );
+                          })}
+
+                          {!loading && rows.length === 0 && (
+                            <tr><td className={styles.thProject} colSpan={7}>No projects found for this consultant.</td></tr>
+                          )}
+                        </tbody>
+
+                        <tfoot>
+                          <tr>
+                            <td className={styles.thProject}>All Projects Total</td>
+                            {[0,1,2,3,4].map((i) => (
+                              <td key={i}>
+                                <div className={styles.cellCompact}>
+                                  <input className={`${styles.num} ${styles.numSm}`} disabled value={(totals.dayTracked[i]||0).toFixed(2)} />
+                                </div>
+                              </td>
+                            ))}
+                            <td>
+                              <div className={styles.cellCompact}>
+                                <input className={`${styles.num} ${styles.numSm}`} disabled value={totals.sumTracked.toFixed(2)} />
+                              </div>
+                            </td>
+                          </tr>
+                        </tfoot>
+                      </table>
                     </div>
                   </section>
-                );
-              })}
+                )}
+
+                {/* ===== MONTH VIEW (unchanged) ===== */}
+                {viewMode === "month" && (
+                  <>
+                    <div className={styles.summary} style={{ marginTop: 0 }} />
+
+                    <div className={styles.weekGrid}>
+                      {monthWeeks.map((w, idx) => {
+                        const isSelected = ymd(w.start) === ymd(weekStart);
+                        const dayTracked = isSelected ? totals.dayTracked : [0,0,0,0,0];
+
+                        return (
+                          <section key={idx} className={`${styles.weekCard} ${isSelected ? styles.weekCardSelected : ""}`}>
+                            <div className={styles.weekHead}>
+                              <h3 className={styles.weekTitle}>Week {idx + 1}</h3>
+                              <div className={styles.subtitle}>{fmtMMMdd(w.start)} — {fmtMMMdd(w.end)}</div>
+                            </div>
+
+                            <div className={styles.weekDays}>
+                              {["Mon","Tue","Wed","Thu","Fri"].map((d, i) => (
+                                <div key={d} className={styles.dayCard}>
+                                  <div className={styles.dayLabel}>{d}</div>
+                                  <div className={styles.dayEst}>—</div>
+                                  <div className={styles.dayTracked}>{clamp2(dayTracked[i] || 0).toFixed(2)}</div>
+                                </div>
+                              ))}
+                            </div>
+
+                            <div className={styles.weekTotals}>
+                              <span>Tracked:</span>
+                              <strong>{clamp2(dayTracked.reduce((a,b)=>a+(b||0),0)).toFixed(2)}h</strong>
+                            </div>
+                          </section>
+                        );
+                      })}
+                    </div>
+                  </>
+                )}
+
+                {/* ===== Admin cards (keep stats but charts moved to Analytics tab) ===== */}
+                {isAdmin && viewMode === "week" && (
+                  <section className={styles.adminPanel}>
+                    <div className={styles.cardsRow}>
+                      <div className={styles.statCard}>
+                        <div className={styles.statLabel}>Weekly Estimate (current)</div>
+                        <div className={styles.statValue}>{(weeklyEstimates[ymd(weekStart)]?.hours ?? 0).toFixed(2)}h</div>
+                      </div>
+                      <div className={styles.statCard}>
+                        <div className={styles.statLabel}>Total Tracked Hours (Week)</div>
+                        <div className={styles.statValue}>{totals.sumTracked.toFixed(2)}h</div>
+                      </div>
+                      <div className={styles.statCard}>
+                        <div className={styles.statLabel}>Δ Tracked – Est</div>
+                        <div className={styles.statValue}>{totals.delta.toFixed(2)}h</div>
+                      </div>
+                    </div>
+
+                    <div style={{ marginTop: 10 }}>
+                      <button className={styles.btn} onClick={async () => {
+                        if (!selectedUserId) return;
+                        const week = ymd(weekStart);
+                        await adminUnlock(selectedUserId, week);
+                      }}>
+                        Unlock current week's estimate for selected consultant
+                      </button>
+                    </div>
+                  </section>
+                )}
+              </>
+            )}
+          </div>
+        </div>
+
+        {/* Tracked modal */}
+        {modalOpen && (
+          <div className={styles.modalBackdrop} onClick={closeTrackModal}>
+            <div className={styles.modal} onClick={(e)=> e.stopPropagation()}>
+              <div className={styles.modalHeader}>
+                <div className={styles.modalTitle}>Time Entry</div>
+                <div className={styles.modalMeta}>
+                  ({modalTaskName || "Untitled Project"}) • {fmtMMMdd(weekCols[modalDayIndex])}
+                </div>
+              </div>
+
+              <div className={styles.modalBody}>
+                <label className={styles.label}>Type</label>
+                <select
+                  className={`${styles.select} ${styles.selectWide}`}
+                  value={modalType}
+                  onChange={(e)=> setModalType(e.target.value)}
+                >
+                  <option value="">— Select —</option>
+                  {TRACK_TYPES.map((t)=> <option key={t} value={t}>{t}</option>)}
+                </select>
+
+                <label className={styles.label} style={{ marginTop: 12 }}>Hours</label>
+                <input
+                  className={styles.num}
+                  type="number"
+                  inputMode="decimal"
+                  step="0.25"
+                  min="0"
+                  placeholder="e.g., 1.5"
+                  value={modalHours}
+                  onChange={(e)=> setModalHours(e.currentTarget.value)}
+                  onKeyDown={(e)=> { if (e.key === "Enter") saveTrackModal(); }}
+                />
+                <div className={styles.help}>Only Hours will show in the table. All fields are saved for reporting.</div>
+              </div>
+
+              <div className={styles.modalActions}>
+                <button className={styles.btn} onClick={closeTrackModal}>Cancel</button>
+                <button className={`${styles.btn} ${styles.primary}`} onClick={saveTrackModal}>Save</button>
+              </div>
             </div>
-          </>
+          </div>
         )}
 
-        {/* ===== Admin cards + Charts ===== */}
-        {isAdmin && viewMode === "week" && (
-          <section className={styles.adminPanel}>
-            <div className={styles.cardsRow}>
-              <div className={styles.statCard}>
-                <div className={styles.statLabel}>Weekly Estimate (current)</div>
-                <div className={styles.statValue}>{(weeklyEstimates[ymd(weekStart)]?.hours ?? 0).toFixed(2)}h</div>
-              </div>
-              <div className={styles.statCard}>
-                <div className={styles.statLabel}>Total Tracked Hours (Week)</div>
-                <div className={styles.statValue}>{totals.sumTracked.toFixed(2)}h</div>
-              </div>
-              <div className={styles.statCard}>
-                <div className={styles.statLabel}>Δ Tracked – Est</div>
-                <div className={styles.statValue}>{totals.delta.toFixed(2)}h</div>
-              </div>
-            </div>
-
-            <div className={styles.chartsRow}>
-              <div className={styles.chartCard} style={{ minHeight: 300 }}>
-                <div className={styles.chartTitle}>Daily Totals (Week)</div>
-                <BarsVertical
-                  labels={["Mon","Tue","Wed","Thu","Fri"]}
-                  a={[0,0,0,0,0].map(clamp2)}
-                  b={totals.dayTracked.map(clamp2)}
-                  titleA="Est (N/A per day)"
-                  titleB="Tracked"
-                />
-              </div>
-
-              <div className={styles.chartCard} style={{ minHeight: 300 }}>
-                <div className={styles.chartTitle}>
-                  Consultants (Est vs Tracked) — Selected Week
-                  <a className={styles.chartLink} href="/admin/overview">Open Overview</a>
+        {/* Weekly Estimate modal (Option A) */}
+        {estimateModalOpen && (
+          <div className={styles.modalBackdrop} onClick={()=> setEstimateModalOpen(false)}>
+            <div className={styles.modal} onClick={(e)=> e.stopPropagation()}>
+              <div className={styles.modalHeader}>
+                <div className={styles.modalTitle}>Weekly Estimate</div>
+                <div className={styles.modalMeta}>
+                  Enter total estimated hours for the week (once submitted, locked for consultants).
                 </div>
-                {overviewResolved.length === 0 ? (
-                  <div className="text-sm text-[var(--muted)]">No data for this week.</div>
-                ) : (
-                  <BarsHorizontal
-                    labels={overviewResolved.map(r=>r.name)}
-                    a={overviewResolved.map(r=>r.est)}
-                    b={overviewResolved.map(r=>r.tracked)}
-                    titleA="Est"
-                    titleB="Tracked"
-                    maxBars={8}
-                  />
+              </div>
+
+              <div className={styles.modalBody}>
+                <label className={styles.label}>Week</label>
+                <input className={styles.num} disabled value={estimateWeekStart} />
+
+                <label className={styles.label} style={{ marginTop: 12 }}>Hours</label>
+                <input
+                  className={styles.num}
+                  type="number"
+                  inputMode="decimal"
+                  step="0.25"
+                  min="0"
+                  placeholder="e.g., 20"
+                  value={estimateHoursInput}
+                  onChange={(e)=> setEstimateHoursInput(e.currentTarget.value)}
+                />
+                <div className={styles.help}>You can only submit for the current week or next week. Admins can unlock.</div>
+                {weeklyEstimates[estimateWeekStart] && (
+                  <div style={{ marginTop: 8 }}>
+                    <strong>Existing:</strong> {weeklyEstimates[estimateWeekStart].hours}h — {weeklyEstimates[estimateWeekStart].locked ? "Locked" : "Unlocked"}
+                  </div>
                 )}
               </div>
-            </div>
 
-            <div className={styles.adminActions}>
-              <button className={styles.btn} onClick={async () => {
-                if (!selectedUserId) return;
-                // unlock current week estimate for selected user
-                const week = ymd(weekStart);
-                await adminUnlock(selectedUserId, week);
-              }}>
-                Unlock current week's estimate for selected consultant
-              </button>
+              <div className={styles.modalActions}>
+                <button className={styles.btn} onClick={()=> setEstimateModalOpen(false)}>Cancel</button>
+                <button
+                  className={`${styles.btn} ${styles.primary}`}
+                  onClick={submitWeeklyEstimate}
+                  disabled={estimateBusy || !estimateHoursInput}
+                >
+                  {estimateBusy ? "Saving…" : (weeklyEstimates[estimateWeekStart]?.locked ? "View (Locked)" : "Save Estimate")}
+                </button>
+              </div>
             </div>
-          </section>
+          </div>
+        )}
+
+        {/* Add Project modal */}
+        {isAdmin && addOpen && (
+          <div className={styles.modalBackdrop} onClick={()=> setAddOpen(false)}>
+            <div className={styles.modal} onClick={(e)=> e.stopPropagation()}>
+              <div className={styles.modalHeader}>
+                <div className={styles.modalTitle}>Add Project (Create Task)</div>
+                <div className={styles.modalMeta}>Assign a task to a consultant</div>
+              </div>
+
+              <div className={styles.modalBody}>
+                <label className={styles.label}>Task name</label>
+                <input
+                  className={styles.num}
+                  placeholder="e.g., Website Revamp"
+                  value={addName}
+                  onChange={(e)=> setAddName(e.currentTarget.value)}
+                />
+
+                <label className={styles.label} style={{ marginTop: 12 }}>Assign to</label>
+                <select
+                  className={`${styles.select} ${styles.selectWide}`}
+                  value={addAssignee ?? ""}
+                  onChange={(e)=> setAddAssignee(e.target.value)}
+                >
+                  {(members || []).map(c => (
+                    <option key={c.id} value={c.id}>{c.username || c.email}</option>
+                  ))}
+                </select>
+                <div className={styles.help}>Creates a new ClickUp task in your configured List.</div>
+              </div>
+
+              <div className={styles.modalActions}>
+                <button className={styles.btn} onClick={()=> setAddOpen(false)}>Cancel</button>
+                <button
+                  className={`${styles.btn} ${styles.primary}`}
+                  onClick={createProject}
+                  disabled={!addName.trim() || !addAssignee || addBusy}
+                >
+                  {addBusy ? "Creating…" : "Create"}
+                </button>
+              </div>
+            </div>
+          </div>
         )}
       </div>
-
-      {/* Tracked modal */}
-      {modalOpen && (
-        <div className={styles.modalBackdrop} onClick={closeTrackModal}>
-          <div className={styles.modal} onClick={(e)=> e.stopPropagation()}>
-            <div className={styles.modalHeader}>
-              <div className={styles.modalTitle}>Time Entry</div>
-              <div className={styles.modalMeta}>
-                ({modalTaskName || "Untitled Project"}) • {fmtMMMdd(weekCols[modalDayIndex])}
-              </div>
-            </div>
-
-            <div className={styles.modalBody}>
-              <label className={styles.label}>Type</label>
-              <select
-                className={`${styles.select} ${styles.selectWide}`}
-                value={modalType}
-                onChange={(e)=> setModalType(e.target.value)}
-              >
-                <option value="">— Select —</option>
-                {TRACK_TYPES.map((t)=> <option key={t} value={t}>{t}</option>)}
-              </select>
-
-              <label className={styles.label} style={{ marginTop: 12 }}>Hours</label>
-              <input
-                className={styles.num}
-                type="number"
-                inputMode="decimal"
-                step="0.25"
-                min="0"
-                placeholder="e.g., 1.5"
-                value={modalHours}
-                onChange={(e)=> setModalHours(e.currentTarget.value)}
-                onKeyDown={(e)=> { if (e.key === "Enter") saveTrackModal(); }}
-              />
-              <div className={styles.help}>Only Hours will show in the table. All fields are saved for reporting.</div>
-            </div>
-
-            <div className={styles.modalActions}>
-              <button className={styles.btn} onClick={closeTrackModal}>Cancel</button>
-              <button className={`${styles.btn} ${styles.primary}`} onClick={saveTrackModal}>Save</button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Weekly Estimate modal (Option A) */}
-      {estimateModalOpen && (
-        <div className={styles.modalBackdrop} onClick={()=> setEstimateModalOpen(false)}>
-          <div className={styles.modal} onClick={(e)=> e.stopPropagation()}>
-            <div className={styles.modalHeader}>
-              <div className={styles.modalTitle}>Weekly Estimate</div>
-              <div className={styles.modalMeta}>
-                Enter total estimated hours for the week (once submitted, locked for consultants).
-              </div>
-            </div>
-
-            <div className={styles.modalBody}>
-              <label className={styles.label}>Week</label>
-              <input className={styles.num} disabled value={estimateWeekStart} />
-
-              <label className={styles.label} style={{ marginTop: 12 }}>Hours</label>
-              <input
-                className={styles.num}
-                type="number"
-                inputMode="decimal"
-                step="0.25"
-                min="0"
-                placeholder="e.g., 20"
-                value={estimateHoursInput}
-                onChange={(e)=> setEstimateHoursInput(e.currentTarget.value)}
-              />
-              <div className={styles.help}>You can only submit for the current week or next week. Admins can unlock.</div>
-              {weeklyEstimates[estimateWeekStart] && (
-                <div style={{ marginTop: 8 }}>
-                  <strong>Existing:</strong> {weeklyEstimates[estimateWeekStart].hours}h — {weeklyEstimates[estimateWeekStart].locked ? "Locked" : "Unlocked"}
-                </div>
-              )}
-            </div>
-
-            <div className={styles.modalActions}>
-              <button className={styles.btn} onClick={()=> setEstimateModalOpen(false)}>Cancel</button>
-              <button
-                className={`${styles.btn} ${styles.primary}`}
-                onClick={submitWeeklyEstimate}
-                disabled={estimateBusy || !estimateHoursInput}
-              >
-                {estimateBusy ? "Saving…" : (weeklyEstimates[estimateWeekStart]?.locked ? "View (Locked)" : "Save Estimate")}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Add Project modal */}
-      {isAdmin && addOpen && (
-        <div className={styles.modalBackdrop} onClick={()=> setAddOpen(false)}>
-          <div className={styles.modal} onClick={(e)=> e.stopPropagation()}>
-            <div className={styles.modalHeader}>
-              <div className={styles.modalTitle}>Add Project (Create Task)</div>
-              <div className={styles.modalMeta}>Assign a task to a consultant</div>
-            </div>
-
-            <div className={styles.modalBody}>
-              <label className={styles.label}>Task name</label>
-              <input
-                className={styles.num}
-                placeholder="e.g., Website Revamp"
-                value={addName}
-                onChange={(e)=> setAddName(e.currentTarget.value)}
-              />
-
-              <label className={styles.label} style={{ marginTop: 12 }}>Assign to</label>
-              <select
-                className={`${styles.select} ${styles.selectWide}`}
-                value={addAssignee ?? ""}
-                onChange={(e)=> setAddAssignee(e.target.value)}
-              >
-                {(members || []).map(c => (
-                  <option key={c.id} value={c.id}>{c.username || c.email}</option>
-                ))}
-              </select>
-              <div className={styles.help}>Creates a new ClickUp task in your configured List.</div>
-            </div>
-
-            <div className={styles.modalActions}>
-              <button className={styles.btn} onClick={()=> setAddOpen(false)}>Cancel</button>
-              <button
-                className={`${styles.btn} ${styles.primary}`}
-                onClick={createProject}
-                disabled={!addName.trim() || !addAssignee || addBusy}
-              >
-                {addBusy ? "Creating…" : "Create"}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

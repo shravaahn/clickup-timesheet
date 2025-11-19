@@ -1,5 +1,5 @@
 /* ===== Everything here is LOCAL to the dashboard (no :global selectors) ===== */
-
+/*// src/app/dashboard/Dashboard.module.css*/
 /* page shell (no frame) */
 .page { background: var(--page-bg); color: var(--text); }
 .shell { max-width: 1280px; margin: 0 auto; padding: 16px; }

@@ -1,0 +1,76 @@
+/* src/components/DashboardNavbar/DashboardNavbar.module.css */
+
+.sidebar {
+  position: fixed;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 220px;
+  transform: translateX(-100%);
+  transition: transform 200ms ease;
+  z-index: 80;
+  display: flex;
+  flex-direction: column;
+  background: var(--panel);
+  border-right: 1px solid var(--border);
+  padding: 10px;
+  box-shadow: 2px 0 12px rgba(2,6,23,0.06);
+}
+
+/* visible states */
+.visible { transform: translateX(0); }
+.pinned { transform: translateX(0) !important; }
+
+/* left-edge hover trigger */
+.edgeTrigger {
+  position: fixed;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 14px;
+  z-index: 79;
+  background: transparent;
+}
+
+/* header */
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 6px 4px;
+  border-bottom: 1px solid rgba(0,0,0,0.04);
+  margin-bottom: 8px;
+}
+.logo { font-weight: 700; color: var(--text); }
+.pinBtn { background: transparent; border: none; cursor: pointer; font-size: 12px; }
+
+/* nav list */
+.navList { display:flex; flex-direction: column; gap: 6px; padding: 8px 4px; flex: 1; overflow: auto; }
+.sectionLabel { font-size: 12px; color: var(--muted); margin: 6px; }
+
+/* nav item */
+.navItem {
+  display: flex; align-items: center; gap: 10px; padding: 8px 12px;
+  cursor: pointer; border-radius: 8px; border: none; text-align: left; background: transparent;
+  color: var(--text); font-weight: 600;
+}
+.navItem:hover { background: rgba(0,0,0,0.04); }
+.active { background: rgba(11,97,255,0.08); color: var(--primary); }
+
+/* footer */
+.footer { border-top: 1px solid rgba(0,0,0,0.04); padding: 10px 6px; }
+.user { display:flex; gap:8px; align-items:center; }
+.avatar {
+  width: 40px; height: 40px; border-radius: 999px; background: var(--panel-subtle);
+  display:flex; align-items:center; justify-content:center; font-weight:700;
+}
+.userInfo { display:flex; flex-direction:column; }
+.userName { font-size: 14px; font-weight:600; }
+.userRole { font-size: 12px; color: var(--muted); }
+
+/* responsive tweak */
+@media (max-width: 920px) {
+  .sidebar { width: 260px; transform: translateX(-110%); }
+  .visible { transform: translateX(0); }
+  .edgeTrigger { display: none; }
+}
