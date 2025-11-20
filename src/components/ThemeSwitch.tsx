@@ -1,52 +1,70 @@
 // src/components/ThemeSwitch.tsx
 "use client";
 
-import { useEffect, useState } from "react";
+import React, { useEffect, useState } from "react";
 
 type Scheme = "light" | "dark";
 
-function applyTheme(next: Scheme) {
-  document.documentElement.setAttribute("data-theme", next);
-  localStorage.setItem("theme", next);
-  window.dispatchEvent(new CustomEvent("app-theme-change", { detail: next }));
-}
-
 function getInitialTheme(): Scheme {
   if (typeof window === "undefined") return "light";
-  const fromLS = localStorage.getItem("theme");
-  if (fromLS === "light" || fromLS === "dark") return fromLS;
-  const prefersLight = window.matchMedia?.("(prefers-color-scheme: light)").matches;
-  return prefersLight ? "light" : "dark";
+  const stored = window.localStorage.getItem("theme");
+  if (stored === "light" || stored === "dark") return stored as Scheme;
+  const prefersDark = window.matchMedia?.("(prefers-color-scheme: dark)").matches;
+  return prefersDark ? "dark" : "light";
 }
 
-export default function ThemeSwitch() {
-  const [theme, setTheme] = useState<Scheme>("light");
+export default function ThemeSwitch({ className }: { className?: string }) {
+  const [theme, setTheme] = useState<Scheme>(() => getInitialTheme());
 
   useEffect(() => {
-    const t = getInitialTheme();
-    setTheme(t);
-    applyTheme(t);
+    try {
+      document.documentElement.setAttribute("data-theme", theme);
+      window.localStorage.setItem("theme", theme);
+      window.dispatchEvent(new CustomEvent("app-theme-change", { detail: theme }));
+    } catch {
+      // ignore (SSR or restricted env)
+    }
+  }, [theme]);
+
+  useEffect(() => {
+    const onStorage = () => setTheme(getInitialTheme());
+    const onCustom = (e: Event) => {
+      const detail = (e as CustomEvent).detail as Scheme | undefined;
+      if (detail === "light" || detail === "dark") setTheme(detail);
+    };
+    window.addEventListener("storage", onStorage);
+    window.addEventListener("app-theme-change", onCustom as EventListener);
+    return () => {
+      window.removeEventListener("storage", onStorage);
+      window.removeEventListener("app-theme-change", onCustom as EventListener);
+    };
   }, []);
 
-  const toggle = () => {
-    const next = theme === "dark" ? "light" : "dark";
-    setTheme(next);
-    applyTheme(next);
-  };
+  function toggle() {
+    setTheme((t) => (t === "dark" ? "light" : "dark"));
+  }
 
   return (
     <button
-      aria-label="Toggle theme"
+      aria-pressed={theme === "dark"}
+      aria-label={`Switch to ${theme === "dark" ? "light" : "dark"} theme`}
+      title={`Switch to ${theme === "dark" ? "light" : "dark"} theme`}
       onClick={toggle}
-      title={`Switch to ${theme === "dark" ? "light" : "dark"} mode`}
-      className="inline-flex items-center gap-2 h-8 px-3 rounded-md border text-xs font-semibold
-                 bg-[var(--panel)] border-[var(--border)] hover:brightness-95"
+      className={className}
+      style={{
+        display: "inline-flex",
+        alignItems: "center",
+        gap: 8,
+        padding: "6px 10px",
+        borderRadius: 8,
+        border: "1px solid var(--border)",
+        background: "var(--panel)",
+        cursor: "pointer",
+        fontSize: 14,
+      }}
     >
-      <span
-        className="inline-block w-3.5 h-3.5 rounded-full"
-        style={{ background: theme === "dark" ? "#60a5fa" : "#1f2937" }}
-      />
-      <span>{theme === "dark" ? "Dark" : "Light"}</span>
+      <span style={{ fontSize: 14 }}>{theme === "dark" ? "🌙" : "☀️"}</span>
+      <span style={{ fontSize: 13 }}>{theme === "dark" ? "Dark" : "Light"}</span>
     </button>
   );
 }

@@ -545,9 +545,7 @@ export default function DashboardPage() {
 
   // Tab header component — shows logo + title + subtitle + ThemeSwitch
   function TabHeader({ tab }: { tab: "profile" | "timesheets" | "analytics" }) {
-    // theme-aware logo choice (you have /company-logo.png currently; adjust if you added light/dark variants)
     const logoSrc = theme === "dark" ? "/company-logo-dark.png" : "/company-logo-light.png";
-    // subtitle per tab
     let title = "Timesheet";
     let subtitle = `${fmtMMMdd(weekStart)} — ${fmtMMMdd(weekEnd)} • ${isAdmin ? "Admin view" : "Consultant view"}`;
     if (tab === "analytics") {
@@ -645,34 +643,20 @@ export default function DashboardPage() {
 
   return (
     <div style={{ display: "flex", width: "100%", minHeight: "100vh" }}>
-      {/* Dashboard-local auto-hiding navbar (safe — only on this page) */}
       <DashboardNavbar activeTab={activeTab} onTabChange={(t: "profile"|"timesheets"|"analytics") => setActiveTab(t)} me={me} />
 
-      {/* main column */}
       <div style={{ flex: 1 }}>
         <div className={styles.page} data-theme={theme}>
           <div className={styles.shell}>
 
-            {/* Tab-specific header (logo + title + theme switch) */}
             <TabHeader tab={activeTab} />
 
-            {/* If analytics tab is active, show analytics only and skip the large timesheet UI below */}
             {activeTab === "analytics" ? (
-              <>
-                <div style={{ marginTop: 12 }}>
-                  {AnalyticsSection()}
-                </div>
-              </>
+              <div style={{ marginTop: 12 }}>{AnalyticsSection()}</div>
             ) : activeTab === "profile" ? (
-              <>
-                <div style={{ marginTop: 12 }}>
-                  {ProfileSection()}
-                </div>
-              </>
+              <div style={{ marginTop: 12 }}>{ProfileSection()}</div>
             ) : (
-              /* TIMESHEETS UI (unchanged, original code) */
               <>
-                {/* ACTION BAR */}
                 <div className="w-full rounded-lg border bg-[var(--panel)] border-[var(--border)] px-3 py-2 mb-3">
                   <div className="flex items-center justify-between gap-3">
                     <div className="flex items-center gap-3 flex-wrap">
@@ -715,7 +699,6 @@ export default function DashboardPage() {
                   </div>
                 </div>
 
-                {/* SELECTORS (Month | Week | View) */}
                 <div className="grid grid-cols-3 gap-2 items-center mb-3">
                   <div className="flex items-center gap-2">
                     <label className={styles.selectorLabel}>Month:</label>
@@ -760,7 +743,6 @@ export default function DashboardPage() {
                   </div>
                 </div>
 
-                {/* summary pills */}
                 <div className={styles.summary}>
                   <span className={styles.pill}>Est (week): {totals.sumEst.toFixed(2)}h</span>
                   <span className={styles.pill}>Tracked: {totals.sumTracked.toFixed(2)}h</span>
@@ -786,7 +768,6 @@ export default function DashboardPage() {
                   </span>
                 </div>
 
-                {/* ===== WEEK VIEW (unchanged) ===== */}
                 {viewMode === "week" && (
                   <section className={styles.card}>
                     <div className={styles.tableWrap}>
@@ -834,7 +815,6 @@ export default function DashboardPage() {
                                 {[0,1,2,3,4].map((i) => (
                                   <td key={i}>
                                     <div className={styles.cellCompact}>
-                                      {/* only tracked button (no per-day estimate) */}
                                       <button
                                         onClick={() => openTrackModal(r.taskId, r.taskName, i, r.trackedByDay[i], r.noteByDay[i])}
                                         className={styles.btnTrackSm}
@@ -882,7 +862,6 @@ export default function DashboardPage() {
                   </section>
                 )}
 
-                {/* ===== MONTH VIEW (unchanged) ===== */}
                 {viewMode === "month" && (
                   <>
                     <div className={styles.summary} style={{ marginTop: 0 }} />
@@ -920,7 +899,6 @@ export default function DashboardPage() {
                   </>
                 )}
 
-                {/* ===== Admin cards (keep stats but charts moved to Analytics tab) ===== */}
                 {isAdmin && viewMode === "week" && (
                   <section className={styles.adminPanel}>
                     <div className={styles.cardsRow}>
@@ -954,7 +932,6 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        {/* Tracked modal */}
         {modalOpen && (
           <div className={styles.modalBackdrop} onClick={closeTrackModal}>
             <div className={styles.modal} onClick={(e)=> e.stopPropagation()}>
@@ -999,7 +976,6 @@ export default function DashboardPage() {
           </div>
         )}
 
-        {/* Weekly Estimate modal (Option A) */}
         {estimateModalOpen && (
           <div className={styles.modalBackdrop} onClick={()=> setEstimateModalOpen(false)}>
             <div className={styles.modal} onClick={(e)=> e.stopPropagation()}>
@@ -1047,7 +1023,6 @@ export default function DashboardPage() {
           </div>
         )}
 
-        {/* Add Project modal */}
         {isAdmin && addOpen && (
           <div className={styles.modalBackdrop} onClick={()=> setAddOpen(false)}>
             <div className={styles.modal} onClick={(e)=> e.stopPropagation()}>

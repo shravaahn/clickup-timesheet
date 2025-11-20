@@ -3,6 +3,7 @@
 
 import React, { useEffect, useState } from "react";
 import styles from "./DashboardNavbar.module.css";
+import ThemeSwitch from "@/components/ThemeSwitch";
 
 type Props = {
   activeTab: "profile" | "timesheets" | "analytics";
@@ -13,8 +14,7 @@ type Props = {
 function getInitialTheme(): "light" | "dark" {
   if (typeof window === "undefined") return "light";
   const stored = window.localStorage.getItem("theme");
-  if (stored === "light" || stored === "dark") return stored;
-  // fallback to system preference
+  if (stored === "light" || stored === "dark") return stored as "light" | "dark";
   const prefersDark = window.matchMedia?.("(prefers-color-scheme: dark)").matches;
   return prefersDark ? "dark" : "light";
 }
@@ -22,42 +22,27 @@ function getInitialTheme(): "light" | "dark" {
 export default function DashboardNavbar({ activeTab, onTabChange, me }: Props) {
   const [visible, setVisible] = useState(false);
   const [pinned, setPinned] = useState(false);
-
-  // Theme local state (keeps DOM attribute + localStorage + dispatches app-theme-change)
   const [theme, setTheme] = useState<"light" | "dark">(() => getInitialTheme());
 
-  useEffect(() => { if (pinned) setVisible(true); }, [pinned]);
-
   useEffect(() => {
-    // apply theme to document and persist
-    try {
-      document.documentElement.setAttribute("data-theme", theme);
-      window.localStorage.setItem("theme", theme);
-      // dispatch same event your dashboard listens for
-      window.dispatchEvent(new CustomEvent("app-theme-change", { detail: theme }));
-    } catch (e) {
-      // ignore on SSR or locked-down env
-    }
-  }, [theme]);
+    if (pinned) setVisible(true);
+  }, [pinned]);
 
-  // Keep in sync if other tabs change theme via storage or app-theme-change
+  // keep theme in sync (so Navbar can show correct logo variant if needed)
   useEffect(() => {
-    const onStorage = () => setTheme(getInitialTheme());
     const onCustom = (e: Event) => {
       const detail = (e as CustomEvent).detail as "light" | "dark" | undefined;
       if (detail === "light" || detail === "dark") setTheme(detail);
     };
-    window.addEventListener("storage", onStorage);
+    const onStorage = () => setTheme(getInitialTheme());
     window.addEventListener("app-theme-change", onCustom as EventListener);
+    window.addEventListener("storage", onStorage);
     return () => {
-      window.removeEventListener("storage", onStorage);
       window.removeEventListener("app-theme-change", onCustom as EventListener);
+      window.removeEventListener("storage", onStorage);
     };
   }, []);
 
-  const toggleTheme = () => setTheme((t) => (t === "dark" ? "light" : "dark"));
-
-  // logo images in public/
   const logoSrc = theme === "dark" ? "/company-logo-dark.png" : "/company-logo-light.png";
 
   return (
@@ -75,22 +60,27 @@ export default function DashboardNavbar({ activeTab, onTabChange, me }: Props) {
         aria-hidden={!visible && !pinned ? "true" : "false"}
       >
         <div className={styles.header}>
-          {/* logo (image) */}
-          <div className={styles.logo}>
-            <img src={logoSrc} alt="Company logo" style={{ width: "50%", height: "50%", objectFit: "contain" }} />
+          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+            <div className={styles.logo}>
+              {/* keep small & responsive */}
+              <img src={logoSrc} alt="Company logo" style={{ width: 40, height: 40, objectFit: "contain" }} />
+            </div>
+            <div style={{ display: "flex", flexDirection: "column", lineHeight: 1 }}>
+              <div style={{ fontWeight: 700 }}>Timesheet</div>
+              <div style={{ fontSize: 12, color: "var(--muted)" }}>{me?.username ? me.username : ""}</div>
+            </div>
           </div>
 
-          {/* pin button removed */}
           <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-
-            {/* theme toggle re-using pinBtn class for simple styling */}
+            <ThemeSwitch />
             <button
               className={styles.pinBtn}
-              onClick={toggleTheme}
-              title={`Switch to ${theme === "dark" ? "light" : "dark"} theme`}
-              aria-label={`Switch to ${theme === "dark" ? "light" : "dark"} theme`}
+              onClick={() => setPinned((p) => !p)}
+              title={pinned ? "Unpin" : "Pin"}
+              aria-pressed={pinned}
+              style={{ padding: "6px 8px" }}
             >
-              {theme === "dark" ? "🌙" : "☀️"}
+              {pinned ? "▣" : "▢"}
             </button>
           </div>
         </div>
@@ -103,7 +93,7 @@ export default function DashboardNavbar({ activeTab, onTabChange, me }: Props) {
           {(me?.is_admin || me?.role === "admin") && (
             <>
               <div className={styles.sectionLabel}>Admin</div>
-              <NavItem label="Overview" onClick={() => (window.location.href = "/admin/overview")} />
+              <NavItem label="Overview" onClick={() => (window.location.href = "/admin")} />
               <NavItem label="Unlock Estimates" onClick={() => (window.location.href = "/admin/estimates")} />
             </>
           )}
