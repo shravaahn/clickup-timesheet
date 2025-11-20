@@ -76,19 +76,11 @@ export default function DashboardNavbar({ activeTab, onTabChange, me }: Props) {
         <div className={styles.header}>
           {/* logo (image) */}
           <div className={styles.logo}>
-            <img src={logoSrc} alt="Company logo" style={{ width: "100%", height: "100%", objectFit: "contain" }} />
+            <img src={logoSrc} alt="Company logo" style={{ width: "50%", height: "50%", objectFit: "contain" }} />
           </div>
 
-          {/* pin button (existing style) */}
+          {/* pin button removed */}
           <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-            <button
-              className={styles.pinBtn}
-              onClick={() => setPinned((p) => !p)}
-              title={pinned ? "Unpin" : "Pin"}
-              aria-pressed={pinned}
-            >
-              {pinned ? "▣" : "▢"}
-            </button>
 
             {/* theme toggle re-using pinBtn class for simple styling */}
             <button
