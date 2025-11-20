@@ -1,3 +1,4 @@
+/* File: src/app/globals.css */
 /* ===== Global base (no frame) ===== */
 @import "tailwindcss";
 
@@ -5,20 +6,34 @@
 :root {
   --page-bg: #f6f7fb;
   --panel: #ffffff;
-  --text: #0b0f14;
-  --muted: #667085;
-  --border: rgba(0,0,0,0.12);
-  --panel-subtle: #f3f5f8;
+  --text: #0b1020;
+  --muted: #6b7280;
+  --border: rgba(15,23,42,0.06);
+  --panel-subtle: #f7f8fb;
   --primary: #2563eb;   /* blue for buttons / charts A */
   --primary-2: #10b981; /* green for charts B */
   --warn: #f59e0b;
 
+  /* elevation / shadows */
+  --shadow-sm: 0 1px 4px rgba(9,30,66,0.04);
+  --shadow-md: 0 6px 24px rgba(9,30,66,0.06);
+  --shadow-lg: 0 20px 48px rgba(9,30,66,0.08);
+
+  /* subtle glass highlight used on badges */
+  --glass: linear-gradient(180deg, rgba(255,255,255,0.6), rgba(255,255,255,0.2));
+
   /* ---------- sizing system (used by Dashboard.module.css) ---------- */
-  --cell-h: 30px;             /* compact control height */
+  --cell-h: 34px;             /* compact control height */
   --cell-w: 84px;             /* width of each compact control (Est / Track) */
-  --cell-gap: 6px;            /* gap between the two controls */
+  --cell-gap: 8px;            /* gap between the two controls */
   /* day column fits 2*cell + gap + a bit of breathing room */
-  --day-col-w: calc((var(--cell-w) * 2) + var(--cell-gap) + 20px);
+  --day-col-w: calc((var(--cell-w) * 2) + var(--cell-gap) + 28px);
+
+  --radius-card: 14px;
+  --radius-pill: 999px;
+  --max-width: 1280px;
+  --gutter: 20px;
+  --heading-size: 28px;
 }
 
 html[data-theme="dark"] {
@@ -26,11 +41,16 @@ html[data-theme="dark"] {
   --panel: #0f1720;
   --text: #e6e7ea;
   --muted: #9aa4b2;
-  --border: rgba(255,255,255,0.12);
-  --panel-subtle: #0e141c;
+  --border: rgba(255,255,255,0.06);
+  --panel-subtle: #0e1418;
   --primary: #60a5fa;
   --primary-2: #34d399;
   --warn: #f59e0b;
+
+  --shadow-sm: 0 1px 6px rgba(2,6,23,0.35);
+  --shadow-md: 0 8px 28px rgba(2,6,23,0.45);
+  --shadow-lg: 0 24px 60px rgba(2,6,23,0.6);
+  --glass: linear-gradient(180deg, rgba(255,255,255,0.03), rgba(255,255,255,0.01));
 }
 
 /* page background (no frame, no outer card) */
@@ -39,7 +59,10 @@ html, body {
   margin: 0;
   background: var(--page-bg);
   color: var(--text);
-  font: 14px/1.45 system-ui, -apple-system, Segoe UI, Roboto, Inter, Arial;
+  font: 15px/1.45 Inter, system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  -webkit-tap-highlight-color: transparent;
 }
 
 /* basic resets for form controls so module styles look consistent */
@@ -48,21 +71,23 @@ button {
   border: 1px solid var(--border);
   background: var(--panel-subtle);
   color: var(--text);
-  border-radius: 8px;
+  border-radius: 10px;
   height: var(--cell-h);
-  padding: 0 10px;
+  padding: 0 12px;
   cursor: pointer;
+  font-weight: 600;
 }
 button:disabled { opacity: .6; cursor: not-allowed; }
 
-input, select {
+input, select, textarea {
   background: var(--panel-subtle);
   border: 1px solid var(--border);
   color: var(--text);
-  border-radius: 8px;
+  border-radius: 10px;
   height: var(--cell-h);
-  padding: 0 8px;
+  padding: 0 10px;
   outline: none;
+  font-size: 14px;
 }
 
 /* hide default number spinners for a cleaner look */
@@ -71,4 +96,22 @@ input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; marg
 input[type="number"] {
   -moz-appearance: textfield;
   appearance: textfield;
+}
+
+/* subtle focus for accessibility */
+:focus { outline: none; box-shadow: 0 0 0 4px rgba(37,99,235,0.08); border-color: rgba(37,99,235,0.9); }
+
+/* utility helpers used in modules */
+.container {
+  max-width: var(--max-width);
+  margin: 0 auto;
+  padding: 0 var(--gutter);
+}
+
+/* small, smooth transitions globally */
+* { transition: background-color 160ms ease, color 160ms ease, border-color 160ms ease, box-shadow 160ms ease, transform 120ms ease; }
+
+/* Accessible reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  * { transition: none !important; animation: none !important; }
 }
