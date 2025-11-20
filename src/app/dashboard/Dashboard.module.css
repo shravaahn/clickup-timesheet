@@ -1,17 +1,7 @@
 /* src/app/dashboard/Dashboard.module.css
    Redesigned, symmetric, responsive layout for dashboard.
-   Only CSS — React logic untouched.
+   Local CSS module only — no global selectors here.
 */
-
-/* make global root tokens allowed inside a CSS module */
-:global(:root) {
-  --page-max-width: 1280px;
-  --kpi-gap: 18px;
-  --kpi-min-w: 220px;
-  --card-radius: 14px;
-  --card-padding: 18px;
-  --shadow: 0 8px 18px rgba(2,6,23,0.06);
-}
 
 /* page shell */
 .page {
@@ -20,7 +10,7 @@
   min-height: 100vh;
 }
 .shell {
-  max-width: var(--page-max-width);
+  max-width: 1280px;
   margin: 0 auto;
   padding: 28px 20px;
 }
@@ -40,7 +30,7 @@
 .kpiGrid {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
-  gap: var(--kpi-gap);
+  gap: 18px;
   margin-bottom: 22px;
 }
 @media (max-width: 1100px) {
@@ -52,10 +42,10 @@
 
 .kpi {
   background: var(--panel);
-  border-radius: var(--card-radius);
-  padding: var(--card-padding);
+  border-radius: 14px;
+  padding: 18px;
   border: 1px solid var(--border);
-  box-shadow: var(--shadow);
+  box-shadow: 0 8px 18px rgba(2,6,23,0.06);
   min-height: 88px;
   display: flex;
   flex-direction: column;
@@ -103,10 +93,10 @@
 /* main card container (table card) */
 .card {
   background:var(--panel);
-  border-radius: var(--card-radius);
+  border-radius: 14px;
   padding: 18px;
   border: 1px solid var(--border);
-  box-shadow: var(--shadow);
+  box-shadow: 0 8px 18px rgba(2,6,23,0.06);
 }
 
 /* table wrap: make table rows look like cards */
@@ -117,7 +107,7 @@
   table-layout: fixed;
 }
 
-/* Use one visual card per row — big spacing */
+/* table head */
 .table thead { display:table-header-group; }
 .table thead th {
   text-align:left;
@@ -134,7 +124,7 @@
 /* day column sizing (keeps symmetry) */
 .table thead th:not(:first-child) { width: var(--day-col-w); max-width: var(--day-col-w); }
 
-/* table body - each row is a card */
+/* table body - each row is a card-like block */
 .table tbody tr {
   display:table-row;
   background: transparent;
@@ -154,7 +144,6 @@
   border-radius: 10px;
   background: var(--panel);
   border: 1px solid var(--border);
-  box-shadow: none;
 }
 
 /* project name block */
