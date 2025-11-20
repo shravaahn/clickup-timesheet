@@ -1,3 +1,4 @@
+// src/components/DashboardNavbar/DashboardNavbar.tsx
 "use client";
 
 import React, { useEffect, useState } from "react";
@@ -102,7 +103,7 @@ export default function DashboardNavbar({ activeTab, onTabChange, me }: Props) {
           {(me?.is_admin || me?.role === "admin") && (
             <>
               <div className={styles.sectionLabel}>Admin</div>
-              <NavItem label="Overview" onClick={() => (window.location.href = "/admin")} />
+              <NavItem label="Overview" onClick={() => (window.location.href = "/admin/overview")} />
               <NavItem label="Unlock Estimates" onClick={() => (window.location.href = "/admin/estimates")} />
             </>
           )}

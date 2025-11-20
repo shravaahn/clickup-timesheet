@@ -595,7 +595,6 @@ export default function DashboardPage() {
           <div className={styles.chartCard} style={{ minHeight: 300 }}>
             <div className={styles.chartTitle}>
               Consultants (Est vs Tracked) — Selected Week
-              <a className={styles.chartLink} href="/admin/overview">Open Overview</a>
             </div>
             {overviewResolved.length === 0 ? (
               <div className="text-sm text-[var(--muted)]">No data for this week.</div>
