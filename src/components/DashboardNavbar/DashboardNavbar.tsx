@@ -1,4 +1,3 @@
-// src/components/DashboardNavbar/DashboardNavbar.tsx
 "use client";
 
 import React, { useEffect, useState } from "react";
@@ -10,11 +9,55 @@ type Props = {
   me?: any;
 };
 
+function getInitialTheme(): "light" | "dark" {
+  if (typeof window === "undefined") return "light";
+  const stored = window.localStorage.getItem("theme");
+  if (stored === "light" || stored === "dark") return stored;
+  // fallback to system preference
+  const prefersDark = window.matchMedia?.("(prefers-color-scheme: dark)").matches;
+  return prefersDark ? "dark" : "light";
+}
+
 export default function DashboardNavbar({ activeTab, onTabChange, me }: Props) {
   const [visible, setVisible] = useState(false);
   const [pinned, setPinned] = useState(false);
 
+  // Theme local state (keeps DOM attribute + localStorage + dispatches app-theme-change)
+  const [theme, setTheme] = useState<"light" | "dark">(() => getInitialTheme());
+
   useEffect(() => { if (pinned) setVisible(true); }, [pinned]);
+
+  useEffect(() => {
+    // apply theme to document and persist
+    try {
+      document.documentElement.setAttribute("data-theme", theme);
+      window.localStorage.setItem("theme", theme);
+      // dispatch same event your dashboard listens for
+      window.dispatchEvent(new CustomEvent("app-theme-change", { detail: theme }));
+    } catch (e) {
+      // ignore on SSR or locked-down env
+    }
+  }, [theme]);
+
+  // Keep in sync if other tabs change theme via storage or app-theme-change
+  useEffect(() => {
+    const onStorage = () => setTheme(getInitialTheme());
+    const onCustom = (e: Event) => {
+      const detail = (e as CustomEvent).detail as "light" | "dark" | undefined;
+      if (detail === "light" || detail === "dark") setTheme(detail);
+    };
+    window.addEventListener("storage", onStorage);
+    window.addEventListener("app-theme-change", onCustom as EventListener);
+    return () => {
+      window.removeEventListener("storage", onStorage);
+      window.removeEventListener("app-theme-change", onCustom as EventListener);
+    };
+  }, []);
+
+  const toggleTheme = () => setTheme((t) => (t === "dark" ? "light" : "dark"));
+
+  // logo images in public/
+  const logoSrc = theme === "dark" ? "/company-logo-dark.png" : "/company-logo-light.png";
 
   return (
     <>
@@ -31,15 +74,32 @@ export default function DashboardNavbar({ activeTab, onTabChange, me }: Props) {
         aria-hidden={!visible && !pinned ? "true" : "false"}
       >
         <div className={styles.header}>
-          <div className={styles.logo}>L5.AI</div>
-          <button
-            className={styles.pinBtn}
-            onClick={() => setPinned((p) => !p)}
-            title={pinned ? "Unpin" : "Pin"}
-            aria-pressed={pinned}
-          >
-            {pinned ? "▣" : "▢"}
-          </button>
+          {/* logo (image) */}
+          <div className={styles.logo}>
+            <img src={logoSrc} alt="Company logo" style={{ width: "100%", height: "100%", objectFit: "contain" }} />
+          </div>
+
+          {/* pin button (existing style) */}
+          <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+            <button
+              className={styles.pinBtn}
+              onClick={() => setPinned((p) => !p)}
+              title={pinned ? "Unpin" : "Pin"}
+              aria-pressed={pinned}
+            >
+              {pinned ? "▣" : "▢"}
+            </button>
+
+            {/* theme toggle re-using pinBtn class for simple styling */}
+            <button
+              className={styles.pinBtn}
+              onClick={toggleTheme}
+              title={`Switch to ${theme === "dark" ? "light" : "dark"} theme`}
+              aria-label={`Switch to ${theme === "dark" ? "light" : "dark"} theme`}
+            >
+              {theme === "dark" ? "🌙" : "☀️"}
+            </button>
+          </div>
         </div>
 
         <div className={styles.navList}>
