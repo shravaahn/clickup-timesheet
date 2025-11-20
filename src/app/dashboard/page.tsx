@@ -621,20 +621,7 @@ export default function DashboardPage() {
         <div className={styles.page} data-theme={theme}>
           <div className={styles.shell}>
             {/* Branded header with logo + context */}
-            <div className={styles.brandBar}>
-              <div className={styles.brandLeft}>
-                <img className={styles.brandLogo} src="/company-logo.png" alt="Company logo" />
-                <div className={styles.brandText}>
-                  <div className={styles.brandTitle}>Timesheet</div>
-                  <div className={styles.brandTagline}>
-                    {fmtMMMdd(weekStart)} — {fmtMMMdd(weekEnd)} • {isAdmin ? "Admin view" : "Consultant view"}
-                  </div>
-                </div>
-              </div>
-              <div className={styles.brandRight}>
-                <ThemeSwitch />
-              </div>
-            </div>
+            {/* Branded header removed */}
 
             {/* If analytics tab is active, show analytics only and skip the large timesheet UI below */}
             {activeTab === "analytics" ? (
