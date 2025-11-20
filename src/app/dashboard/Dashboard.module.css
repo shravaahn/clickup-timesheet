@@ -3,7 +3,8 @@
    Only CSS — React logic untouched.
 */
 
-:root {
+/* make global root tokens allowed inside a CSS module */
+:global(:root) {
   --page-max-width: 1280px;
   --kpi-gap: 18px;
   --kpi-min-w: 220px;
