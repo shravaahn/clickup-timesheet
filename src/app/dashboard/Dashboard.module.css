@@ -1,236 +1,217 @@
-/* File: src/app/dashboard/Dashboard.module.css */
-/* Main dashboard styles tuned to the provided reference screenshot */
+/* src/app/dashboard/Dashboard.module.css
+   Redesigned, symmetric, responsive layout for dashboard.
+   Only CSS — React logic untouched.
+*/
+
+:root {
+  --page-max-width: 1280px;
+  --kpi-gap: 18px;
+  --kpi-min-w: 220px;
+  --card-radius: 14px;
+  --card-padding: 18px;
+  --shadow: 0 8px 18px rgba(2,6,23,0.06);
+}
 
 /* page shell */
 .page {
-  background: transparent; /* controlled by globals */
+  background: var(--page-bg);
   color: var(--text);
-  padding-bottom: 48px;
+  min-height: 100vh;
 }
 .shell {
-  max-width: var(--max-width);
+  max-width: var(--page-max-width);
   margin: 0 auto;
-  padding: 28px var(--gutter);
+  padding: 28px 20px;
 }
 
-/* big page heading similar to screenshot */
-.h1 {
-  font-size: var(--heading-size);
-  font-weight: 800;
-  margin: 0 0 18px 0;
-  letter-spacing: -0.2px;
-  color: var(--text);
-}
-
-/* brand bar (top, subtle) */
+/* brand bar (top) */
 .brandBar {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 12px;
   margin-bottom: 20px;
-  padding: 8px 12px;
-  border-radius: 12px;
+  padding: 10px;
   background: transparent;
 }
-.brandLeft {
-  display: flex;
-  align-items: center;
-  gap: 14px;
-}
-.brandLogo {
-  height: 36px;
-  width: 36px;
-  object-fit: contain;
-  border-radius: 10px;
-  background: var(--panel-subtle);
-  padding: 6px;
-  box-shadow: var(--shadow-sm);
-}
-.brandText { display: grid; gap: 2px; }
-.brandTitle { font-weight: 800; font-size: 18px; }
-.brandTagline { font-size: 13px; color: var(--muted); }
 
-/* action row (top controls) */
-.controlsRow {
-  display: flex;
-  gap: 12px;
-  align-items: center;
-  justify-content: flex-end;
-}
-
-/* cards grid (the four KPI cards) */
+/* KPI row (four cards) */
 .kpiGrid {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
-  gap: 18px;
+  gap: var(--kpi-gap);
   margin-bottom: 22px;
 }
-.kpiCard {
-  background: var(--panel);
-  border-radius: var(--radius-card);
-  padding: 18px;
-  border: 1px solid var(--border);
-  box-shadow: var(--shadow-sm);
-  min-height: 120px;
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-.kpiTop { display:flex; justify-content:space-between; align-items:flex-start; gap:8px; }
-.kpiValue { font-size: 20px; font-weight: 800; color: var(--text); }
-.kpiSub { font-size: 13px; color: var(--muted); }
-.kpiNote { margin-top: auto; font-size: 13px; color: var(--primary-2); font-weight:700; }
-
-/* big leaderboard card (wide) */
-.leaderboardCard {
-  margin-top: 18px;
-  border-radius: 16px;
-  background: var(--panel);
-  border: 1px solid var(--border);
-  padding: 20px;
-  box-shadow: var(--shadow-sm);
-}
-.leaderboardHead {
-  display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom: 14px;
-}
-.leaderboardTitle { font-weight: 800; font-size: 18px; color: var(--text); }
-.leaderboardTableWrap { overflow: hidden; border-radius: 12px; }
-
-/* table: floating rows with soft separators like screenshot */
-.tableWrap { overflow: auto; }
-.table {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 14px;
-}
-.table thead th {
-  text-align: left;
-  font-size: 12px;
-  font-weight: 700;
-  color: var(--muted);
-  padding: 12px 16px;
-  border-bottom: none;
-}
-.table tbody tr {
-  background: transparent;
-}
-.table tbody td {
-  padding: 18px 16px;
-  border-top: 1px solid rgba(0,0,0,0.03);
-  vertical-align: middle;
-}
-
-/* Each logical row is a card-like band — emulate screenshot by wrapping cells */
-.table tbody tr.row-card {
-  background: var(--panel);
-  border-radius: 10px;
-  box-shadow: none;
-  margin-bottom: 10px;
-}
-
-/* rank badge */
-.rankBadge {
-  width: 36px; height: 36px; border-radius: 999px; display:grid; place-items:center; font-weight:800;
-  background: linear-gradient(180deg, rgba(255,255,255,0.6), rgba(255,255,255,0.1));
-  color: var(--text);
-  box-shadow: var(--shadow-sm);
-  border: 1px solid var(--border);
-}
-
-/* avatar + name cell */
-.memberCell { display:flex; align-items:center; gap:12px; }
-.avatarSmall {
-  width: 40px; height: 40px; border-radius: 999px; object-fit: cover; border: 1px solid var(--border);
-  box-shadow: var(--shadow-sm);
-}
-.memberName { font-weight: 700; color: var(--text); }
-.memberMeta { font-size: 13px; color: var(--muted); }
-
-/* numeric columns centered like reference */
-.colCenter { text-align: center; color: var(--text); font-weight: 700; }
-
-/* change badge */
-.changeBadge {
-  display: inline-block;
-  padding: 6px 10px;
-  border-radius: 999px;
-  background: rgba(16,185,129,0.12);
-  color: var(--primary-2);
-  font-weight: 700;
-  font-size: 13px;
-  border: 1px solid rgba(16,185,129,0.12);
-}
-
-/* weekly progress / other cards */
-.sectionCard {
-  background: var(--panel);
-  border-radius: 12px;
-  padding: 16px;
-  border: 1px solid var(--border);
-  box-shadow: var(--shadow-sm);
-  margin-top: 18px;
-}
-
-/* month grid & week cards */
-.weekGrid { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 12px; margin-top: 14px; }
-.weekCard { padding: 12px; border-radius: 12px; background: var(--panel); border: 1px solid var(--border); box-shadow: var(--shadow-sm); }
-.weekCardSelected { outline: 2px solid rgba(255,178,178,0.6); }
-
-/* compact cells and inputs (preserve classes used by JS) */
-.num {
-  height: var(--cell-h);
-  padding: 0 10px;
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  background: var(--panel-subtle);
-  color: var(--text);
-  text-align: right;
-}
-.numSm { height: 30px; min-width: 64px; font-size: 13px; padding-right: 8px; }
-
-/* compact track button */
-.btnTrackSm {
-  height: 32px;
-  min-width: 72px;
-  font-size: 13px;
-  font-weight: 700;
-  color: #fff;
-  background: var(--primary);
-  border: none;
-  border-radius: 8px;
-  display:inline-grid; place-items:center;
-  box-shadow: 0 6px 14px rgba(37,99,235,0.12);
-}
-.btnTrackSm:hover { transform: translateY(-1px); filter: brightness(0.98); }
-
-/* modal */
-.modalBackdrop { position: fixed; inset: 0; background: rgba(2,6,23,0.45); display: grid; place-items: center; z-index: 1000; }
-.modal {
-  width: min(520px, 94vw);
-  background: var(--panel);
-  border-radius: 12px;
-  padding: 18px;
-  border: 1px solid var(--border);
-  box-shadow: var(--shadow-md);
-}
-
-/* small helpers */
-.selectorLabel { color: var(--muted); font-size: 13px; font-weight: 600; }
-
-/* responsive adjustments */
 @media (max-width: 1100px) {
   .kpiGrid { grid-template-columns: repeat(2, 1fr); }
-  .weekGrid { grid-template-columns: 1fr; }
 }
 @media (max-width: 640px) {
-  .kpiGrid { grid-template-columns: 1fr; gap: 12px; }
-  .brandBar { flex-direction: column; align-items: flex-start; gap: 12px; }
-  .shell { padding: 20px 14px; }
-  .table thead th { display: none; } /* compact mobile table fallback */
-  .table tbody td { padding: 12px; }
-  .leaderboardCard { padding: 12px; }
+  .kpiGrid { grid-template-columns: 1fr; }
 }
 
-/* keep earlier variable overrides safe (do not change class names used in JS) */
-.page { --cell-h: 34px; --cell-w: 84px; --cell-gap: 8px; }
+.kpi {
+  background: var(--panel);
+  border-radius: var(--card-radius);
+  padding: var(--card-padding);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow);
+  min-height: 88px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+
+/* KPI typography */
+.kpiHeader { display:flex; align-items:center; justify-content:space-between; gap:10px; }
+.kpiTitle { color: var(--muted); font-size:13px; font-weight:700; }
+.kpiValue { font-size:20px; font-weight:800; margin-top:6px; color:var(--text); }
+.kpiNote { font-size:13px; color:var(--muted); margin-top:8px; }
+
+/* main action area (top controls) */
+.actionBar {
+  display:flex;
+  gap:16px;
+  align-items:center;
+  justify-content:space-between;
+  margin-bottom: 18px;
+}
+
+/* left group - label + select, right group - buttons */
+.actionLeft { display:flex; gap:12px; align-items:center; flex-wrap:wrap; }
+.actionRight { display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+
+/* pill / small label */
+.pill {
+  display:inline-flex; align-items:center; gap:8px;
+  padding:6px 10px; border-radius:999px; background:var(--panel); border:1px solid var(--border);
+  font-size:12px; color:var(--muted);
+}
+
+/* selectors row (month / week / view) */
+.selectorsRow {
+  display:flex; gap:14px; align-items:center; margin-bottom:14px; flex-wrap:wrap;
+}
+.selectorLabel { color:var(--muted); font-size:13px; font-weight:700; margin-right:6px; }
+
+/* summary pills */
+.summary {
+  display:flex; gap:10px; align-items:center; margin-bottom:14px; flex-wrap:wrap;
+}
+.summary .pill { height:34px; }
+
+/* main card container (table card) */
+.card {
+  background:var(--panel);
+  border-radius: var(--card-radius);
+  padding: 18px;
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow);
+}
+
+/* table wrap: make table rows look like cards */
+.tableWrap { margin-top:12px; overflow:auto; }
+.table {
+  width:100%;
+  border-collapse:collapse;
+  table-layout: fixed;
+}
+
+/* Use one visual card per row — big spacing */
+.table thead { display:table-header-group; }
+.table thead th {
+  text-align:left;
+  padding: 12px 10px;
+  color:var(--muted);
+  font-size:13px;
+  font-weight:700;
+  border-bottom: none;
+}
+
+/* project column */
+.thProject { width: 36%; min-width: 260px; padding-left: 6px; vertical-align: middle; }
+
+/* day column sizing (keeps symmetry) */
+.table thead th:not(:first-child) { width: var(--day-col-w); max-width: var(--day-col-w); }
+
+/* table body - each row is a card */
+.table tbody tr {
+  display:table-row;
+  background: transparent;
+}
+.table tbody tr td {
+  padding: 12px 10px;
+  vertical-align: middle;
+  border-bottom: none;
+}
+
+/* To visually separate rows, wrap inner row content in small rounded card */
+.rowCard {
+  display:flex;
+  align-items:center;
+  gap:14px;
+  padding: 14px;
+  border-radius: 10px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  box-shadow: none;
+}
+
+/* project name block */
+.projectNameFull {
+  font-weight: 600;
+  line-height: 1.2;
+  color: var(--text);
+  white-space: normal;
+  word-break: break-word;
+}
+
+/* compact cell controls used inside day columns */
+.cellCompact {
+  display:flex;
+  gap:8px;
+  align-items:center;
+  justify-content:flex-start;
+}
+.btnTrackSm {
+  height:34px;
+  padding: 6px 12px;
+  border-radius: 10px;
+  font-weight:700;
+  background:var(--primary);
+  color:#fff;
+  border: none;
+  box-shadow: 0 6px 12px rgba(37,99,235,0.18);
+  transition: transform 120ms ease, filter 120ms ease;
+}
+.btnTrackSm:hover { transform: translateY(-1px); filter:brightness(.98); }
+
+/* numeric inputs (totals) */
+.num { height:36px; padding: 6px 10px; border-radius:8px; background:var(--panel-subtle); text-align:right; }
+
+/* footer totals row */
+.table tfoot td { padding: 10px; font-weight:700; color:var(--muted); }
+
+/* admin stats row */
+.adminPanel .cardsRow { display:grid; grid-template-columns: repeat(3,1fr); gap:12px; margin-top:12px; }
+.statCard { padding: 14px; border-radius:12px; }
+
+/* charts row (analytics) */
+.chartsRow { display:flex; gap:12px; margin-top:12px; flex-wrap:wrap; }
+.chartCard { flex:1 1 420px; padding: 14px; min-height:280px; }
+
+/* modal */
+.modalBackdrop { position:fixed; inset:0; background: rgba(2,6,23,0.35); display:grid; place-items:center; z-index:1200; }
+.modal { width: min(520px,92vw); padding:18px; border-radius:12px; }
+
+/* responsive tweaks */
+@media (max-width: 920px) {
+  .thProject { min-width:220px; }
+  .kpiGrid { gap:12px; }
+  .card { padding: 14px; }
+}
+@media (max-width: 520px) {
+  .shell { padding: 14px; }
+  .projectNameFull { font-size: 14px; }
+  .kpi { padding: 14px; min-height:76px; }
+  .btnTrackSm { height:32px; padding:6px 10px; font-size:13px; }
+}
