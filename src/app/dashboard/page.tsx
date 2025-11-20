@@ -204,7 +204,7 @@ export default function DashboardPage() {
   const [rows, setRows] = useState<Row[]>([]);
   const [loading, setLoading] = useState(true);
 
-  /** weekly estimates state: map weekStart (YYYY-MM-DD) -> { hours, locked } */
+  /** weekly estimates state: map weekStart (YYYY-MM-DD) -> { hours: number; locked: boolean } */
   const [weeklyEstimates, setWeeklyEstimates] = useState<Record<string, { hours: number; locked: boolean }>>({});
 
   /** tracked modal */
@@ -541,6 +541,39 @@ export default function DashboardPage() {
     }
   }
 
+  /* ---------- small UI helpers ---------- */
+
+  // Tab header component — shows logo + title + subtitle + ThemeSwitch
+  function TabHeader({ tab }: { tab: "profile" | "timesheets" | "analytics" }) {
+    // theme-aware logo choice (you have /company-logo.png currently; adjust if you added light/dark variants)
+    const logoSrc = theme === "dark" ? "/company-logo-dark.png" : "/company-logo-light.png";
+    // subtitle per tab
+    let title = "Timesheet";
+    let subtitle = `${fmtMMMdd(weekStart)} — ${fmtMMMdd(weekEnd)} • ${isAdmin ? "Admin view" : "Consultant view"}`;
+    if (tab === "analytics") {
+      title = "Analytics";
+      subtitle = `Week ${selectedWeekIdx + 1}: ${monthWeeks[selectedWeekIdx]?.label ?? `${fmtMMMdd(weekStart)} — ${fmtMMMdd(weekEnd)}`}`;
+    } else if (tab === "profile") {
+      title = "Profile";
+      subtitle = me?.username ? `${me.username} • ${isAdmin ? "Admin" : "Consultant"}` : `${isAdmin ? "Admin" : "Consultant"}`;
+    }
+
+    return (
+      <div className={styles.brandBar} style={{ marginBottom: 12 }}>
+        <div className={styles.brandLeft}>
+          <img className={styles.brandLogo} src={logoSrc} alt="Company logo" />
+          <div className={styles.brandText}>
+            <div className={styles.brandTitle}>{title}</div>
+            <div className={styles.brandTagline}>{subtitle}</div>
+          </div>
+        </div>
+        <div className={styles.brandRight}>
+          <ThemeSwitch />
+        </div>
+      </div>
+    );
+  }
+
   /* ---------- render ---------- */
 
   // Analytics content (moved from admin area to analytics tab)
@@ -620,8 +653,9 @@ export default function DashboardPage() {
       <div style={{ flex: 1 }}>
         <div className={styles.page} data-theme={theme}>
           <div className={styles.shell}>
-            {/* Branded header with logo + context */}
-            {/* Branded header removed */}
+
+            {/* Tab-specific header (logo + title + theme switch) */}
+            <TabHeader tab={activeTab} />
 
             {/* If analytics tab is active, show analytics only and skip the large timesheet UI below */}
             {activeTab === "analytics" ? (
@@ -637,7 +671,7 @@ export default function DashboardPage() {
                 </div>
               </>
             ) : (
-              /* TIMESHEETS U I (unchanged, original code) */
+              /* TIMESHEETS UI (unchanged, original code) */
               <>
                 {/* ACTION BAR */}
                 <div className="w-full rounded-lg border bg-[var(--panel)] border-[var(--border)] px-3 py-2 mb-3">
