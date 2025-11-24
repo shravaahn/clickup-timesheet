@@ -5,71 +5,126 @@
   bottom: 0;
   width: 220px;
   transform: translateX(-100%);
-  transition: transform 200ms ease;
+  transition: transform 180ms ease;
   z-index: 80;
   display: flex;
   flex-direction: column;
   background: var(--panel);
   border-right: 1px solid var(--border);
-  /* slightly more top padding now that header area is removed */
-  padding: 14px 10px;
-  box-shadow: 2px 0 12px rgba(2,6,23,0.06);
+  padding: 10px;
 }
 
 /* visible states */
 .visible { transform: translateX(0); }
 .pinned { transform: translateX(0) !important; }
 
-/* left-edge hover trigger */
+/* left invisible hover zone */
 .edgeTrigger {
   position: fixed;
   left: 0;
   top: 0;
   bottom: 0;
-  width: 14px;
+  width: 12px;
   z-index: 79;
-  background: transparent;
 }
 
-/* header (we removed the top header from the markup; keep styles in case you reintroduce) */
-.header {
+/* -------- TOP BAR (logo + icon theme toggle) -------- */
+.topBar {
   display: flex;
-  justify-content: space-between;
   align-items: center;
-  padding: 6px 4px;
-  border-bottom: 1px solid rgba(0,0,0,0.04);
-  margin-bottom: 8px;
+  justify-content: space-between;
+  padding: 6px 2px 14px 4px;
 }
-.logo { font-weight: 700; color: var(--text); }
-.pinBtn { background: transparent; border: none; cursor: pointer; font-size: 12px; }
+
+.topLogo {
+  width: 38px;
+  height: auto;
+  object-fit: contain;
+}
+
+.themeIconBtn {
+  background: transparent;
+  border: none;
+  padding: 0;
+  display: flex;
+  align-items: center;
+}
 
 /* nav list */
-.navList { display:flex; flex-direction: column; gap: 6px; padding: 8px 4px; flex: 1; overflow: auto; }
-.sectionLabel { font-size: 12px; color: var(--muted); margin: 6px; }
-
-/* nav item */
-.navItem {
-  display: flex; align-items: center; gap: 10px; padding: 8px 12px;
-  cursor: pointer; border-radius: 8px; border: none; text-align: left; background: transparent;
-  color: var(--text); font-weight: 600;
+.navList {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px 4px;
+  flex: 1;
+  overflow-y: auto;
 }
-.navItem:hover { background: rgba(0,0,0,0.04); }
-.active { background: rgba(11,97,255,0.08); color: var(--primary); }
+
+.sectionLabel {
+  font-size: 12px;
+  color: var(--muted);
+  margin: 8px 4px 4px;
+}
+
+/* nav items */
+.navItem {
+  text-align: left;
+  padding: 8px 12px;
+  border-radius: 8px;
+  font-weight: 600;
+  color: var(--text);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+}
+.navItem:hover {
+  background: rgba(0,0,0,0.04);
+}
+.active {
+  background: rgba(37, 99, 235, 0.15);
+  color: var(--primary);
+}
 
 /* footer */
-.footer { border-top: 1px solid rgba(0,0,0,0.04); padding: 10px 6px; }
-.user { display:flex; gap:8px; align-items:center; }
-.avatar {
-  width: 40px; height: 40px; border-radius: 999px; background: var(--panel-subtle);
-  display:flex; align-items:center; justify-content:center; font-weight:700;
+.footer {
+  border-top: 1px solid rgba(0,0,0,0.06);
+  padding: 12px 6px 6px;
 }
-.userInfo { display:flex; flex-direction:column; }
-.userName { font-size: 14px; font-weight:600; }
-.userRole { font-size: 12px; color: var(--muted); }
 
-/* responsive tweak */
-@media (max-width: 920px) {
-  .sidebar { width: 260px; transform: translateX(-110%); }
-  .visible { transform: translateX(0); }
+.user {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.avatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: var(--panel-subtle);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  font-weight: 700;
+}
+
+.userInfo {
+  display: flex;
+  flex-direction: column;
+}
+
+.userName {
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.userRole {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+/* mobile */
+@media (max-width: 900px) {
+  .sidebar { width: 260px; }
   .edgeTrigger { display: none; }
 }

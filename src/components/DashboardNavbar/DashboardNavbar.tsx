@@ -27,7 +27,6 @@ export default function DashboardNavbar({ activeTab, onTabChange, me }: Props) {
     if (pinned) setVisible(true);
   }, [pinned]);
 
-  // keep theme in sync (so Navbar can show correct logo variant if needed)
   useEffect(() => {
     const onCustom = (e: Event) => {
       const detail = (e as CustomEvent).detail as "light" | "dark" | undefined;
@@ -58,10 +57,17 @@ export default function DashboardNavbar({ activeTab, onTabChange, me }: Props) {
         onMouseLeave={() => { if (!pinned) setVisible(false); }}
         aria-hidden={!visible && !pinned ? "true" : "false"}
       >
-        {/* NOTE: Top header (Timesheets + name + pin) intentionally removed per request.
-            Keeping navList and footer (user + ThemeSwitch) only.
-        */}
 
+        {/* --- SMALL TOP BAR (logo + tiny theme switch) --- */}
+        <div className={styles.topBar}>
+          <img src={logoSrc} className={styles.topLogo} alt="Logo" />
+
+          <button className={styles.themeIconBtn}>
+            <ThemeSwitch />
+          </button>
+        </div>
+
+        {/* ---------------- NAVIGATION ---------------- */}
         <div className={styles.navList}>
           <NavItem label="Timesheets" active={activeTab === "timesheets"} onClick={() => onTabChange("timesheets")} />
           <NavItem label="Analytics" active={activeTab === "analytics"} onClick={() => onTabChange("analytics")} />
@@ -76,19 +82,19 @@ export default function DashboardNavbar({ activeTab, onTabChange, me }: Props) {
           )}
         </div>
 
+        {/* ---------------- FOOTER ---------------- */}
         <div className={styles.footer}>
           <div className={styles.user}>
-            <div className={styles.avatar} aria-hidden>{me?.username ? me.username.charAt(0).toUpperCase() : "U"}</div>
+            <div className={styles.avatar}>
+              {me?.username ? me.username.charAt(0).toUpperCase() : "U"}
+            </div>
             <div className={styles.userInfo}>
-              <div className={styles.userName}>{me?.username || me?.email || "Unknown"}</div>
-              <div className={styles.userRole}>{me?.is_admin || me?.role === "admin" ? "Admin" : "Consultant"}</div>
+              <div className={styles.userName}>{me?.username || me?.email}</div>
+              <div className={styles.userRole}>{me?.is_admin ? "Admin" : "Consultant"}</div>
             </div>
           </div>
-
-          <div style={{ marginTop: 10, display: "flex", justifyContent: "flex-end" }}>
-            <ThemeSwitch />
-          </div>
         </div>
+
       </aside>
     </>
   );
@@ -98,10 +104,10 @@ function NavItem({ label, active, onClick }: { label: string; active?: boolean; 
   return (
     <button
       className={`${styles.navItem} ${active ? styles.active : ""}`}
-      onClick={() => onClick && onClick()}
+      onClick={onClick}
       aria-current={active ? "page" : undefined}
     >
-      <div>{label}</div>
+      {label}
     </button>
   );
 }
