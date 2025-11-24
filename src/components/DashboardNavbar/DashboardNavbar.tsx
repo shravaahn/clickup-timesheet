@@ -1,4 +1,3 @@
-// src/components/DashboardNavbar/DashboardNavbar.tsx
 "use client";
 
 import React, { useEffect, useState } from "react";
@@ -59,31 +58,9 @@ export default function DashboardNavbar({ activeTab, onTabChange, me }: Props) {
         onMouseLeave={() => { if (!pinned) setVisible(false); }}
         aria-hidden={!visible && !pinned ? "true" : "false"}
       >
-        <div className={styles.header}>
-          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-            <div className={styles.logo}>
-              {/* keep small & responsive */}
-              <img src={logoSrc} alt="Company logo" style={{ width: 40, height: 40, objectFit: "contain" }} />
-            </div>
-            <div style={{ display: "flex", flexDirection: "column", lineHeight: 1 }}>
-              <div style={{ fontWeight: 700 }}>Timesheet</div>
-              <div style={{ fontSize: 12, color: "var(--muted)" }}>{me?.username ? me.username : ""}</div>
-            </div>
-          </div>
-
-          <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-            <ThemeSwitch />
-            <button
-              className={styles.pinBtn}
-              onClick={() => setPinned((p) => !p)}
-              title={pinned ? "Unpin" : "Pin"}
-              aria-pressed={pinned}
-              style={{ padding: "6px 8px" }}
-            >
-              {pinned ? "▣" : "▢"}
-            </button>
-          </div>
-        </div>
+        {/* NOTE: Top header (Timesheets + name + pin) intentionally removed per request.
+            Keeping navList and footer (user + ThemeSwitch) only.
+        */}
 
         <div className={styles.navList}>
           <NavItem label="Timesheets" active={activeTab === "timesheets"} onClick={() => onTabChange("timesheets")} />
@@ -106,6 +83,10 @@ export default function DashboardNavbar({ activeTab, onTabChange, me }: Props) {
               <div className={styles.userName}>{me?.username || me?.email || "Unknown"}</div>
               <div className={styles.userRole}>{me?.is_admin || me?.role === "admin" ? "Admin" : "Consultant"}</div>
             </div>
+          </div>
+
+          <div style={{ marginTop: 10, display: "flex", justifyContent: "flex-end" }}>
+            <ThemeSwitch />
           </div>
         </div>
       </aside>
