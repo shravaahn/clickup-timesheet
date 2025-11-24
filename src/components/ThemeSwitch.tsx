@@ -54,13 +54,13 @@ export default function ThemeSwitch({ className }: { className?: string }) {
       style={{
         display: "inline-flex",
         alignItems: "center",
-        gap: 8,
+        gap: 6,
         padding: "6px 10px",
-        borderRadius: 8,
+        borderRadius: 20,
         border: "1px solid var(--border)",
         background: "var(--panel)",
         cursor: "pointer",
-        fontSize: 14,
+        fontSize: 12,
       }}
     >
       <span style={{ fontSize: 12 }}>{theme === "dark" ? "🌙" : "☀️"}</span>
