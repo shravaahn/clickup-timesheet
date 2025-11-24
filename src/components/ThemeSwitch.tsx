@@ -63,7 +63,7 @@ export default function ThemeSwitch({ className }: { className?: string }) {
         fontSize: 14,
       }}
     >
-      <span style={{ fontSize: 14 }}>{theme === "dark" ? "🌙" : "☀️"}</span>
+      <span style={{ fontSize: 12 }}>{theme === "dark" ? "🌙" : "☀️"}</span>
       <span style={{ display: "none" }}>{theme === "dark" ? "Dark" : "Light"}</span>
     </button>
   );
