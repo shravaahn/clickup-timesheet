@@ -56,8 +56,8 @@ export default function ThemeSwitch({ className }: { className?: string }) {
         display: "inline-flex",
         alignItems: "center",
         justifyContent: "space-between",
-        width: 64,
-        height: 32,
+        width: 56,
+        height: 28,
         padding: "2px",
         borderRadius: 24,
         border: "2px solid var(--border, rgba(0,0,0,0.1))",
@@ -75,9 +75,9 @@ export default function ThemeSwitch({ className }: { className?: string }) {
       <span
         style={{
           position: "absolute",
-          left: theme === "dark" ? "calc(100% - 30px)" : "2px",
-          width: 28,
-          height: 28,
+          left: theme === "dark" ? "calc(100% - 26px)" : "2px",
+          width: 24,
+          height: 24,
           borderRadius: "50%",
           background: theme === "dark"
             ? "linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%)"
@@ -97,8 +97,8 @@ export default function ThemeSwitch({ className }: { className?: string }) {
         style={{
           position: "relative",
           zIndex: 1,
-          fontSize: 16,
-          marginLeft: 6,
+          fontSize: 14,
+          marginLeft: 5,
           opacity: theme === "light" ? 1 : 0.6,
           transform: theme === "light" ? "scale(1) rotate(0deg)" : "scale(0.85) rotate(-30deg)",
           transition: "opacity 0.3s ease, transform 0.4s ease",
@@ -111,8 +111,8 @@ export default function ThemeSwitch({ className }: { className?: string }) {
         style={{
           position: "relative",
           zIndex: 1,
-          fontSize: 16,
-          marginRight: 6,
+          fontSize: 14,
+          marginRight: 5,
           opacity: theme === "dark" ? 1 : 0.6,
           transform: theme === "dark" ? "scale(1) rotate(0deg)" : "scale(0.85) rotate(30deg)",
           transition: "opacity 0.3s ease, transform 0.4s ease",
