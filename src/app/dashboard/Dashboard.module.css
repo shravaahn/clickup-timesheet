@@ -389,3 +389,118 @@
 
 /* small helper for select sizing inside admin controls */
 .selectWide { min-width: 240px; }
+
+/* ---------- Profile / KPI card styles (new) ---------- */
+
+/* grid for the metric cards */
+.profileGrid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0,1fr));
+  gap: 18px;
+  margin-bottom: 18px;
+}
+
+/* single metric card */
+.metricCard {
+  position: relative;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 18px 16px;
+  overflow: hidden;
+  transition: transform 200ms ease, box-shadow 200ms ease, border-color 200ms ease;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+/* small colored accent "clip" on left edge */
+.metricCard::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 6px;
+  border-top-left-radius: 12px;
+  border-bottom-left-radius: 12px;
+  background: linear-gradient(180deg, rgba(0,0,0,0.06), rgba(0,0,0,0.02));
+  transform-origin: left center;
+}
+
+/* icon circle in the top-right of card */
+.metricIcon {
+  position: absolute;
+  right: 12px;
+  top: 12px;
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  display: grid;
+  place-items: center;
+  background: linear-gradient(135deg, rgba(255,255,255,0.03), rgba(0,0,0,0.02));
+  border: 1px solid rgba(255,255,255,0.03);
+  box-shadow: 0 1px 0 rgba(0,0,0,0.04) inset;
+}
+
+/* text styles inside metric card */
+.metricTitle { color: var(--muted); font-size: 13px; font-weight: 700; }
+.metricValue { font-weight: 800; font-size: 26px; line-height: 1; margin-top: 8px; }
+.metricSubtitle { color: var(--muted); font-size: 13px; margin-top: 2px; }
+
+/* hover + focus effects (subtle raise, shadow, border tint) */
+.metricCard:hover,
+.metricCard:focus-within {
+  transform: translateY(-6px);
+  box-shadow: 0 12px 30px rgba(11,15,20,0.06);
+  border-color: rgba(38,132,255,0.12);
+}
+
+/* colored clip variants (you can add more if required) */
+.metricCard.accent-blue::before { background: linear-gradient(180deg,#60a5fa,#2563eb); }
+.metricCard.accent-green::before { background: linear-gradient(180deg,#34d399,#10b981); }
+.metricCard.accent-red::before { background: linear-gradient(180deg,#ff9a9e,#f43f5e); }
+.metricCard.accent-purple::before { background: linear-gradient(180deg,#c084fc,#7c3aed); }
+.metricCard.accent-yellow::before { background: linear-gradient(180deg,#ffdd9a,#f59e0b); }
+
+/* small responsive tweaks */
+@media (max-width: 1100px) {
+  .profileGrid { grid-template-columns: repeat(2, minmax(0,1fr)); }
+}
+@media (max-width: 520px) {
+  .profileGrid { grid-template-columns: 1fr; }
+  .metricIcon { right: 10px; top: 10px; width: 32px; height: 32px; }
+}
+
+/* ---------- Recent activity card hover / item styles ---------- */
+.activityCard {
+  margin-top: 18px;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  background: var(--panel);
+  padding: 16px;
+  transition: box-shadow 200ms ease, transform 200ms ease;
+}
+
+.activityCard:hover {
+  box-shadow: 0 12px 30px rgba(11,15,20,0.04);
+  transform: translateY(-3px);
+}
+
+.activityList { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.activityItem {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  padding: 12px;
+  border-radius: 8px;
+  transition: background 160ms ease, transform 160ms ease;
+}
+.activityItem:hover {
+  background: rgba(0,0,0,0.02);
+  transform: translateY(-2px);
+}
+.activityDot { width: 10px; height: 10px; border-radius: 50%; display:inline-block; margin-right: 8px; flex: 0 0 10px; }
+
+/* small utility to make cards look lighter in light theme */
+[data-theme="light"] .metricCard { background: var(--panel); }

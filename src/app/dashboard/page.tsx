@@ -706,72 +706,126 @@ export default function DashboardPage() {
           </div>
         )}
 
-        <div className={styles.profileGrid}>
-          <div className={styles.metricCard}>
-            <div className={styles.metricTitle}>Estimated Time</div>
-            <div className={styles.metricValue}>{est.toFixed(1)}h</div>
-            <div className={styles.metricSubtitle}>This week</div>
+              <div className={styles.profileGrid}>
+        <div className={`${styles.metricCard} accent-blue`}>
+          <div className={styles.metricIcon} aria-hidden>
+            {/* clock svg */}
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M12 7V12L15 14" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"/>
+              <circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="1.6"/>
+            </svg>
           </div>
-
-          <div className={styles.metricCard}>
-            <div className={styles.metricTitle}>Tracked Time</div>
-            <div className={styles.metricValue}>{tracked.toFixed(1)}h</div>
-            <div className={styles.metricSubtitle}>This week</div>
-          </div>
-
-          <div className={styles.metricCard}>
-            <div className={styles.metricTitle}>Difference</div>
-            <div className={styles.metricValue} style={{ color: delta < 0 ? "var(--warn)" : "var(--primary-2)" }}>
-              {delta >= 0 ? `+${delta.toFixed(1)}h` : `${delta.toFixed(1)}h`}
-            </div>
-            <div className={styles.metricSubtitle}>{delta < 0 ? "Under estimation" : "Over estimation"}</div>
-          </div>
-
-          <div className={styles.metricCard}>
-            <div className={styles.metricTitle}>Efficiency Rate</div>
-            <div className={styles.metricValue}>{efficiency}%</div>
-            <div className={styles.metricSubtitle}>Tracked vs Estimated</div>
-          </div>
-
-          <div className={styles.metricCard}>
-            <div className={styles.metricTitle}>Active Projects</div>
-            <div className={styles.metricValue}>{activeProjects}</div>
-            <div className={styles.metricSubtitle}>Currently working on</div>
-          </div>
-
-          <div className={styles.metricCard}>
-            <div className={styles.metricTitle}>Overtime</div>
-            <div className={styles.metricValue}>{overtime.toFixed(1)}h</div>
-            <div className={styles.metricSubtitle}>This week</div>
-          </div>
-
-          <div className={styles.metricCard}>
-            <div className={styles.metricTitle}>Avg. Daily Hours</div>
-            <div className={styles.metricValue}>{avgDaily.toFixed(1)}h</div>
-            <div className={styles.metricSubtitle}>This week</div>
-          </div>
-
-          <div className={styles.metricCard}>
-            <div className={styles.metricTitle}>Completion Rate</div>
-            <div className={styles.metricValue}>{completionRate}%</div>
-            <div className={styles.metricSubtitle}>Tasks completed</div>
-          </div>
+          <div className={styles.metricTitle}>Estimated Time</div>
+          <div className={styles.metricValue}>{est.toFixed(1)}h</div>
+          <div className={styles.metricSubtitle}>This week</div>
         </div>
 
-        <div className={styles.activityCard}>
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
-            <div style={{ fontWeight: 800 }}>Recent Activity</div>
-            <div style={{ color: "var(--muted)", fontSize: 13 }}>{/* optional right text */}</div>
+        <div className={`${styles.metricCard} accent-green`}>
+          <div className={styles.metricIcon} aria-hidden>
+            {/* check mark */}
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+              <path d="M20 6L9 17L4 12" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"/>
+            </svg>
           </div>
+          <div className={styles.metricTitle}>Tracked Time</div>
+          <div className={styles.metricValue}>{tracked.toFixed(1)}h</div>
+          <div className={styles.metricSubtitle}>This week</div>
+        </div>
 
-          <ul className={styles.activityList}>
-            {recent.map((it, idx) => (
-              <li key={idx} className={styles.activityItem}>
-                <span className={styles.activityDot} aria-hidden style={{ background: `hsl(${(idx*70)%360} 70% 60%)` }} />
-                <span style={{ flex: 1 }}>{it.text}</span>
-                <span style={{ color: "var(--muted)", fontSize: 13, marginLeft: 12 }}>{it.when}</span>
-              </li>
-            ))}
+        <div className={`${styles.metricCard} accent-red`}>
+          <div className={styles.metricIcon} aria-hidden>
+            {/* arrow down / delta */}
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+              <path d="M21 15V21H15" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"/>
+              <path d="M3 10L12 21L21 10" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"/>
+            </svg>
+          </div>
+          <div className={styles.metricTitle}>Difference</div>
+          <div className={styles.metricValue} style={{ color: delta < 0 ? "var(--warn)" : "var(--primary-2)" }}>
+            {delta >= 0 ? `+${delta.toFixed(1)}h` : `${delta.toFixed(1)}h`}
+          </div>
+          <div className={styles.metricSubtitle}>{delta < 0 ? "Under estimation" : "Over estimation"}</div>
+        </div>
+
+        <div className={`${styles.metricCard} accent-purple`}>
+          <div className={styles.metricIcon} aria-hidden>
+            {/* analytics bar icon */}
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+              <rect x="3" y="12" width="3" height="8" rx="1" stroke="currentColor" strokeWidth="1.6"/>
+              <rect x="9" y="8" width="3" height="12" rx="1" stroke="currentColor" strokeWidth="1.6"/>
+              <rect x="15" y="4" width="3" height="16" rx="1" stroke="currentColor" strokeWidth="1.6"/>
+            </svg>
+          </div>
+          <div className={styles.metricTitle}>Efficiency Rate</div>
+          <div className={styles.metricValue}>{efficiency}%</div>
+          <div className={styles.metricSubtitle}>Tracked vs Estimated</div>
+        </div>
+
+        <div className={`${styles.metricCard} accent-yellow`}>
+          <div className={styles.metricIcon} aria-hidden>
+            {/* folder icon */}
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+              <path d="M3 7H9L11 9H21V19C21 20.1 20.1 21 19 21H5C3.9 21 3 20.1 3 19V7Z" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"/>
+            </svg>
+          </div>
+          <div className={styles.metricTitle}>Active Projects</div>
+          <div className={styles.metricValue}>{activeProjects}</div>
+          <div className={styles.metricSubtitle}>Currently working on</div>
+        </div>
+
+        <div className={`${styles.metricCard} accent-blue`}>
+          <div className={styles.metricIcon} aria-hidden>
+            {/* moon / overtime */}
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+              <path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"/>
+            </svg>
+          </div>
+          <div className={styles.metricTitle}>Overtime</div>
+          <div className={styles.metricValue}>{overtime.toFixed(1)}h</div>
+          <div className={styles.metricSubtitle}>This week</div>
+        </div>
+
+        <div className={`${styles.metricCard} accent-green`}>
+          <div className={styles.metricIcon} aria-hidden>
+            {/* calendar */}
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+              <rect x="3" y="4" width="18" height="18" rx="2" stroke="currentColor" strokeWidth="1.6"/>
+              <path d="M16 2V6" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round"/>
+            </svg>
+          </div>
+          <div className={styles.metricTitle}>Avg. Daily Hours</div>
+          <div className={styles.metricValue}>{avgDaily.toFixed(1)}h</div>
+          <div className={styles.metricSubtitle}>This week</div>
+        </div>
+
+        <div className={`${styles.metricCard} accent-purple`}>
+          <div className={styles.metricIcon} aria-hidden>
+            {/* target */}
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+              <circle cx="12" cy="12" r="3" stroke="currentColor" strokeWidth="1.6"/>
+              <circle cx="12" cy="12" r="6" stroke="currentColor" strokeWidth="1.6"/>
+            </svg>
+          </div>
+          <div className={styles.metricTitle}>Completion Rate</div>
+          <div className={styles.metricValue}>{completionRate}%</div>
+          <div className={styles.metricSubtitle}>Tasks completed</div>
+        </div>
+      </div>
+
+      <div className={styles.activityCard}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
+          <div style={{ fontWeight: 800 }}>Recent Activity</div>
+          <div style={{ color: "var(--muted)", fontSize: 13 }}>{/* optional right text */}</div>
+        </div>
+
+        <ul className={styles.activityList}>
+          {recent.map((it, idx) => (
+            <li key={idx} className={styles.activityItem}>
+              <span className={styles.activityDot} aria-hidden style={{ background: `hsl(${(idx*70)%360} 70% 50%)` }} />
+              <span style={{ flex: 1 }}>{it.text}</span>
+              <span style={{ color: "var(--muted)", fontSize: 13, marginLeft: 12 }}>{it.when}</span>
+            </li>
+          ))}
         </ul>
       </div>
     </section>
