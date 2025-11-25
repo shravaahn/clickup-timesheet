@@ -55,18 +55,37 @@ export default function ThemeSwitch({ className }: { className?: string }) {
         display: "inline-flex",
         alignItems: "center",
         justifyContent: "space-between",
-        width: 50,
-        height: 28,
-        padding: 2,
-        borderRadius: 20,
-        border: "2px solid var(--border)",
+        width: 60,
+        height: 32,
+        padding: "4px 6px",
+        borderRadius: 24,
+        border: "none",
         background: "var(--panel)",
+        boxShadow: "inset 0 2px 4px rgba(0,0,0,0.1)",
         cursor: "pointer",
         transition: "background 0.3s ease",
       }}
     >
-      <span style={{ fontSize: 14, marginLeft: theme === "light" ? 2 : 0 }}>☀️</span>
-      <span style={{ fontSize: 14, marginRight: theme === "dark" ? 2 : 0 }}>🌙</span>
+      <span
+        style={{
+          fontSize: 18,
+          opacity: theme === "light" ? 1 : 0.4,
+          transform: theme === "light" ? "scale(1)" : "scale(0.8)",
+          transition: "opacity 0.3s ease, transform 0.3s ease",
+        }}
+      >
+        ☀️
+      </span>
+      <span
+        style={{
+          fontSize: 18,
+          opacity: theme === "dark" ? 1 : 0.4,
+          transform: theme === "dark" ? "scale(1)" : "scale(0.8)",
+          transition: "opacity 0.3s ease, transform 0.3s ease",
+        }}
+      >
+        🌙
+      </span>
     </button>
   );
 }
