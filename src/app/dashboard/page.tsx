@@ -843,10 +843,10 @@ function ProfileSection() {
             <TabHeader tab={activeTab} />
 
             {activeTab === "analytics" ? (
-              <div style={{ marginTop: 12 }}>{AnalyticsSection()}</div>
-            ) : activeTab === "profile" ? (
-              <div style={{ marginTop: 12 }}>{ProfileSection()}</div>
-            ) : (
+              <div style={{ marginTop: 12 }}><AnalyticsSection /></div>
+              ) : activeTab === "profile" ? (
+              <div style={{ marginTop: 12 }}><ProfileSection /></div>
+          ) : (
               <>
                 <div className="w-full rounded-lg border bg-[var(--panel)] border-[var(--border)] px-3 py-2 mb-3">
                   <div className="flex items-center justify-between gap-3">
