@@ -328,3 +328,64 @@
 .activityList { list-style: none; padding: 0; margin: 0; }
 .activityItem { display: flex; gap: 12px; align-items: center; padding: 10px 0; border-bottom: 1px solid var(--border); }
 .activityDot { width: 10px; height: 10px; border-radius: 999px; display: inline-block; margin-right: 8px; }
+
+/* Add these classes to the existing Dashboard.module.css (append or merge) */
+
+/* PROFILE / KPI GRID */
+.profileGrid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+  margin-bottom: 12px;
+}
+@media (max-width: 900px) {
+  .profileGrid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 520px) {
+  .profileGrid { grid-template-columns: 1fr; }
+}
+
+.metricCard {
+  border: 1px solid var(--border);
+  background: var(--panel);
+  border-radius: 12px;
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-height: 84px;
+}
+.metricTitle { color: var(--muted); font-size: 13px; font-weight: 700; }
+.metricValue { font-weight: 800; font-size: 24px; }
+.metricSubtitle { color: var(--muted); font-size: 13px; }
+
+/* activity card below KPI grid */
+.activityCard {
+  margin-top: 12px;
+  border: 1px solid var(--border);
+  background: var(--panel);
+  border-radius: 12px;
+  padding: 12px;
+}
+.activityList { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
+.activityItem { display: flex; align-items: center; gap: 12px; padding: 8px 6px; border-radius: 8px; }
+.activityDot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; flex: 0 0 10px; }
+
+/* charts grid used by AnalyticsSection */
+.chartsGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  margin-top: 10px;
+}
+@media (max-width: 900px) {
+  .chartsGrid { grid-template-columns: 1fr; }
+}
+
+/* reused card + chart sizing (small spacing tweaks) */
+.chartCard { border: 1px solid var(--border); border-radius: 12px; background: var(--panel); padding: 12px; min-height: 320px; }
+.chartTitle { display:flex; gap:8px; align-items:center; font-weight:700; margin-bottom: 8px; }
+.chartSvg { width: 100%; height: 100%; display: block; }
+
+/* small helper for select sizing inside admin controls */
+.selectWide { min-width: 240px; }

@@ -1,4 +1,3 @@
-// src/app/dashboard/page.tsx
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
@@ -61,10 +60,10 @@ const sumNullable = (arr: (number | null)[]) =>
 
 /** ---- chart stubs (SVG, no deps) ---- */
 function BarsVertical({
-  labels, a, b, titleA = "Est", titleB = "Tracked",
-}: { labels: string[]; a: number[]; b: number[]; titleA?: string; titleB?: string }) {
+  labels = ["Mon","Tue","Wed","Thu","Fri"], a = [0,0,0,0,0], b = [0,0,0,0,0], titleA = "Est", titleB = "Tracked",
+}: { labels?: string[]; a?: number[]; b?: number[]; titleA?: string; titleB?: string }) {
   const H = 220, pad = 26, W = Math.max(340, labels.length * 92);
-  const maxVal = Math.max(1, ...a, ...b) * 1.2;
+  const maxVal = Math.max(1, ...(a.length ? a : [0]), ...(b.length ? b : [0])) * 1.2;
   const y = (v: number) => H - pad - (v / maxVal) * (H - pad - 30);
   const band = (W - pad * 2) / labels.length;
   return (
@@ -76,10 +75,12 @@ function BarsVertical({
         const bw = Math.min(28, band/3);
         const xA = x0 + band/2 - bw - 3;
         const xB = x0 + band/2 + 3;
+        const va = a[i] ?? 0;
+        const vb = b[i] ?? 0;
         return (
           <g key={i}>
-            <rect x={xA} y={y(a[i])} width={bw} height={H-pad - y(a[i])} className={styles.barA}/>
-            <rect x={xB} y={y(b[i])} width={bw} height={H-pad - y(b[i])} className={styles.barB}/>
+            <rect x={xA} y={y(va)} width={bw} height={H-pad - y(va)} className={styles.barA}/>
+            <rect x={xB} y={y(vb)} width={bw} height={H-pad - y(vb)} className={styles.barB}/>
             <text x={x0 + band/2} y={H-8} className={styles.chartX} textAnchor="middle">{labels[i]}</text>
           </g>
         );
@@ -93,11 +94,11 @@ function BarsVertical({
 }
 
 function BarsHorizontal({
-  labels, a, b, titleA="Est", titleB="Tracked", maxBars=8,
-}: { labels: string[]; a: number[]; b: number[]; titleA?: string; titleB?: string; maxBars?: number }) {
-  const rows = labels.map((name, i) => ({ name, a: a[i] || 0, b: b[i] || 0 }))
+  labels = [], a = [], b = [], titleA="Est", titleB="Tracked", maxBars=8,
+}: { labels?: string[]; a?: number[]; b?: number[]; titleA?: string; titleB?: string; maxBars?: number }) {
+  const rows = (labels.map((name, i) => ({ name, a: a[i] || 0, b: b[i] || 0 }))
     .sort((x,y)=> (y.b - y.a) - (x.b - x.a))
-    .slice(0, maxBars);
+    .slice(0, maxBars));
   const ROW_H = 40;
   const H = Math.max(180, rows.length * ROW_H + 60);
   const W = 680, pad = 26;
@@ -128,7 +129,7 @@ function BarsHorizontal({
 /** ---- data state ---- */
 type TRACK_NOTE = string;
 const TRACK_TYPES = [
-  "Billable | Meeting","Billable | Builds","Billable | Client Correspondence","PTO","Holiday",
+  "billable | Meeting","billable | Builds","billable | Client Correspondence","PTO","Holiday",
   "Non Billable | Internal Team Meeting","Non Billable | Internal Projects","Non Billable | L&D",
   "Non Billable | PreSales/Sales","Non Billable | Client Research","Non Billable | Partner Engagement",
 ];
@@ -574,263 +575,211 @@ export default function DashboardPage() {
 
   /* ---------- render ---------- */
 
-  /* Analytics content (replaced: now similar to Profile section with admin selectors) */
-function AnalyticsSection() {
-  // local selection for analytics (admins can pick any consultant and any week)
-  const [analyticsUserId, setAnalyticsUserId] = useState<string | null>(isAdmin ? (members[0]?.id ?? null) : selectedUserId);
-  const [analyticsWeekStart, setAnalyticsWeekStart] = useState<string>(ymd(weekStart));
+  // Analytics content: KPI cards + charts; admin gets consultant/week selectors
+  function AnalyticsSection() {
+    // derive a few KPI numbers (placeholder: use totals + overview)
+    const totalTracked = totals.sumTracked;
+    const totalEst = totals.sumEst;
+    const nonBillable = Math.max(0, totalTracked * 0.2); // placeholder
+    const efficiency = totalEst > 0 ? Math.round((totalTracked / totalEst) * 1000) / 10 : 0;
 
-  // compute basic KPIs from the same totals (you can replace with server-driven analytics later)
-  // For now derive from rows if same consultant is selected
-  const shownTotals = useMemo(() => {
-    // if admin picks a different user than currently loaded, we don't have server data yet.
-    // For now we keep using totals for the currently loaded consultant to avoid extra API calls.
-    return totals;
-  }, [totals]);
+    // prepare simple chart arrays from totals.dayTracked
+    const labels = ["Mon","Tue","Wed","Thu","Fri"];
+    const trackedArr = totals.dayTracked.map(clamp2);
+    const estArr = [0,0,0,0,0]; // we don't have per-day ests; keep zeros
 
-  // charts data placeholders
-  const labels = ["Mon","Tue","Wed","Thu","Fri"];
-  const a = [0,0,0,0,0].map(clamp2);
-  const b = shownTotals.dayTracked.map(clamp2);
+    return (
+      <section className={styles.card}>
+        <div style={{ display: "flex", gap: 12, alignItems: "center", marginBottom: 12, flexWrap: "wrap" }}>
+          {isAdmin && (
+            <>
+              <label className={styles.selectorLabel}>Consultant:</label>
+              <select className={styles.selectWide} value={selectedUserId ?? ""} onChange={(e)=> setSelectedUserId(e.target.value)}>
+                {(members || []).map(m => <option key={m.id} value={m.id}>{m.username || m.email}</option>)}
+              </select>
 
-  return (
-    <section className={styles.card}>
-      <div style={{ display: "flex", gap: 12, alignItems: "center", marginBottom: 12 }}>
-        {/* admin-only consultant and week selectors for analytics */}
+              <label className={styles.selectorLabel} style={{ marginLeft: 8 }}>Week:</label>
+              <select className={styles.selectWide} value={String(selectedWeekIdx)} onChange={(e)=> onChangeWeek(e.target.value)}>
+                {monthWeeks.map((w, i) => <option key={i} value={String(i)}>{`Week ${i+1}: ${w.label}`}</option>)}
+              </select>
+            </>
+          )}
+
+          <div style={{ marginLeft: "auto", display: "flex", gap: 8 }}>
+            <button className={styles.btn} onClick={()=> { setWeekStart(d=> addDays(d,-7)); }}>◀ Prev</button>
+            <button className={styles.btn} onClick={()=> setWeekStart(startOfWeek())}>This Week</button>
+            <button className={styles.btn} onClick={()=> { setWeekStart(d=> addDays(d,7)); }}>Next ▶</button>
+          </div>
+        </div>
+
+        <div className={styles.cardsRow} style={{ marginBottom: 12 }}>
+          <div className={styles.statCard}>
+            <div className={styles.statLabel}>Total Tracked Time</div>
+            <div className={styles.statValue}>{totalTracked.toFixed(2)}h</div>
+            <div className={styles.help}>Weekly total for selected consultant</div>
+          </div>
+          <div className={styles.statCard}>
+            <div className={styles.statLabel}>Billable Hours</div>
+            <div className={styles.statValue}>{(totalTracked*0.8).toFixed(2)}h</div>
+            <div className={styles.help}>Estimated billable portion (placeholder)</div>
+          </div>
+          <div className={styles.statCard}>
+            <div className={styles.statLabel}>Non-Billable Hours</div>
+            <div className={styles.statValue}>{nonBillable.toFixed(2)}h</div>
+            <div className={styles.help}>Placeholder</div>
+          </div>
+          <div className={styles.statCard}>
+            <div className={styles.statLabel}>Efficiency Rate</div>
+            <div className={styles.statValue}>{efficiency}%</div>
+            <div className={styles.help}>Tracked vs Estimated</div>
+          </div>
+        </div>
+
+        <div className={styles.chartsGrid}>
+          <div className={styles.chartCard}>
+            <div className={styles.chartTitle}>Daily Totals (Week)</div>
+            <BarsVertical labels={labels} a={estArr} b={trackedArr} titleA="Est" titleB="Tracked"/>
+          </div>
+
+          <div className={styles.chartCard}>
+            <div className={styles.chartTitle}>Consultants (Est vs Tracked) — Selected Week</div>
+            {overviewResolved.length === 0 ? (
+              <div className="text-sm text-[var(--muted)]">No data for this week.</div>
+            ) : (
+              <BarsHorizontal labels={overviewResolved.map(r=>r.name)} a={overviewResolved.map(r=>r.est)} b={overviewResolved.map(r=>r.tracked)} />
+            )}
+          </div>
+
+          <div className={styles.chartCard}>
+            <div className={styles.chartTitle}>Project Distribution (sample)</div>
+            <div style={{ height: 260, display: "flex", alignItems: "center", justifyContent: "center", color: "var(--muted)" }}>
+              {/* Placeholder area: you can plug in a real chart lib later */}
+              <div>No detailed project chart available</div>
+            </div>
+          </div>
+
+          <div className={styles.chartCard}>
+            <div className={styles.chartTitle}>Weekly Productivity</div>
+            <div style={{ height: 260, display: "flex", alignItems: "center", justifyContent: "center", color: "var(--muted)" }}>
+              <div>Radar/line chart placeholder</div>
+            </div>
+          </div>
+        </div>
+      </section>
+    );
+  }
+
+  // Profile content
+  function ProfileSection() {
+    // derive some KPI values
+    const est = totals.sumEst ?? 0;
+    const tracked = totals.sumTracked ?? 0;
+    const delta = totals.delta ?? 0;
+    const efficiency = est > 0 ? Math.round((tracked / est) * 1000) / 10 : (tracked > 0 ? 100 : 0);
+    const activeProjects = projects.length || 0;
+    const overtime = Math.max(0, tracked - 40);
+    const avgDaily = tracked > 0 ? Math.round((tracked / 5) * 10) / 10 : 0;
+    const completionRate = 92;
+
+    const recent = overviewRows.slice(0, 5).map(r => ({
+      text: r.name && r.tracked ? `Tracked ${r.tracked}h — ${r.name}` : `Updated: ${r.name}`,
+      when: r.tracked ? `${Math.round(r.tracked)}h` : "recent"
+    }));
+    if (recent.length === 0) {
+      recent.push(
+        { text: "Started tracking: Project Alpha", when: "2 hours ago" },
+        { text: "Completed: Task Review", when: "4 hours ago" },
+        { text: "Updated time estimate", when: "6 hours ago" }
+      );
+    }
+
+    return (
+      <section className={styles.card}>
         {isAdmin && (
-          <>
-            <label className={styles.selectorLabel} style={{ marginRight: 6 }}>Consultant:</label>
-            <select
-              className={styles.selectWide}
-              value={analyticsUserId ?? ""}
-              onChange={(e) => setAnalyticsUserId(e.target.value || null)}
-            >
+          <div style={{ display: "flex", gap: 8, marginBottom: 12, alignItems: "center", flexWrap: "wrap" }}>
+            <label className={styles.selectorLabel}>Consultant:</label>
+            <select className={styles.selectWide} value={selectedUserId ?? ""} onChange={(e)=> setSelectedUserId(e.target.value)}>
               {(members || []).map(m => <option key={m.id} value={m.id}>{m.username || m.email}</option>)}
             </select>
 
-            <div style={{ width: 8 }} />
-
-            <label className={styles.selectorLabel} style={{ marginRight: 6 }}>Week:</label>
-            <select
-              className={styles.selectWide}
-              value={analyticsWeekStart}
-              onChange={(e) => setAnalyticsWeekStart(e.target.value)}
-            >
-              {monthWeeks.map((w, i) => <option key={i} value={ymd(w.start)}>{`Week ${i+1}: ${w.label}`}</option>)}
+            <label className={styles.selectorLabel}>Week:</label>
+            <select className={styles.selectWide} value={String(selectedWeekIdx)} onChange={(e)=> onChangeWeek(e.target.value)}>
+              {monthWeeks.map((w, i) => <option key={i} value={String(i)}>{`Week ${i+1}: ${w.label}`}</option>)}
             </select>
-          </>
-        )}
-
-        {/* non-admin view: just show week */}
-        {!isAdmin && (
-          <>
-            <label className={styles.selectorLabel} style={{ marginRight: 6 }}>Week:</label>
-            <select className={styles.selectWide} value={ymd(weekStart)} onChange={(e)=> onChangeWeek(String(Number(e.target.value)))}>
-              {monthWeeks.map((w, i) => <option key={i} value={ymd(w.start)}>{`Week ${i+1}: ${w.label}`}</option>)}
-            </select>
-          </>
-        )}
-
-        <div style={{ marginLeft: "auto" }}>
-          <ThemeSwitch />
-        </div>
-      </div>
-
-      {/* KPI cards row (similar to Profile) */}
-      <div className={styles.cardsRow} style={{ marginBottom: 12 }}>
-        <div className={styles.statCard}>
-          <div className={styles.statLabel}>Total Tracked Time</div>
-          <div className={styles.statValue}>{shownTotals.sumTracked.toFixed(2)}h</div>
-        </div>
-        <div className={styles.statCard}>
-          <div className={styles.statLabel}>Weekly Estimate</div>
-          <div className={styles.statValue}>{shownTotals.sumEst.toFixed(2)}h</div>
-        </div>
-        <div className={styles.statCard}>
-          <div className={styles.statLabel}>Δ Tracked – Est</div>
-          <div className={styles.statValue}>{shownTotals.delta.toFixed(2)}h</div>
-        </div>
-      </div>
-
-      {/* Charts area: two columns */}
-      <div className={styles.chartsRow}>
-        <div className={styles.chartCard} style={{ minHeight: 300 }}>
-          <div className={styles.chartTitle}>Daily Totals (Week)</div>
-          <BarsVertical labels={labels} a={a} b={b} titleA="Est (per day N/A)" titleB="Tracked" />
-        </div>
-
-        <div className={styles.chartCard} style={{ minHeight: 300 }}>
-          <div className={styles.chartTitle}>Consultants (Est vs Tracked)</div>
-          {overviewResolved.length === 0 ? (
-            <div style={{ color: "var(--muted)" }}>No data for this week.</div>
-          ) : (
-            <BarsHorizontal labels={overviewResolved.map(r=>r.name)} a={overviewResolved.map(r=>r.est)} b={overviewResolved.map(r=>r.tracked)} />
-          )}
-        </div>
-      </div>
-
-      {/* optional lower content placeholder for table / details */}
-      <div style={{ marginTop: 12 }} className={styles.card}>
-        <div style={{ fontWeight: 700, marginBottom: 8 }}>Detailed Time Breakdown</div>
-        <div style={{ color: "var(--muted)" }}>Replace with your table or extra charts as needed.</div>
-      </div>
-    </section>
-  );
-}
-
-  // Profile content
-  // Replace the whole ProfileSection function with this
-function ProfileSection() {
-  // derive some KPI values
-  const est = totals.sumEst ?? 0;
-  const tracked = totals.sumTracked ?? 0;
-  const delta = totals.delta ?? 0;
-  const efficiency = est > 0 ? Math.round((tracked / est) * 1000) / 10 : (tracked > 0 ? 100 : 0);
-  const activeProjects = projects.length || 0;
-  // simple overtime assumption (if over 40h/week)
-  const overtime = Math.max(0, tracked - 40);
-  const avgDaily = tracked > 0 ? Math.round((tracked / 5) * 10) / 10 : 0;
-  const completionRate = 92; // placeholder - if you have real value, wire it here
-
-  // small recent activity stub - you can replace with real events (overviewRows or server data)
-  const recent = overviewRows.slice(0, 5).map(r => ({
-    text: r.name && r.tracked ? `Tracked ${r.tracked}h — ${r.name}` : `Updated: ${r.name}`,
-    when: r.tracked ? `${Math.round(r.tracked)}h` : "recent"
-  }));
-  // if overviewRows empty, provide friendly placeholders
-  if (recent.length === 0) {
-    recent.push(
-      { text: "Started tracking: Project Alpha", when: "2 hours ago" },
-      { text: "Completed: Task Review", when: "4 hours ago" },
-      { text: "Updated time estimate", when: "6 hours ago" }
-    );
-  }
-
-  // Helper: render admin controls (consultant + week selector)
-  function AdminControls() {
-    if (!isAdmin) return null;
-    return (
-      <div style={{ display: "flex", gap: 12, alignItems: "center", marginBottom: 12, flexWrap: "wrap" }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-          <label className={styles.selectorLabel}>Consultant:</label>
-          <select
-            className={styles.select}
-            value={selectedUserId ?? ""}
-            onChange={(e) => {
-              const newId = e.target.value || null;
-              setSelectedUserId(newId);
-              // keep addAssignee in sync
-              if (newId) setAddAssignee(newId);
-            }}
-          >
-            {(members || []).map(m => (
-              <option key={m.id} value={m.id}>{m.username || m.email}</option>
-            ))}
-          </select>
-        </div>
-
-        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-          <label className={styles.selectorLabel}>Week:</label>
-          <select
-            className={styles.select}
-            value={String(selectedWeekIdx)}
-            onChange={(e) => {
-              const idx = Number(e.target.value);
-              setSelectedWeekIdx(idx);
-              const w = monthWeeks[idx];
-              if (w) setWeekStart(w.start);
-            }}
-          >
-            {monthWeeks.map((w, i) => (
-              <option key={i} value={String(i)}>{`Week ${i+1}: ${w.label}`}</option>
-            ))}
-          </select>
-        </div>
-
-        <div style={{ marginLeft: "auto" }}>
-          <button className={styles.btn} onClick={() => setWeekStart(startOfWeek())}>This Week</button>
-        </div>
-      </div>
-    );
-  }
-
-  return (
-    <section className={styles.card}>
-      {/* admin-only consultant + week controls */}
-      <AdminControls />
-
-      <div className={styles.profileGrid}>
-        <div className={styles.metricCard}>
-          <div className={styles.metricTitle}>Estimated Time</div>
-          <div className={styles.metricValue}>{est.toFixed(1)}h</div>
-          <div className={styles.metricSubtitle}>This week</div>
-        </div>
-
-        <div className={styles.metricCard}>
-          <div className={styles.metricTitle}>Tracked Time</div>
-          <div className={styles.metricValue}>{tracked.toFixed(1)}h</div>
-          <div className={styles.metricSubtitle}>This week</div>
-        </div>
-
-        <div className={styles.metricCard}>
-          <div className={styles.metricTitle}>Difference</div>
-          <div className={styles.metricValue} style={{ color: delta < 0 ? "var(--warn)" : "var(--primary-2)" }}>
-            {delta >= 0 ? `+${delta.toFixed(1)}h` : `${delta.toFixed(1)}h`}
           </div>
-          <div className={styles.metricSubtitle}>{delta < 0 ? "Under estimation" : "Over estimation"}</div>
+        )}
+
+        <div className={styles.profileGrid}>
+          <div className={styles.metricCard}>
+            <div className={styles.metricTitle}>Estimated Time</div>
+            <div className={styles.metricValue}>{est.toFixed(1)}h</div>
+            <div className={styles.metricSubtitle}>This week</div>
+          </div>
+
+          <div className={styles.metricCard}>
+            <div className={styles.metricTitle}>Tracked Time</div>
+            <div className={styles.metricValue}>{tracked.toFixed(1)}h</div>
+            <div className={styles.metricSubtitle}>This week</div>
+          </div>
+
+          <div className={styles.metricCard}>
+            <div className={styles.metricTitle}>Difference</div>
+            <div className={styles.metricValue} style={{ color: delta < 0 ? "var(--warn)" : "var(--primary-2)" }}>
+              {delta >= 0 ? `+${delta.toFixed(1)}h` : `${delta.toFixed(1)}h`}
+            </div>
+            <div className={styles.metricSubtitle}>{delta < 0 ? "Under estimation" : "Over estimation"}</div>
+          </div>
+
+          <div className={styles.metricCard}>
+            <div className={styles.metricTitle}>Efficiency Rate</div>
+            <div className={styles.metricValue}>{efficiency}%</div>
+            <div className={styles.metricSubtitle}>Tracked vs Estimated</div>
+          </div>
+
+          <div className={styles.metricCard}>
+            <div className={styles.metricTitle}>Active Projects</div>
+            <div className={styles.metricValue}>{activeProjects}</div>
+            <div className={styles.metricSubtitle}>Currently working on</div>
+          </div>
+
+          <div className={styles.metricCard}>
+            <div className={styles.metricTitle}>Overtime</div>
+            <div className={styles.metricValue}>{overtime.toFixed(1)}h</div>
+            <div className={styles.metricSubtitle}>This week</div>
+          </div>
+
+          <div className={styles.metricCard}>
+            <div className={styles.metricTitle}>Avg. Daily Hours</div>
+            <div className={styles.metricValue}>{avgDaily.toFixed(1)}h</div>
+            <div className={styles.metricSubtitle}>This week</div>
+          </div>
+
+          <div className={styles.metricCard}>
+            <div className={styles.metricTitle}>Completion Rate</div>
+            <div className={styles.metricValue}>{completionRate}%</div>
+            <div className={styles.metricSubtitle}>Tasks completed</div>
+          </div>
         </div>
 
-        <div className={styles.metricCard}>
-          <div className={styles.metricTitle}>Efficiency Rate</div>
-          <div className={styles.metricValue}>{efficiency}%</div>
-          <div className={styles.metricSubtitle}>Tracked vs Estimated</div>
-        </div>
+        <div className={styles.activityCard}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
+            <div style={{ fontWeight: 800 }}>Recent Activity</div>
+            <div style={{ color: "var(--muted)", fontSize: 13 }}>{/* optional right text */}</div>
+          </div>
 
-        <div className={styles.metricCard}>
-          <div className={styles.metricTitle}>Active Projects</div>
-          <div className={styles.metricValue}>{activeProjects}</div>
-          <div className={styles.metricSubtitle}>Currently working on</div>
-        </div>
-
-        <div className={styles.metricCard}>
-          <div className={styles.metricTitle}>Overtime</div>
-          <div className={styles.metricValue}>{overtime.toFixed(1)}h</div>
-          <div className={styles.metricSubtitle}>This week</div>
-        </div>
-
-        <div className={styles.metricCard}>
-          <div className={styles.metricTitle}>Avg. Daily Hours</div>
-          <div className={styles.metricValue}>{avgDaily.toFixed(1)}h</div>
-          <div className={styles.metricSubtitle}>This week</div>
-        </div>
-
-        <div className={styles.metricCard}>
-          <div className={styles.metricTitle}>Completion Rate</div>
-          <div className={styles.metricValue}>{completionRate}%</div>
-          <div className={styles.metricSubtitle}>Tasks completed</div>
-        </div>
-      </div>
-
-      <div className={styles.activityCard}>
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
-          <div style={{ fontWeight: 800 }}>Recent Activity</div>
-          <div style={{ color: "var(--muted)", fontSize: 13 }}>{/* optional right text */}</div>
-        </div>
-
-        <ul className={styles.activityList}>
-          {recent.map((it, idx) => (
-            <li key={idx} className={styles.activityItem}>
-              <span className={styles.activityDot} aria-hidden style={{ background: `hsl(${(idx*70)%360} 70% 60%)` }} />
-              <span style={{ flex: 1 }}>{it.text}</span>
-              <span style={{ color: "var(--muted)", fontSize: 13, marginLeft: 12 }}>{it.when}</span>
-            </li>
-          ))}
+          <ul className={styles.activityList}>
+            {recent.map((it, idx) => (
+              <li key={idx} className={styles.activityItem}>
+                <span className={styles.activityDot} aria-hidden style={{ background: `hsl(${(idx*70)%360} 70% 60%)` }} />
+                <span style={{ flex: 1 }}>{it.text}</span>
+                <span style={{ color: "var(--muted)", fontSize: 13, marginLeft: 12 }}>{it.when}</span>
+              </li>
+            ))}
         </ul>
       </div>
     </section>
   );
-}
-
+  }
 
   return (
     <div style={{ display: "flex", width: "100%", minHeight: "100vh" }}>
@@ -843,10 +792,10 @@ function ProfileSection() {
             <TabHeader tab={activeTab} />
 
             {activeTab === "analytics" ? (
-              <div style={{ marginTop: 12 }}><AnalyticsSection /></div>
-              ) : activeTab === "profile" ? (
-              <div style={{ marginTop: 12 }}><ProfileSection /></div>
-          ) : (
+              <div style={{ marginTop: 12 }}>{AnalyticsSection()}</div>
+            ) : activeTab === "profile" ? (
+              <div style={{ marginTop: 12 }}>{ProfileSection()}</div>
+            ) : (
               <>
                 <div className="w-full rounded-lg border bg-[var(--panel)] border-[var(--border)] px-3 py-2 mb-3">
                   <div className="flex items-center justify-between gap-3">
