@@ -1,631 +1,964 @@
 /* src/app/dashboard/Dashboard.module.css */
-/* Everything in this file is a local CSS module (no global :root selectors) */
+/* Modern, clean dashboard with enhanced visuals */
 
-/* page shell (no frame) */
-.page { background: var(--page-bg); color: var(--text); }
-.shell { max-width: var(--page-max-width); margin: 0 auto; padding: 16px; }
-
-/* header (kept simple, no thick bands) */
-.header {
-  display: flex; align-items: center; justify-content: space-between;
-  padding: 12px 14px; border: 1px solid var(--border); border-radius: 12px;
-  background: var(--panel);
-}
-.brand { display: flex; gap: 12px; align-items: center; }
-.logoWrap { width: 36px; height: 36px; border-radius: 10px; background: var(--panel-subtle);
-  display: grid; place-items: center; border: 1px solid var(--border); }
-.logoImg { width: 28px; height: 28px; object-fit: contain; }
-.badge { font-weight: 700; font-size: 12px; color: var(--muted); }
-.title { font-weight: 700; font-size: 16px; }
-.subtitle { color: var(--muted); font-size: 12px; margin-top: 2px; }
-
-.controls { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
-.viewer { color: var(--muted); font-size: 12px; margin-right: 4px; }
-.viewerName { color: var(--text); font-weight: 600; }
-.roleDot { margin-left: 6px; opacity: .8; }
-
-.btn {
-  height: var(--cell-h); padding: 0 10px; border-radius: 8px; border: 1px solid var(--border);
-  background: var(--panel-subtle); color: var(--text); font-size: 12px; font-weight: 600; cursor: pointer;
-}
-.btn:hover { filter: brightness(0.98); }
-.primary { background: var(--primary); border-color: transparent; color: #fff; }
-.warn { background: #ffdd9a; border-color: #f1b03d; color: #5d3b00; }
-.selected { outline: 2px solid #d60000; }
-
-/* selectors row – consistent alignment */
-.selectorsBar {
-  margin-top: 12px;
-  display: grid;
-  grid-template-columns: repeat(3, max-content);
-  gap: 16px;
-  align-items: center;
-}
-.selectorCol { display: inline-flex; align-items: center; gap: 8px; }
-.selectorLabel { color: var(--muted); font-size: 12px; }
-.select, .selectWide {
-  height: var(--cell-h); border: 1px solid var(--border); border-radius: 8px; background: var(--panel);
-  color: var(--text); font-size: 12px; padding: 0 8px; min-width: 180px;
-}
-.viewToggle { display: inline-flex; gap: 6px; }
-
-/* summary pills */
-.summary { margin-top: 12px; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
-.pill {
-  display: inline-flex; align-items: center; height: 28px; padding: 0 10px;
-  background: var(--panel); border: 1px solid var(--border); border-radius: 999px;
-  font-size: 12px; color: var(--text);
-}
-.period { margin-left: auto; color: var(--muted); font-size: 12px; }
-
-/* card (kept flat) */
-.card { margin-top: 12px; border: 1px solid var(--border); border-radius: 12px; background: var(--panel); padding: 10px; }
-
-/* ===== Table (NO OVERLAP) ===== */
-.tableWrap { overflow: auto; }
-.table {
-  border-collapse: separate; border-spacing: 0; width: 100%;
-  table-layout: fixed; /* required for fixed col widths below */
-}
-.thProject { width: 35%; min-width: 320px; }
-
-/* fix width for day columns: everything except first (project) column */
-.table thead th:not(:first-child) { width: var(--day-col-w); }
-
-.table thead th {
-  position: sticky; top: 0; z-index: 1;
-  background: var(--panel); /* no dark band */
-  border-bottom: 1px solid var(--border);
-  padding: 8px; font-weight: 700; font-size: 12px; color: var(--muted);
-  text-align: left;
-}
-.day { font-size: 12px; font-weight: 700; color: var(--text); }
-.daySub { font-size: 11px; color: var(--muted); }
-
-.table tbody td, .table tfoot td {
-  padding: 8px; border-bottom: 1px solid var(--border);
-}
-.projectName { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-
-/* ===== COMPACT CELLS (precise, geometric) ===== */
-.cellBox {
-  display: grid;
-  grid-template-columns: var(--cell-w) var(--cell-w); /* two compact controls */
-  gap: var(--cell-gap);
-  align-items: center;
-}
-.num {
-  height: var(--cell-h);
-  padding: 0 6px;
-  border: 1px solid var(--border); border-radius: 8px;
-  background: var(--panel-subtle); color: var(--text); font-size: 12px;
-  text-align: right;
-  width: 100%;
-}
-.locked { opacity: .7; }
-
-.trackBtn {
-  height: var(--cell-h);
-  width: 100%;
-  border-radius: 8px; border: 1px solid var(--border);
-  background: var(--primary); color: #fff; font-size: 12px; font-weight: 700; cursor: pointer;
-  padding: 0 8px;
-}
-.trackBtn:hover { filter: brightness(.98); }
-
-/* totals row look */
-.table tfoot td input { background: var(--panel-subtle); }
-
-/* ===== Admin panel + charts ===== */
-.adminPanel { margin-top: 12px; }
-.cardsRow { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 10px; }
-.statCard { border: 1px solid var(--border); border-radius: 12px; background: var(--panel); padding: 12px; }
-.statLabel { color: var(--muted); font-size: 12px; }
-.statValue { font-weight: 800; font-size: 22px; }
-
-.chartsRow { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 10px; }
-.chartCard { border: 1px solid var(--border); border-radius: 12px; background: var(--panel); padding: 12px; }
-.chartTitle { display: flex; gap: 8px; align-items: center; font-weight: 700; font-size: 13px; margin-bottom: 8px; }
-.chartLink { margin-left: auto; font-size: 12px; color: var(--primary); }
-
-/* Chart SVGs: keep a stable height and sensible font sizes so text doesn't blow up */
-.chartSvg {
-  width: 100%;
-  height: 260px; /* fixed height so svg scaling is predictable */
-  display: block;
-  font-family: system-ui, -apple-system, "Segoe UI", Roboto, Inter, Arial;
-}
-.chartAxis { stroke: var(--border); stroke-width: 1; }
-.chartGrid { stroke: var(--border); stroke-width: 1; }
-.chartX, .chartY, .leg {
-  fill: var(--muted);
-  font-size: 12px;
-  font-weight: 600;
-}
-
-/* Give the bars real colors (no black) */
-.barA { fill: var(--primary); }   /* blue */
-.barB { fill: var(--primary-2); } /* green */
-
-/* ===== Modal ===== */
-.modalBackdrop { position: fixed; inset: 0; background: rgba(0,0,0,.35); display: grid; place-items: center; z-index: 1000; }
-.modal {
-  width: min(420px,90vw); background: var(--panel); border: 1px solid var(--border);
-  border-radius: 12px; padding: 12px;
-}
-.modalHeader { margin-bottom: 8px; }
-.modalTitle { font-weight: 800; }
-.modalMeta { color: var(--muted); font-size: 12px; margin-top: 4px; }
-.label { display: block; font-size: 12px; margin-bottom: 6px; color: var(--muted); }
-.help { margin-top: 8px; color: var(--muted); font-size: 12px; }
-.modalActions { margin-top: 12px; display: flex; gap: 8px; justify-content: flex-end; }
-
-/* ===== Month view ===== */
-.weekGrid { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 10px; margin-top: 10px; }
-.weekCard { border: 1px solid var(--border); border-radius: 12px; background: var(--panel); padding: 12px; }
-.weekCardSelected { outline: 2px solid #ffc0c1; }
-.weekHead { display: flex; align-items: baseline; justify-content: space-between; }
-.weekTitle { margin: 0; font-size: 14px; }
-.weekDays { margin-top: 6px; display: grid; grid-template-columns: repeat(5,1fr); gap: 6px; }
-.dayCard { border: 1px solid var(--border); border-radius: 10px; background: var(--panel-subtle); padding: 8px; }
-.dayLabel { font-size: 12px; color: var(--muted); }
-.dayEst { font-size: 13px; font-weight: 700; }
-.dayTracked { font-size: 12px; color: var(--muted); }
-
-/* tiny responsive tweaks */
-@media (max-width: 520px) {
-  .card { padding: 18px 16px 14px; }
-  .logoBadge { width: 40px; height: 40px; border-radius: 10px; }
-  .title { font-size: 16px; }
-}
-
-/* === Minimal compact sizing and red-accent focus === */
-.page {
+/* ===== Page Foundation ===== */
+.page { 
+  background: var(--page-bg); 
+  color: var(--text);
   --cell-h: 28px;
   --cell-w: 56px;
   --cell-gap: 6px;
+  min-height: 100vh;
 }
 
-.btn:hover { border-color: #d60000; }
-.btn:focus-visible { outline: 2px solid #d60000; outline-offset: 1px; }
+.shell { 
+  max-width: var(--page-max-width); 
+  margin: 0 auto; 
+  padding: 20px 24px;
+}
 
-.trackBtn:hover { border-color: #d60000; }
-.trackBtn:focus-visible { outline: 2px solid #d60000; outline-offset: 1px; }
+/* ===== Header - Premium Look ===== */
+.header {
+  display: flex; 
+  align-items: center; 
+  justify-content: space-between;
+  padding: 16px 20px; 
+  border: 1px solid var(--border); 
+  border-radius: 16px;
+  background: var(--panel);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+  transition: box-shadow 200ms ease;
+}
 
-/* === Brand bar (logo + context) === */
+.header:hover {
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.06);
+}
+
+.brand { 
+  display: flex; 
+  gap: 14px; 
+  align-items: center; 
+}
+
+.logoWrap { 
+  width: 40px; 
+  height: 40px; 
+  border-radius: 12px; 
+  background: linear-gradient(135deg, var(--panel-subtle), var(--panel));
+  display: grid; 
+  place-items: center; 
+  border: 1px solid var(--border);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+}
+
+.logoImg { 
+  width: 30px; 
+  height: 30px; 
+  object-fit: contain; 
+}
+
+.badge { 
+  font-weight: 700; 
+  font-size: 11px; 
+  color: var(--muted);
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+}
+
+.title { 
+  font-weight: 700; 
+  font-size: 17px;
+  letter-spacing: -0.3px;
+}
+
+.subtitle { 
+  color: var(--muted); 
+  font-size: 13px; 
+  margin-top: 2px; 
+}
+
+.controls { 
+  display: flex; 
+  gap: 10px; 
+  align-items: center; 
+  flex-wrap: wrap; 
+}
+
+.viewer { 
+  color: var(--muted); 
+  font-size: 13px; 
+  margin-right: 6px; 
+}
+
+.viewerName { 
+  color: var(--text); 
+  font-weight: 600; 
+}
+
+.roleDot { 
+  margin-left: 6px; 
+  opacity: .8; 
+}
+
+/* ===== Buttons - Modern Style ===== */
+.btn {
+  height: var(--cell-h); 
+  padding: 0 14px; 
+  border-radius: 10px; 
+  border: 1px solid var(--border);
+  background: var(--panel-subtle); 
+  color: var(--text); 
+  font-size: 13px; 
+  font-weight: 600; 
+  cursor: pointer;
+  transition: all 150ms cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+}
+
+.btn:hover { 
+  transform: translateY(-2px);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.08);
+  border-color: var(--primary);
+}
+
+.btn:active {
+  transform: translateY(0);
+}
+
+.btn:focus-visible { 
+  outline: 2px solid #d60000; 
+  outline-offset: 2px; 
+}
+
+.primary { 
+  background: var(--primary); 
+  border-color: transparent; 
+  color: #fff;
+  box-shadow: 0 2px 6px rgba(37, 99, 235, 0.3);
+}
+
+.primary:hover {
+  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.4);
+}
+
+.warn { 
+  background: linear-gradient(135deg, #ffdd9a, #ffc966); 
+  border-color: #f1b03d; 
+  color: #5d3b00;
+  box-shadow: 0 2px 6px rgba(241, 176, 61, 0.3);
+}
+
+.selected { 
+  outline: 2px solid #d60000; 
+  outline-offset: 2px;
+}
+
+/* ===== Brand Bar ===== */
 .brandBar {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
-  margin-bottom: 10px;
-  padding: 8px 10px;
+  gap: 14px;
+  margin-bottom: 16px;
+  padding: 12px 16px;
   border: 1px solid var(--border);
   background: var(--panel);
-  border-radius: 8px;
+  border-radius: 14px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
 }
 
-.brandLeft { display:flex; align-items:center; gap:10px; min-height:36px; }
-.brandLogo { height:28px; width:auto; object-fit:contain; filter: saturate(1.05); }
-.brandText { display:grid; gap:2px; }
-.brandTitle { font-weight:700; font-size:14px; line-height:1.2; }
-.brandTagline { font-size:12px; color:var(--muted); line-height:1.2; }
-.brandRight { display:flex; align-items:center; gap:8px; }
-
-/* project name wrap */
-.projectNameFull {
-  white-space: normal; word-break: break-word; overflow-wrap: anywhere;
-  line-height: 1.25; font-weight: 600;
+.brandLeft { 
+  display: flex; 
+  align-items: center; 
+  gap: 12px; 
+  min-height: 40px; 
 }
 
-/* compact cell helpers */
-.cellCompact { display: grid; grid-template-columns: 64px 64px; align-items: center; gap: 6px; }
-.numSm { height: 24px; min-width: 64px; text-align: right; font-size: 11.5px; padding-right: 6px; }
-.btnTrackSm {
-  height: 24px; min-width: 64px; font-size: 11.5px; line-height: 24px; font-weight: 600;
-  color: #fff; background: var(--primary); border: 1px solid transparent; border-radius: 6px;
-  transition: filter 120ms ease, transform 80ms ease;
+.brandLogo { 
+  height: 32px; 
+  width: auto; 
+  object-fit: contain; 
+  filter: saturate(1.1); 
 }
-.btnTrackSm:hover { filter: brightness(0.97) saturate(1.05); }
-.btnTrackSm:active { transform: translateY(0.5px); }
 
-.tableWrap table.table { width: 100%; }
+.brandText { 
+  display: grid; 
+  gap: 3px; 
+}
 
-/* Profile dashboard cards + activity list (matches reference) */
-.profileGrid {
+.brandTitle { 
+  font-weight: 700; 
+  font-size: 16px; 
+  line-height: 1.2;
+  letter-spacing: -0.3px;
+}
+
+.brandTagline { 
+  font-size: 13px; 
+  color: var(--muted); 
+  line-height: 1.2; 
+}
+
+.brandRight { 
+  display: flex; 
+  align-items: center; 
+  gap: 10px; 
+}
+
+/* ===== Selectors Bar ===== */
+.selectorsBar {
+  margin-top: 16px;
   display: grid;
-  grid-template-columns: repeat(4, minmax(0,1fr));
-  gap: 16px;
-  margin-bottom: 18px;
-}
-
-@media (max-width: 1100px) {
-  .profileGrid { grid-template-columns: repeat(2, minmax(0,1fr)); }
-}
-@media (max-width: 640px) {
-  .profileGrid { grid-template-columns: 1fr; }
-}
-
-.metricCard {
-  border: 1px solid var(--border);
-  background: var(--panel);
-  border-radius: 12px;
-  padding: 18px;
-  min-height: 92px;
-  display: flex;
-  flex-direction: column;
-  justify-content: space-between;
-  box-shadow: 0 6px 18px rgba(2,6,23,0.03);
-}
-
-.metricTitle {
-  font-size: 13px;
-  color: var(--muted);
-  font-weight: 700;
-  margin-bottom: 6px;
-}
-
-.metricValue {
-  font-size: 28px;
-  font-weight: 800;
-  color: var(--text);
-  margin-bottom: 6px;
-}
-
-.metricSubtitle {
-  color: var(--muted);
-  font-size: 13px;
-}
-
-/* Activity card */
-.activityCard {
-  border: 1px solid var(--border);
-  background: var(--panel);
-  border-radius: 12px;
-  padding: 18px;
-  box-shadow: 0 6px 18px rgba(2,6,23,0.03);
-}
-
-.activityList {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  display: grid;
-  gap: 12px;
-}
-
-.activityItem {
-  display: flex;
+  grid-template-columns: repeat(3, max-content);
+  gap: 20px;
   align-items: center;
-  gap: 12px;
-  padding: 12px 6px;
-  border-bottom: 1px solid rgba(0,0,0,0.03);
 }
 
-.activityItem:last-child { border-bottom: none; }
+.selectorCol { 
+  display: inline-flex; 
+  align-items: center; 
+  gap: 10px; 
+}
 
-.activityDot {
-  width: 10px;
-  height: 10px;
+.selectorLabel { 
+  color: var(--muted); 
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.select, .selectWide {
+  height: var(--cell-h); 
+  border: 1px solid var(--border); 
+  border-radius: 10px; 
+  background: var(--panel);
+  color: var(--text); 
+  font-size: 13px; 
+  padding: 0 12px; 
+  min-width: 180px;
+  transition: all 150ms ease;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+}
+
+.select:hover, .selectWide:hover {
+  border-color: var(--primary);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.08);
+}
+
+.selectWide { 
+  min-width: 240px; 
+}
+
+.viewToggle { 
+  display: inline-flex; 
+  gap: 8px; 
+}
+
+/* ===== Summary Pills ===== */
+.summary { 
+  margin-top: 16px; 
+  display: flex; 
+  gap: 10px; 
+  align-items: center; 
+  flex-wrap: wrap; 
+}
+
+.pill {
+  display: inline-flex; 
+  align-items: center; 
+  height: 32px; 
+  padding: 0 14px;
+  background: var(--panel); 
+  border: 1px solid var(--border); 
   border-radius: 999px;
-  flex: 0 0 10px;
-  box-shadow: 0 1px 0 rgba(0,0,0,0.06) inset;
+  font-size: 13px; 
+  color: var(--text);
+  font-weight: 600;
+  transition: all 180ms ease;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
 }
 
-/* add near your other card styles */
-.profileGrid {
+.pill:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.1);
+  border-color: var(--primary);
+}
+
+.period { 
+  margin-left: auto; 
+  color: var(--muted); 
+  font-size: 13px;
+  font-weight: 600;
+}
+
+/* ===== Cards - Enhanced ===== */
+.card { 
+  margin-top: 16px; 
+  border: 1px solid var(--border); 
+  border-radius: 16px; 
+  background: var(--panel); 
+  padding: 16px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+  transition: transform 200ms ease, box-shadow 200ms ease, border-color 180ms ease;
+}
+
+.card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
+  border-color: rgba(37, 99, 235, 0.2);
+}
+
+/* ===== Table Styles ===== */
+.tableWrap { 
+  overflow: auto;
+  border-radius: 12px;
+}
+
+.table {
+  border-collapse: separate; 
+  border-spacing: 0; 
+  width: 100%;
+  table-layout: fixed;
+}
+
+.thProject { 
+  width: 35%; 
+  min-width: 320px; 
+}
+
+.table thead th:not(:first-child) { 
+  width: var(--day-col-w); 
+}
+
+.table thead th {
+  position: sticky; 
+  top: 0; 
+  z-index: 1;
+  background: var(--panel);
+  border-bottom: 2px solid var(--border);
+  padding: 12px 14px; 
+  font-weight: 700; 
+  font-size: 13px; 
+  color: var(--muted);
+  text-align: left;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.day { 
+  font-size: 13px; 
+  font-weight: 700; 
+  color: var(--text); 
+}
+
+.daySub { 
+  font-size: 12px; 
+  color: var(--muted); 
+}
+
+.table tbody td, .table tfoot td {
+  padding: 12px 14px; 
+  border-bottom: 1px solid var(--border);
+}
+
+.table tbody tr {
+  transition: background 150ms ease, transform 180ms ease;
+}
+
+.table tbody tr:hover {
+  background: rgba(0, 0, 0, 0.02);
+  transform: translateY(-1px);
+}
+
+.projectName { 
+  overflow: hidden; 
+  text-overflow: ellipsis; 
+  white-space: nowrap;
+  font-weight: 600;
+}
+
+.projectNameFull {
+  white-space: normal; 
+  word-break: break-word; 
+  overflow-wrap: anywhere;
+  line-height: 1.4; 
+  font-weight: 600;
+}
+
+/* ===== Compact Cells ===== */
+.cellBox {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 12px;
-  margin-bottom: 12px;
+  grid-template-columns: var(--cell-w) var(--cell-w);
+  gap: var(--cell-gap);
+  align-items: center;
 }
-.metricCard { border: 1px solid var(--border); border-radius: 12px; padding: 12px; background: var(--panel); }
-.metricTitle { color: var(--muted); font-size: 13px; font-weight: 600; }
-.metricValue { font-weight: 800; font-size: 22px; margin-top: 8px; }
-.metricSubtitle { color: var(--muted); font-size: 13px; margin-top: 6px; }
 
-.activityCard { margin-top: 12px; border: 1px solid var(--border); border-radius: 12px; padding: 12px; background: var(--panel); }
-.activityList { list-style: none; padding: 0; margin: 0; }
-.activityItem { display: flex; gap: 12px; align-items: center; padding: 10px 0; border-bottom: 1px solid var(--border); }
-.activityDot { width: 10px; height: 10px; border-radius: 999px; display: inline-block; margin-right: 8px; }
+.cellCompact { 
+  display: grid; 
+  grid-template-columns: 64px 64px; 
+  align-items: center; 
+  gap: 6px; 
+}
 
-/* Add these classes to the existing Dashboard.module.css (append or merge) */
+.num {
+  height: var(--cell-h);
+  padding: 0 8px;
+  border: 1px solid var(--border); 
+  border-radius: 8px;
+  background: var(--panel-subtle); 
+  color: var(--text); 
+  font-size: 13px;
+  text-align: right;
+  width: 100%;
+  transition: all 150ms ease;
+}
 
-/* PROFILE / KPI GRID */
+.num:focus {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+}
+
+.numSm { 
+  height: 24px; 
+  min-width: 64px; 
+  text-align: right; 
+  font-size: 12px; 
+  padding-right: 8px; 
+}
+
+.locked { 
+  opacity: .6; 
+  cursor: not-allowed;
+}
+
+.trackBtn {
+  height: var(--cell-h);
+  width: 100%;
+  border-radius: 8px; 
+  border: 1px solid transparent;
+  background: var(--primary); 
+  color: #fff; 
+  font-size: 13px; 
+  font-weight: 700; 
+  cursor: pointer;
+  padding: 0 10px;
+  transition: all 150ms cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 2px 6px rgba(37, 99, 235, 0.3);
+}
+
+.trackBtn:hover { 
+  transform: translateY(-2px) scale(1.02);
+  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.4);
+}
+
+.trackBtn:active {
+  transform: translateY(0);
+}
+
+.trackBtn:focus-visible { 
+  outline: 2px solid #d60000; 
+  outline-offset: 2px; 
+}
+
+.btnTrackSm {
+  height: 24px; 
+  min-width: 64px; 
+  font-size: 12px; 
+  line-height: 24px; 
+  font-weight: 600;
+  color: #fff; 
+  background: var(--primary); 
+  border: 1px solid transparent; 
+  border-radius: 6px;
+  transition: all 120ms ease;
+  box-shadow: 0 1px 3px rgba(37, 99, 235, 0.3);
+}
+
+.btnTrackSm:hover { 
+  transform: translateY(-2px);
+  box-shadow: 0 3px 8px rgba(37, 99, 235, 0.4);
+}
+
+.btnTrackSm:active { 
+  transform: translateY(0); 
+}
+
+.table tfoot td input { 
+  background: var(--panel-subtle); 
+}
+
+/* ===== Profile KPI Grid ===== */
 .profileGrid {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 12px;
-  margin-bottom: 12px;
-}
-@media (max-width: 900px) {
-  .profileGrid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-}
-@media (max-width: 520px) {
-  .profileGrid { grid-template-columns: 1fr; }
+  gap: 16px;
+  margin-bottom: 20px;
 }
 
-.metricCard {
-  border: 1px solid var(--border);
-  background: var(--panel);
-  border-radius: 12px;
-  padding: 14px;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  min-height: 84px;
-}
-.metricTitle { color: var(--muted); font-size: 13px; font-weight: 700; }
-.metricValue { font-weight: 800; font-size: 24px; }
-.metricSubtitle { color: var(--muted); font-size: 13px; }
-
-/* activity card below KPI grid */
-.activityCard {
-  margin-top: 12px;
-  border: 1px solid var(--border);
-  background: var(--panel);
-  border-radius: 12px;
-  padding: 12px;
-}
-.activityList { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
-.activityItem { display: flex; align-items: center; gap: 12px; padding: 8px 6px; border-radius: 8px; }
-.activityDot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; flex: 0 0 10px; }
-
-/* charts grid used by AnalyticsSection */
-.chartsGrid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 12px;
-  margin-top: 10px;
-}
-@media (max-width: 900px) {
-  .chartsGrid { grid-template-columns: 1fr; }
-}
-
-/* reused card + chart sizing (small spacing tweaks) */
-.chartCard { border: 1px solid var(--border); border-radius: 12px; background: var(--panel); padding: 12px; min-height: 320px; }
-.chartTitle { display:flex; gap:8px; align-items:center; font-weight:700; margin-bottom: 8px; }
-.chartSvg { width: 100%; height: 100%; display: block; }
-
-/* small helper for select sizing inside admin controls */
-.selectWide { min-width: 240px; }
-
-/* ---------- Profile / KPI card styles (new) ---------- */
-
-/* grid for the metric cards */
-.profileGrid {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0,1fr));
-  gap: 18px;
-  margin-bottom: 18px;
-}
-
-/* single metric card */
 .metricCard {
   position: relative;
-  background: var(--panel);
   border: 1px solid var(--border);
-  border-radius: 12px;
-  padding: 18px 16px;
-  overflow: hidden;
-  transition: transform 200ms ease, box-shadow 200ms ease, border-color 200ms ease;
+  background: var(--panel);
+  border-radius: 16px;
+  padding: 20px;
   display: flex;
   flex-direction: column;
   gap: 8px;
+  min-height: 110px;
+  overflow: hidden;
+  transition: all 200ms cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
 }
 
-/* small colored accent "clip" on left edge */
 .metricCard::before {
   content: "";
   position: absolute;
   left: 0;
   top: 0;
   bottom: 0;
-  width: 6px;
-  border-top-left-radius: 12px;
-  border-bottom-left-radius: 12px;
-  background: linear-gradient(180deg, rgba(0,0,0,0.06), rgba(0,0,0,0.02));
-  transform-origin: left center;
+  width: 4px;
+  border-top-left-radius: 16px;
+  border-bottom-left-radius: 16px;
+  background: linear-gradient(180deg, rgba(0, 0, 0, 0.08), rgba(0, 0, 0, 0.02));
 }
 
-/* icon circle in the top-right of card */
+.metricCard.accent-blue::before { 
+  background: linear-gradient(180deg, #60a5fa, #2563eb); 
+}
+
+.metricCard.accent-green::before { 
+  background: linear-gradient(180deg, #34d399, #10b981); 
+}
+
+.metricCard.accent-red::before { 
+  background: linear-gradient(180deg, #ff9a9e, #f43f5e); 
+}
+
+.metricCard.accent-purple::before { 
+  background: linear-gradient(180deg, #c084fc, #7c3aed); 
+}
+
+.metricCard.accent-yellow::before { 
+  background: linear-gradient(180deg, #ffdd9a, #f59e0b); 
+}
+
+.metricCard:hover {
+  transform: translateY(-6px);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.1);
+  border-color: rgba(37, 99, 235, 0.2);
+}
+
 .metricIcon {
   position: absolute;
-  right: 12px;
+  right: 16px;
+  top: 16px;
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  display: grid;
+  place-items: center;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.05), rgba(0, 0, 0, 0.02));
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+  font-size: 20px;
+}
+
+.metricTitle { 
+  color: var(--muted); 
+  font-size: 13px; 
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.metricValue { 
+  font-weight: 800; 
+  font-size: 28px; 
+  line-height: 1;
+  margin-top: 4px;
+  letter-spacing: -0.5px;
+}
+
+.metricSubtitle { 
+  color: var(--muted); 
+  font-size: 13px;
+  margin-top: 2px;
+}
+
+.metricClip {
+  position: absolute;
+  right: 14px;
   top: 12px;
-  width: 36px;
-  height: 36px;
+  width: 40px;
+  height: 40px;
   border-radius: 10px;
   display: grid;
   place-items: center;
-  background: linear-gradient(135deg, rgba(255,255,255,0.03), rgba(0,0,0,0.02));
-  border: 1px solid rgba(255,255,255,0.03);
-  box-shadow: 0 1px 0 rgba(0,0,0,0.04) inset;
+  opacity: 0.95;
 }
 
-/* text styles inside metric card */
-.metricTitle { color: var(--muted); font-size: 13px; font-weight: 700; }
-.metricValue { font-weight: 800; font-size: 26px; line-height: 1; margin-top: 8px; }
-.metricSubtitle { color: var(--muted); font-size: 13px; margin-top: 2px; }
-
-/* hover + focus effects (subtle raise, shadow, border tint) */
-.metricCard:hover,
-.metricCard:focus-within {
-  transform: translateY(-6px);
-  box-shadow: 0 12px 30px rgba(11,15,20,0.06);
-  border-color: rgba(38,132,255,0.12);
+/* ===== Admin Panel & Stats ===== */
+.adminPanel { 
+  margin-top: 16px; 
 }
 
-/* colored clip variants (you can add more if required) */
-.metricCard.accent-blue::before { background: linear-gradient(180deg,#60a5fa,#2563eb); }
-.metricCard.accent-green::before { background: linear-gradient(180deg,#34d399,#10b981); }
-.metricCard.accent-red::before { background: linear-gradient(180deg,#ff9a9e,#f43f5e); }
-.metricCard.accent-purple::before { background: linear-gradient(180deg,#c084fc,#7c3aed); }
-.metricCard.accent-yellow::before { background: linear-gradient(180deg,#ffdd9a,#f59e0b); }
-
-/* small responsive tweaks */
-@media (max-width: 1100px) {
-  .profileGrid { grid-template-columns: repeat(2, minmax(0,1fr)); }
-}
-@media (max-width: 520px) {
-  .profileGrid { grid-template-columns: 1fr; }
-  .metricIcon { right: 10px; top: 10px; width: 32px; height: 32px; }
+.cardsRow { 
+  display: grid; 
+  grid-template-columns: repeat(3, minmax(0, 1fr)); 
+  gap: 16px; 
 }
 
-/* ---------- Recent activity card hover / item styles ---------- */
+.statCard { 
+  border: 1px solid var(--border); 
+  border-radius: 16px; 
+  background: var(--panel); 
+  padding: 18px;
+  transition: all 200ms ease;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+}
+
+.statCard:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
+}
+
+.statLabel { 
+  color: var(--muted); 
+  font-size: 13px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.statValue { 
+  font-weight: 800; 
+  font-size: 26px;
+  margin-top: 8px;
+  letter-spacing: -0.5px;
+}
+
+/* ===== Charts ===== */
+.chartsRow, .chartsGrid { 
+  display: grid; 
+  grid-template-columns: repeat(2, minmax(0, 1fr)); 
+  gap: 16px; 
+  margin-top: 16px; 
+}
+
+.chartCard { 
+  border: 1px solid var(--border); 
+  border-radius: 16px; 
+  background: var(--panel); 
+  padding: 18px; 
+  min-height: 280px;
+  transition: all 200ms ease;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+}
+
+.chartCard:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
+}
+
+.chartTitle { 
+  display: flex; 
+  gap: 10px; 
+  align-items: center; 
+  font-weight: 700; 
+  font-size: 14px; 
+  margin-bottom: 12px;
+  letter-spacing: -0.3px;
+}
+
+.chartLink { 
+  margin-left: auto; 
+  font-size: 13px; 
+  color: var(--primary);
+  font-weight: 600;
+  transition: opacity 150ms ease;
+}
+
+.chartLink:hover {
+  opacity: 0.8;
+}
+
+.chartSvg {
+  width: 100%;
+  height: 240px;
+  display: block;
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, Inter, Arial;
+}
+
+.chartAxis { 
+  stroke: var(--border); 
+  stroke-width: 1; 
+}
+
+.chartGrid { 
+  stroke: var(--border); 
+  stroke-width: 1; 
+}
+
+.chartX, .chartY, .leg {
+  fill: var(--muted);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.barA { 
+  fill: var(--primary); 
+}
+
+.barB { 
+  fill: var(--primary-2); 
+}
+
+/* ===== Activity Card ===== */
 .activityCard {
-  margin-top: 18px;
-  border-radius: 12px;
+  margin-top: 20px;
+  border-radius: 16px;
   border: 1px solid var(--border);
   background: var(--panel);
-  padding: 16px;
-  transition: box-shadow 200ms ease, transform 200ms ease;
+  padding: 20px;
+  transition: all 200ms ease;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
 }
 
 .activityCard:hover {
-  box-shadow: 0 12px 30px rgba(11,15,20,0.04);
-  transform: translateY(-3px);
+  transform: translateY(-4px);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
 }
 
-.activityList { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.activityList { 
+  list-style: none; 
+  margin: 0; 
+  padding: 0; 
+  display: flex; 
+  flex-direction: column; 
+  gap: 8px; 
+}
+
 .activityItem {
   display: flex;
-  gap: 12px;
+  gap: 14px;
   align-items: center;
-  padding: 12px;
-  border-radius: 8px;
-  transition: background 160ms ease, transform 160ms ease;
+  padding: 14px 12px;
+  border-radius: 10px;
+  transition: all 160ms ease;
 }
+
 .activityItem:hover {
-  background: rgba(0,0,0,0.02);
-  transform: translateY(-2px);
-}
-.activityDot { width: 10px; height: 10px; border-radius: 50%; display:inline-block; margin-right: 8px; flex: 0 0 10px; }
-
-/* small utility to make cards look lighter in light theme */
-[data-theme="light"] .metricCard { background: var(--panel); }
-
-/* ---------- Add/replace into src/app/dashboard/Dashboard.module.css ---------- */
-
-/* global card animation / lift */
-.card, .statCard, .chartCard, .weekCard, .modal {
-  transition: transform 200ms cubic-bezier(.2,.9,.25,1), box-shadow 200ms ease, border-color 180ms ease;
-  will-change: transform;
-}
-.card:hover, .statCard:hover, .chartCard:hover, .weekCard:hover {
-  transform: translateY(-6px);
-  box-shadow: 0 10px 30px rgba(11,15,20,0.06);
-  border-color: rgba(0,0,0,0.06);
+  background: rgba(0, 0, 0, 0.02);
+  transform: translateX(4px);
 }
 
-/* subtle content container - reduce big gaps and make consistent padding */
-.shell {
-  max-width: 1280px;
-  margin: 0 auto;
-  padding: 12px 20px;
+.activityDot { 
+  width: 10px; 
+  height: 10px; 
+  border-radius: 50%; 
+  display: inline-block; 
+  flex: 0 0 10px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
 }
 
-/* tighten header area (top title + controls) */
-.header, .brandBar {
-  padding: 10px 12px;
+/* ===== Modal ===== */
+.modalBackdrop { 
+  position: fixed; 
+  inset: 0; 
+  background: rgba(0, 0, 0, 0.4); 
+  backdrop-filter: blur(4px);
+  display: grid; 
+  place-items: center; 
+  z-index: 1000;
+  animation: fadeIn 200ms ease;
 }
 
-/* make the page's main framed card slightly denser */
-.card {
-  padding: 10px;
-  border-radius: 12px;
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
 }
 
-/* table spacing improvements */
-.tableWrap { margin-top: 8px; overflow: auto; }
-.table th, .table td { padding: 10px 12px; vertical-align: middle; }
-.table tbody tr { transition: background 150ms ease, transform 180ms ease; }
-.table tbody tr:hover { background: rgba(0,0,0,0.02); transform: translateY(-2px); }
-
-/* compact cell control to remove large empty whitespace */
-.cellCompact { gap: 6px; grid-template-columns: 64px 64px; align-items: center; }
-
-/* track button subtle animation */
-.btn, .btnTrackSm {
-  transition: transform 120ms cubic-bezier(.2,.9,.25,1), box-shadow 120ms ease, filter 120ms ease;
-}
-.btn:hover, .btnTrackSm:hover { transform: translateY(-2px) scale(1.01); box-shadow: 0 6px 18px rgba(37,99,235,0.08); }
-
-/* small visual pills: animate color change */
-.pill {
-  transition: background 160ms, color 160ms, transform 160ms;
-}
-.pill:hover { transform: translateY(-2px); }
-
-/* stat card grid for profile, matching screenshot spacing */
-.profileGrid {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0,1fr));
-  gap: 16px;
-  margin-bottom: 16px;
-}
-.metricCard {
+.modal {
+  width: min(440px, 90vw); 
+  background: var(--panel); 
   border: 1px solid var(--border);
-  border-radius: 12px;
+  border-radius: 16px; 
+  padding: 24px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+  animation: slideUp 250ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+@keyframes slideUp {
+  from { 
+    opacity: 0;
+    transform: translateY(20px); 
+  }
+  to { 
+    opacity: 1;
+    transform: translateY(0); 
+  }
+}
+
+.modalHeader { 
+  margin-bottom: 16px; 
+}
+
+.modalTitle { 
+  font-weight: 800;
+  font-size: 18px;
+  letter-spacing: -0.3px;
+}
+
+.modalMeta { 
+  color: var(--muted); 
+  font-size: 13px; 
+  margin-top: 6px; 
+}
+
+.label { 
+  display: block; 
+  font-size: 13px; 
+  margin-bottom: 8px; 
+  color: var(--muted);
+  font-weight: 600;
+}
+
+.help { 
+  margin-top: 10px; 
+  color: var(--muted); 
+  font-size: 13px; 
+}
+
+.modalActions { 
+  margin-top: 20px; 
+  display: flex; 
+  gap: 10px; 
+  justify-content: flex-end; 
+}
+
+/* ===== Month View ===== */
+.weekGrid { 
+  display: grid; 
+  grid-template-columns: repeat(2, minmax(0, 1fr)); 
+  gap: 16px; 
+  margin-top: 16px; 
+}
+
+.weekCard { 
+  border: 1px solid var(--border); 
+  border-radius: 16px; 
+  background: var(--panel); 
   padding: 18px;
-  background: linear-gradient(180deg, var(--panel), var(--panel));
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  min-height: 84px;
+  transition: all 200ms ease;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
 }
-.metricTitle { color: var(--muted); font-size: 13px; font-weight: 700; }
-.metricValue { font-size: 22px; font-weight: 800; margin-top: 6px; }
-.metricSubtitle { color: var(--muted); font-size: 12px; }
 
-/* small illustrative clip container (top-right of metric card) */
-.metricClip {
-  position: absolute;
-  right: 12px;
-  top: 8px;
-  width: 36px;
-  height: 36px;
-  border-radius: 8px;
-  display: grid;
-  place-items: center;
-  opacity: 0.98;
+.weekCard:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
 }
-.metricCard { position: relative; }
 
-/* activity list visuals */
-.activityCard {
-  margin-top: 8px;
-  border-radius: 12px;
-  padding: 16px;
-  border: 1px solid var(--border);
-  background: var(--panel);
-  transition: transform 180ms ease, box-shadow 180ms ease;
+.weekCardSelected { 
+  outline: 2px solid #ffc0c1; 
+  outline-offset: 2px;
 }
-.activityCard:hover { transform: translateY(-4px); box-shadow: 0 12px 28px rgba(2,6,23,0.06); }
 
-/* activity list items */
-.activityList { list-style: none; padding: 0; margin: 0; display: grid; gap: 10px; }
-.activityItem {
-  display:flex; gap: 12px; align-items:center; padding: 10px 8px; border-radius: 8px;
-  transition: background 120ms ease, transform 120ms ease;
+.weekHead { 
+  display: flex; 
+  align-items: baseline; 
+  justify-content: space-between; 
 }
-.activityItem:hover { background: rgba(0,0,0,0.02); transform: translateY(-2px); }
-.activityDot { width: 10px; height: 10px; border-radius:999px; display:inline-block; margin-right:6px; }
 
-/* make the header title area smaller and left-aligned like screenshot */
-.brandLeft .brandTitle { font-size: 18px; }
-.brandLeft .brandTagline { font-size: 12px; color: var(--muted); }
-
-/* reduce huge chart vertical heights that create empty page space */
-.chartCard { padding: 12px; min-height: 220px; }
-
-/* responsive adjustments */
-@media (max-width: 980px) {
-  .profileGrid { grid-template-columns: repeat(2,1fr); }
-  .metricClip { right: 10px; top: 6px; width: 30px; height: 30px; }
+.weekTitle { 
+  margin: 0; 
+  font-size: 15px;
+  font-weight: 700;
 }
+
+.weekDays { 
+  margin-top: 12px; 
+  display: grid; 
+  grid-template-columns: repeat(5, 1fr); 
+  gap: 8px; 
+}
+
+.dayCard { 
+  border: 1px solid var(--border); 
+  border-radius: 10px; 
+  background: var(--panel-subtle); 
+  padding: 10px;
+  transition: all 150ms ease;
+}
+
+.dayCard:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.06);
+}
+
+.dayLabel { 
+  font-size: 12px; 
+  color: var(--muted);
+  font-weight: 600;
+}
+
+.dayEst { 
+  font-size: 14px; 
+  font-weight: 700;
+  margin-top: 4px;
+}
+
+.dayTracked { 
+  font-size: 12px; 
+  color: var(--muted);
+  margin-top: 2px;
+}
+
+/* ===== Responsive Design ===== */
+@media (max-width: 1100px) {
+  .profileGrid { 
+    grid-template-columns: repeat(2, minmax(0, 1fr)); 
+  }
+  .chartsRow, .chartsGrid { 
+    grid-template-columns: 1fr; 
+  }
+}
+
+@media (max-width: 900px) {
+  .cardsRow { 
+    grid-template-columns: 1fr; 
+  }
+}
+
 @media (max-width: 640px) {
-  .profileGrid { grid-template-columns: 1fr; }
-  .brandLeft .brandTitle { font-size: 16px; }
-  .chartCard { min-height: 200px; }
+  .profileGrid, .weekGrid { 
+    grid-template-columns: 1fr; 
+  }
+  .shell {
+    padding: 12px 16px;
+  }
+  .metricIcon { 
+    right: 12px; 
+    top: 12px; 
+    width: 36px; 
+    height: 36px; 
+  }
+  .chartCard { 
+    min-height: 220px; 
+  }
+}
+
+@media (max-width: 520px) {
+  .card { 
+    padding: 14px; 
+  }
+  .logoWrap, .logoBadge { 
+    width: 36px; 
+    height: 36px; 
+    border-radius: 10px; 
+  }
+  .title { 
+    font-size: 15px; 
+  }
+  .brandTitle {
+    font-size: 15px;
+  }
 }
