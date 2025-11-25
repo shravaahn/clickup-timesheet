@@ -388,7 +388,7 @@
 .cellBox {
   display: grid;
   grid-template-columns: var(--cell-w) var(--cell-w);
-  gap: var(--cell-gap);
+  gap: 4px;
   align-items: center;
 }
 
@@ -396,7 +396,7 @@
   display: grid; 
   grid-template-columns: 64px 64px; 
   align-items: center; 
-  gap: 6px; 
+  gap: 4px; 
 }
 
 .num {
