@@ -614,32 +614,115 @@ export default function DashboardPage() {
 
   // Profile content
   function ProfileSection() {
-    return (
-      <section className={styles.card}>
-        <div className={styles.cardHead}>
-          <div className={styles.headLeft}>
-            <div className={styles.logoBadge}> {me?.username ? me.username[0].toUpperCase() : "U"} </div>
-            <div>
-              <div style={{ fontWeight: 700 }}>{me?.username || me?.email}</div>
-              <div style={{ color: "var(--muted)", fontSize: 13 }}>{isAdmin ? "Admin" : "Consultant"}</div>
-            </div>
-          </div>
-          <div>
-            <button className={styles.btn} onClick={()=> alert("Profile editing not implemented")}>Edit profile</button>
-          </div>
-        </div>
+  // derive some KPI values
+  const est = totals.sumEst ?? 0;
+  const tracked = totals.sumTracked ?? 0;
+  const delta = totals.delta ?? 0;
+  const efficiency = est > 0 ? Math.round((tracked / est) * 1000) / 10 : (tracked > 0 ? 100 : 0);
+  const activeProjects = projects.length || 0;
+  // simple overtime assumption (if over 40h/week)
+  const overtime = Math.max(0, tracked - 40);
+  const avgDaily = tracked > 0 ? Math.round((tracked / 5) * 10) / 10 : 0;
+  const completionRate = 92; // placeholder - if you have real value, wire it here
 
-        <div style={{ marginTop: 12 }}>
-          <div style={{ color: "var(--muted)", fontSize: 13 }}>Quick info</div>
-          <ul style={{ marginTop: 8 }}>
-            <li>Email: {me?.email}</li>
-            <li>Role: {isAdmin ? "Admin" : "Consultant"}</li>
-            <li>Assigned projects: {projects.length}</li>
-          </ul>
-        </div>
-      </section>
+  // small recent activity stub - you can replace with real events (overviewRows or server data)
+  const recent = overviewRows.slice(0, 5).map(r => ({
+    text: r.name && r.tracked ? `Tracked ${r.tracked}h — ${r.name}` : `Updated: ${r.name}`,
+    when: r.tracked ? `${Math.round(r.tracked)}h` : "recent"
+  }));
+  // if overviewRows empty, provide friendly placeholders
+  if (recent.length === 0) {
+    recent.push(
+      { text: "Started tracking: Project Alpha", when: "2 hours ago" },
+      { text: "Completed: Task Review", when: "4 hours ago" },
+      { text: "Updated time estimate", when: "6 hours ago" }
     );
   }
+
+  return (
+    <section>
+      <div className={styles.brandBar} style={{ marginBottom: 18 }}>
+        <div className={styles.brandLeft}>
+          <img className={styles.brandLogo} src={theme === "dark" ? "/company-logo-dark.png" : "/company-logo-light.png"} alt="logo" />
+          <div className={styles.brandText}>
+            <div className={styles.brandTitle}>Profile Dashboard</div>
+            <div className={styles.brandTagline}>Overview of your time tracking performance</div>
+          </div>
+        </div>
+      </div>
+
+      <div className={styles.profileGrid}>
+        <div className={styles.metricCard}>
+          <div className={styles.metricTitle}>Estimated Time</div>
+          <div className={styles.metricValue}>{est.toFixed(1)}h</div>
+          <div className={styles.metricSubtitle}>This week</div>
+        </div>
+
+        <div className={styles.metricCard}>
+          <div className={styles.metricTitle}>Tracked Time</div>
+          <div className={styles.metricValue}>{tracked.toFixed(1)}h</div>
+          <div className={styles.metricSubtitle}>This week</div>
+        </div>
+
+        <div className={styles.metricCard}>
+          <div className={styles.metricTitle}>Difference</div>
+          <div className={styles.metricValue} style={{ color: delta < 0 ? "var(--warn)" : "var(--primary-2)" }}>
+            {delta >= 0 ? `+${delta.toFixed(1)}h` : `${delta.toFixed(1)}h`}
+          </div>
+          <div className={styles.metricSubtitle}>{delta < 0 ? "Under estimation" : "Over estimation"}</div>
+        </div>
+
+        <div className={styles.metricCard}>
+          <div className={styles.metricTitle}>Efficiency Rate</div>
+          <div className={styles.metricValue}>{efficiency}%</div>
+          <div className={styles.metricSubtitle}>Tracked vs Estimated</div>
+        </div>
+
+        <div className={styles.metricCard}>
+          <div className={styles.metricTitle}>Active Projects</div>
+          <div className={styles.metricValue}>{activeProjects}</div>
+          <div className={styles.metricSubtitle}>Currently working on</div>
+        </div>
+
+        <div className={styles.metricCard}>
+          <div className={styles.metricTitle}>Overtime</div>
+          <div className={styles.metricValue}>{overtime.toFixed(1)}h</div>
+          <div className={styles.metricSubtitle}>This week</div>
+        </div>
+
+        <div className={styles.metricCard}>
+          <div className={styles.metricTitle}>Avg. Daily Hours</div>
+          <div className={styles.metricValue}>{avgDaily.toFixed(1)}h</div>
+          <div className={styles.metricSubtitle}>This week</div>
+        </div>
+
+        <div className={styles.metricCard}>
+          <div className={styles.metricTitle}>Completion Rate</div>
+          <div className={styles.metricValue}>{completionRate}%</div>
+          <div className={styles.metricSubtitle}>Tasks completed</div>
+        </div>
+      </div>
+
+      <div className={styles.activityCard}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
+          <div style={{ fontWeight: 800 }}>Recent Activity</div>
+          <div style={{ color: "var(--muted)", fontSize: 13 }}>{/* optional right text */}</div>
+        </div>
+
+        <ul className={styles.activityList}>
+          {recent.map((it, idx) => (
+            <li key={idx} className={styles.activityItem}>
+              <span className={styles.activityDot} aria-hidden style={{ background: `hsl(${(idx*70)%360} 70% 60%)` }} />
+              <span style={{ flex: 1 }}>{it.text}</span>
+              <span style={{ color: "var(--muted)", fontSize: 13, marginLeft: 12 }}>{it.when}</span>
+            </li>
+          ))}
+        </ul>
+      </div>
+    </section>
+  );
+}
+
 
   return (
     <div style={{ display: "flex", width: "100%", minHeight: "100vh" }}>

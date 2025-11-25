@@ -230,3 +230,84 @@
 .btnTrackSm:active { transform: translateY(0.5px); }
 
 .tableWrap table.table { width: 100%; }
+
+/* Profile dashboard cards + activity list (matches reference) */
+.profileGrid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0,1fr));
+  gap: 16px;
+  margin-bottom: 18px;
+}
+
+@media (max-width: 1100px) {
+  .profileGrid { grid-template-columns: repeat(2, minmax(0,1fr)); }
+}
+@media (max-width: 640px) {
+  .profileGrid { grid-template-columns: 1fr; }
+}
+
+.metricCard {
+  border: 1px solid var(--border);
+  background: var(--panel);
+  border-radius: 12px;
+  padding: 18px;
+  min-height: 92px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  box-shadow: 0 6px 18px rgba(2,6,23,0.03);
+}
+
+.metricTitle {
+  font-size: 13px;
+  color: var(--muted);
+  font-weight: 700;
+  margin-bottom: 6px;
+}
+
+.metricValue {
+  font-size: 28px;
+  font-weight: 800;
+  color: var(--text);
+  margin-bottom: 6px;
+}
+
+.metricSubtitle {
+  color: var(--muted);
+  font-size: 13px;
+}
+
+/* Activity card */
+.activityCard {
+  border: 1px solid var(--border);
+  background: var(--panel);
+  border-radius: 12px;
+  padding: 18px;
+  box-shadow: 0 6px 18px rgba(2,6,23,0.03);
+}
+
+.activityList {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 12px;
+}
+
+.activityItem {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 6px;
+  border-bottom: 1px solid rgba(0,0,0,0.03);
+}
+
+.activityItem:last-child { border-bottom: none; }
+
+.activityDot {
+  width: 10px;
+  height: 10px;
+  border-radius: 999px;
+  flex: 0 0 10px;
+  box-shadow: 0 1px 0 rgba(0,0,0,0.06) inset;
+}
