@@ -128,7 +128,7 @@ function BarsHorizontal({
 /** ---- data state ---- */
 type TRACK_NOTE = string;
 const TRACK_TYPES = [
-  "billable | Meeting","billable | Builds","billable | Client Correspondence","PTO","Holiday",
+  "Billable | Meeting","Billable | Builds","Billable | Client Correspondence","PTO","Holiday",
   "Non Billable | Internal Team Meeting","Non Billable | Internal Projects","Non Billable | L&D",
   "Non Billable | PreSales/Sales","Non Billable | Client Research","Non Billable | Partner Engagement",
 ];
@@ -574,43 +574,109 @@ export default function DashboardPage() {
 
   /* ---------- render ---------- */
 
-  // Analytics content (moved from admin area to analytics tab)
-  function AnalyticsSection() {
-    return (
-      <section className={styles.card}>
-        <div className={styles.chartsRow}>
-          <div className={styles.chartCard} style={{ minHeight: 300 }}>
-            <div className={styles.chartTitle}>Daily Totals (Week)</div>
-            <BarsVertical
-              labels={["Mon","Tue","Wed","Thu","Fri"]}
-              a={[0,0,0,0,0].map(clamp2)}
-              b={totals.dayTracked.map(clamp2)}
-              titleA="Est (N/A per day)"
-              titleB="Tracked"
-            />
-          </div>
+  /* Analytics content (replaced: now similar to Profile section with admin selectors) */
+function AnalyticsSection() {
+  // local selection for analytics (admins can pick any consultant and any week)
+  const [analyticsUserId, setAnalyticsUserId] = useState<string | null>(isAdmin ? (members[0]?.id ?? null) : selectedUserId);
+  const [analyticsWeekStart, setAnalyticsWeekStart] = useState<string>(ymd(weekStart));
 
-          <div className={styles.chartCard} style={{ minHeight: 300 }}>
-            <div className={styles.chartTitle}>
-              Consultants (Est vs Tracked) — Selected Week
-            </div>
-            {overviewResolved.length === 0 ? (
-              <div className="text-sm text-[var(--muted)]">No data for this week.</div>
-            ) : (
-              <BarsHorizontal
-                labels={overviewResolved.map(r=>r.name)}
-                a={overviewResolved.map(r=>r.est)}
-                b={overviewResolved.map(r=>r.tracked)}
-                titleA="Est"
-                titleB="Tracked"
-                maxBars={8}
-              />
-            )}
-          </div>
+  // compute basic KPIs from the same totals (you can replace with server-driven analytics later)
+  // For now derive from rows if same consultant is selected
+  const shownTotals = useMemo(() => {
+    // if admin picks a different user than currently loaded, we don't have server data yet.
+    // For now we keep using totals for the currently loaded consultant to avoid extra API calls.
+    return totals;
+  }, [totals]);
+
+  // charts data placeholders
+  const labels = ["Mon","Tue","Wed","Thu","Fri"];
+  const a = [0,0,0,0,0].map(clamp2);
+  const b = shownTotals.dayTracked.map(clamp2);
+
+  return (
+    <section className={styles.card}>
+      <div style={{ display: "flex", gap: 12, alignItems: "center", marginBottom: 12 }}>
+        {/* admin-only consultant and week selectors for analytics */}
+        {isAdmin && (
+          <>
+            <label className={styles.selectorLabel} style={{ marginRight: 6 }}>Consultant:</label>
+            <select
+              className={styles.selectWide}
+              value={analyticsUserId ?? ""}
+              onChange={(e) => setAnalyticsUserId(e.target.value || null)}
+            >
+              {(members || []).map(m => <option key={m.id} value={m.id}>{m.username || m.email}</option>)}
+            </select>
+
+            <div style={{ width: 8 }} />
+
+            <label className={styles.selectorLabel} style={{ marginRight: 6 }}>Week:</label>
+            <select
+              className={styles.selectWide}
+              value={analyticsWeekStart}
+              onChange={(e) => setAnalyticsWeekStart(e.target.value)}
+            >
+              {monthWeeks.map((w, i) => <option key={i} value={ymd(w.start)}>{`Week ${i+1}: ${w.label}`}</option>)}
+            </select>
+          </>
+        )}
+
+        {/* non-admin view: just show week */}
+        {!isAdmin && (
+          <>
+            <label className={styles.selectorLabel} style={{ marginRight: 6 }}>Week:</label>
+            <select className={styles.selectWide} value={ymd(weekStart)} onChange={(e)=> onChangeWeek(String(Number(e.target.value)))}>
+              {monthWeeks.map((w, i) => <option key={i} value={ymd(w.start)}>{`Week ${i+1}: ${w.label}`}</option>)}
+            </select>
+          </>
+        )}
+
+        <div style={{ marginLeft: "auto" }}>
+          <ThemeSwitch />
         </div>
-      </section>
-    );
-  }
+      </div>
+
+      {/* KPI cards row (similar to Profile) */}
+      <div className={styles.cardsRow} style={{ marginBottom: 12 }}>
+        <div className={styles.statCard}>
+          <div className={styles.statLabel}>Total Tracked Time</div>
+          <div className={styles.statValue}>{shownTotals.sumTracked.toFixed(2)}h</div>
+        </div>
+        <div className={styles.statCard}>
+          <div className={styles.statLabel}>Weekly Estimate</div>
+          <div className={styles.statValue}>{shownTotals.sumEst.toFixed(2)}h</div>
+        </div>
+        <div className={styles.statCard}>
+          <div className={styles.statLabel}>Δ Tracked – Est</div>
+          <div className={styles.statValue}>{shownTotals.delta.toFixed(2)}h</div>
+        </div>
+      </div>
+
+      {/* Charts area: two columns */}
+      <div className={styles.chartsRow}>
+        <div className={styles.chartCard} style={{ minHeight: 300 }}>
+          <div className={styles.chartTitle}>Daily Totals (Week)</div>
+          <BarsVertical labels={labels} a={a} b={b} titleA="Est (per day N/A)" titleB="Tracked" />
+        </div>
+
+        <div className={styles.chartCard} style={{ minHeight: 300 }}>
+          <div className={styles.chartTitle}>Consultants (Est vs Tracked)</div>
+          {overviewResolved.length === 0 ? (
+            <div style={{ color: "var(--muted)" }}>No data for this week.</div>
+          ) : (
+            <BarsHorizontal labels={overviewResolved.map(r=>r.name)} a={overviewResolved.map(r=>r.est)} b={overviewResolved.map(r=>r.tracked)} />
+          )}
+        </div>
+      </div>
+
+      {/* optional lower content placeholder for table / details */}
+      <div style={{ marginTop: 12 }} className={styles.card}>
+        <div style={{ fontWeight: 700, marginBottom: 8 }}>Detailed Time Breakdown</div>
+        <div style={{ color: "var(--muted)" }}>Replace with your table or extra charts as needed.</div>
+      </div>
+    </section>
+  );
+}
 
   // Profile content
   // Replace the whole ProfileSection function with this

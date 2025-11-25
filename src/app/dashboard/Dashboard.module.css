@@ -311,3 +311,20 @@
   flex: 0 0 10px;
   box-shadow: 0 1px 0 rgba(0,0,0,0.06) inset;
 }
+
+/* add near your other card styles */
+.profileGrid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12px;
+  margin-bottom: 12px;
+}
+.metricCard { border: 1px solid var(--border); border-radius: 12px; padding: 12px; background: var(--panel); }
+.metricTitle { color: var(--muted); font-size: 13px; font-weight: 600; }
+.metricValue { font-weight: 800; font-size: 22px; margin-top: 8px; }
+.metricSubtitle { color: var(--muted); font-size: 13px; margin-top: 6px; }
+
+.activityCard { margin-top: 12px; border: 1px solid var(--border); border-radius: 12px; padding: 12px; background: var(--panel); }
+.activityList { list-style: none; padding: 0; margin: 0; }
+.activityItem { display: flex; gap: 12px; align-items: center; padding: 10px 0; border-bottom: 1px solid var(--border); }
+.activityDot { width: 10px; height: 10px; border-radius: 999px; display: inline-block; margin-right: 8px; }
