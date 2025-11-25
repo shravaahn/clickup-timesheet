@@ -504,3 +504,128 @@
 
 /* small utility to make cards look lighter in light theme */
 [data-theme="light"] .metricCard { background: var(--panel); }
+
+/* ---------- Add/replace into src/app/dashboard/Dashboard.module.css ---------- */
+
+/* global card animation / lift */
+.card, .statCard, .chartCard, .weekCard, .modal {
+  transition: transform 200ms cubic-bezier(.2,.9,.25,1), box-shadow 200ms ease, border-color 180ms ease;
+  will-change: transform;
+}
+.card:hover, .statCard:hover, .chartCard:hover, .weekCard:hover {
+  transform: translateY(-6px);
+  box-shadow: 0 10px 30px rgba(11,15,20,0.06);
+  border-color: rgba(0,0,0,0.06);
+}
+
+/* subtle content container - reduce big gaps and make consistent padding */
+.shell {
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: 12px 20px;
+}
+
+/* tighten header area (top title + controls) */
+.header, .brandBar {
+  padding: 10px 12px;
+}
+
+/* make the page's main framed card slightly denser */
+.card {
+  padding: 10px;
+  border-radius: 12px;
+}
+
+/* table spacing improvements */
+.tableWrap { margin-top: 8px; overflow: auto; }
+.table th, .table td { padding: 10px 12px; vertical-align: middle; }
+.table tbody tr { transition: background 150ms ease, transform 180ms ease; }
+.table tbody tr:hover { background: rgba(0,0,0,0.02); transform: translateY(-2px); }
+
+/* compact cell control to remove large empty whitespace */
+.cellCompact { gap: 6px; grid-template-columns: 64px 64px; align-items: center; }
+
+/* track button subtle animation */
+.btn, .btnTrackSm {
+  transition: transform 120ms cubic-bezier(.2,.9,.25,1), box-shadow 120ms ease, filter 120ms ease;
+}
+.btn:hover, .btnTrackSm:hover { transform: translateY(-2px) scale(1.01); box-shadow: 0 6px 18px rgba(37,99,235,0.08); }
+
+/* small visual pills: animate color change */
+.pill {
+  transition: background 160ms, color 160ms, transform 160ms;
+}
+.pill:hover { transform: translateY(-2px); }
+
+/* stat card grid for profile, matching screenshot spacing */
+.profileGrid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0,1fr));
+  gap: 16px;
+  margin-bottom: 16px;
+}
+.metricCard {
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 18px;
+  background: linear-gradient(180deg, var(--panel), var(--panel));
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-height: 84px;
+}
+.metricTitle { color: var(--muted); font-size: 13px; font-weight: 700; }
+.metricValue { font-size: 22px; font-weight: 800; margin-top: 6px; }
+.metricSubtitle { color: var(--muted); font-size: 12px; }
+
+/* small illustrative clip container (top-right of metric card) */
+.metricClip {
+  position: absolute;
+  right: 12px;
+  top: 8px;
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  display: grid;
+  place-items: center;
+  opacity: 0.98;
+}
+.metricCard { position: relative; }
+
+/* activity list visuals */
+.activityCard {
+  margin-top: 8px;
+  border-radius: 12px;
+  padding: 16px;
+  border: 1px solid var(--border);
+  background: var(--panel);
+  transition: transform 180ms ease, box-shadow 180ms ease;
+}
+.activityCard:hover { transform: translateY(-4px); box-shadow: 0 12px 28px rgba(2,6,23,0.06); }
+
+/* activity list items */
+.activityList { list-style: none; padding: 0; margin: 0; display: grid; gap: 10px; }
+.activityItem {
+  display:flex; gap: 12px; align-items:center; padding: 10px 8px; border-radius: 8px;
+  transition: background 120ms ease, transform 120ms ease;
+}
+.activityItem:hover { background: rgba(0,0,0,0.02); transform: translateY(-2px); }
+.activityDot { width: 10px; height: 10px; border-radius:999px; display:inline-block; margin-right:6px; }
+
+/* make the header title area smaller and left-aligned like screenshot */
+.brandLeft .brandTitle { font-size: 18px; }
+.brandLeft .brandTagline { font-size: 12px; color: var(--muted); }
+
+/* reduce huge chart vertical heights that create empty page space */
+.chartCard { padding: 12px; min-height: 220px; }
+
+/* responsive adjustments */
+@media (max-width: 980px) {
+  .profileGrid { grid-template-columns: repeat(2,1fr); }
+  .metricClip { right: 10px; top: 6px; width: 30px; height: 30px; }
+}
+@media (max-width: 640px) {
+  .profileGrid { grid-template-columns: 1fr; }
+  .brandLeft .brandTitle { font-size: 16px; }
+  .chartCard { min-height: 200px; }
+}

@@ -848,7 +848,7 @@ export default function DashboardPage() {
               <div style={{ marginTop: 12 }}>{ProfileSection()}</div>
             ) : (
               <>
-                <div className="w-full rounded-lg border bg-[var(--panel)] border-[var(--border)] px-3 py-2 mb-3">
+                <div className="w-full rounded-lg border bg-[var(--panel)] border-[var(--border)] px-3 py-1.5 mb-3">
                   <div className="flex items-center justify-between gap-3">
                     <div className="flex items-center gap-3 flex-wrap">
                       <div className="text-xs text-[var(--muted)] font-semibold px-2 py-1 border rounded-full border-[var(--border)]">
