@@ -56,7 +56,7 @@ export default function ThemeSwitch({ className }: { className?: string }) {
         alignItems: "center",
         gap: 6,
         padding: "6px 10px",
-        borderRadius: 20,
+        borderRadius: 80,
         border: "1px solid var(--border)",
         background: "var(--panel)",
         cursor: "pointer",

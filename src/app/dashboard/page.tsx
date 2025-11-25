@@ -613,7 +613,8 @@ export default function DashboardPage() {
   }
 
   // Profile content
-  function ProfileSection() {
+  // Replace the whole ProfileSection function with this
+function ProfileSection() {
   // derive some KPI values
   const est = totals.sumEst ?? 0;
   const tracked = totals.sumTracked ?? 0;
@@ -639,8 +640,59 @@ export default function DashboardPage() {
     );
   }
 
+  // Helper: render admin controls (consultant + week selector)
+  function AdminControls() {
+    if (!isAdmin) return null;
+    return (
+      <div style={{ display: "flex", gap: 12, alignItems: "center", marginBottom: 12, flexWrap: "wrap" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <label className={styles.selectorLabel}>Consultant:</label>
+          <select
+            className={styles.select}
+            value={selectedUserId ?? ""}
+            onChange={(e) => {
+              const newId = e.target.value || null;
+              setSelectedUserId(newId);
+              // keep addAssignee in sync
+              if (newId) setAddAssignee(newId);
+            }}
+          >
+            {(members || []).map(m => (
+              <option key={m.id} value={m.id}>{m.username || m.email}</option>
+            ))}
+          </select>
+        </div>
+
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <label className={styles.selectorLabel}>Week:</label>
+          <select
+            className={styles.select}
+            value={String(selectedWeekIdx)}
+            onChange={(e) => {
+              const idx = Number(e.target.value);
+              setSelectedWeekIdx(idx);
+              const w = monthWeeks[idx];
+              if (w) setWeekStart(w.start);
+            }}
+          >
+            {monthWeeks.map((w, i) => (
+              <option key={i} value={String(i)}>{`Week ${i+1}: ${w.label}`}</option>
+            ))}
+          </select>
+        </div>
+
+        <div style={{ marginLeft: "auto" }}>
+          <button className={styles.btn} onClick={() => setWeekStart(startOfWeek())}>This Week</button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <section className={styles.card}>
+      {/* admin-only consultant + week controls */}
+      <AdminControls />
+
       <div className={styles.profileGrid}>
         <div className={styles.metricCard}>
           <div className={styles.metricTitle}>Estimated Time</div>
@@ -707,10 +759,10 @@ export default function DashboardPage() {
               <span style={{ color: "var(--muted)", fontSize: 13, marginLeft: 12 }}>{it.when}</span>
             </li>
           ))}
-      </ul>
-    </div>
-  </section>
-);
+        </ul>
+      </div>
+    </section>
+  );
 }
 
 
