@@ -566,10 +566,7 @@ export default function DashboardPage() {
             <div className={styles.brandTagline}>{subtitle}</div>
           </div>
         </div>
-        <div className={styles.brandRight}>
-          <ThemeSwitch />
-        </div>
-      </div>
+       </div>
     );
   }
 
