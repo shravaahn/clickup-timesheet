@@ -55,14 +55,14 @@ export default function ThemeSwitch({ className }: { className?: string }) {
         display: "inline-flex",
         alignItems: "center",
         justifyContent: "space-between",
-        width: 28,
+        width: 50,
         height: 28,
-        padding: 80,
+        padding: 2,
         borderRadius: 20,
         border: "2px solid var(--border)",
         background: "var(--panel)",
         cursor: "pointer",
-        transition: "background 0.4s ease",
+        transition: "background 0.3s ease",
       }}
     >
       <span style={{ fontSize: 14, marginLeft: theme === "light" ? 2 : 0 }}>☀️</span>
