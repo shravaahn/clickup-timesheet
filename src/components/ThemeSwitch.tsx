@@ -54,17 +54,19 @@ export default function ThemeSwitch({ className }: { className?: string }) {
       style={{
         display: "inline-flex",
         alignItems: "center",
-        gap: 6,
-        padding: "6px 10px",
-        borderRadius: 80,
-        border: "1px solid var(--border)",
+        justifyContent: "space-between",
+        width: 28,
+        height: 28,
+        padding: 80,
+        borderRadius: 20,
+        border: "2px solid var(--border)",
         background: "var(--panel)",
         cursor: "pointer",
-        fontSize: 12,
+        transition: "background 0.4s ease",
       }}
     >
-      <span style={{ fontSize: 12 }}>{theme === "dark" ? "🌙" : "☀️"}</span>
-      <span style={{ display: "none" }}>{theme === "dark" ? "Dark" : "Light"}</span>
+      <span style={{ fontSize: 14, marginLeft: theme === "light" ? 2 : 0 }}>☀️</span>
+      <span style={{ fontSize: 14, marginRight: theme === "dark" ? 2 : 0 }}>🌙</span>
     </button>
   );
 }
