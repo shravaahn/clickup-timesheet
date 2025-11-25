@@ -640,17 +640,7 @@ export default function DashboardPage() {
   }
 
   return (
-    <section>
-      <div className={styles.brandBar} style={{ marginBottom: 18 }}>
-        <div className={styles.brandLeft}>
-          <img className={styles.brandLogo} src={theme === "dark" ? "/company-logo-dark.png" : "/company-logo-light.png"} alt="logo" />
-          <div className={styles.brandText}>
-            <div className={styles.brandTitle}>Profile Dashboard</div>
-            <div className={styles.brandTagline}>Overview of your time tracking performance</div>
-          </div>
-        </div>
-      </div>
-
+    <section className={styles.card}>
       <div className={styles.profileGrid}>
         <div className={styles.metricCard}>
           <div className={styles.metricTitle}>Estimated Time</div>
@@ -717,10 +707,10 @@ export default function DashboardPage() {
               <span style={{ color: "var(--muted)", fontSize: 13, marginLeft: 12 }}>{it.when}</span>
             </li>
           ))}
-        </ul>
-      </div>
-    </section>
-  );
+      </ul>
+    </div>
+  </section>
+);
 }
 
 
