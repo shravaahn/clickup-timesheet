@@ -11,6 +11,15 @@ export type SessionData = {
     email: string;
     username?: string;
     is_admin?: boolean;
+    /**
+     * Normalized semantic role coming from the ClickUp "user directory" list.
+     * Right now we expect values like: "admin" | "manager" | "consultant".
+     */
+    role?: string;
+    /**
+     * Optional location pulled from the same ClickUp list, e.g. "US", "India".
+     */
+    location?: string;
   } | null;
 
   // Optional: selected team/workspace id
