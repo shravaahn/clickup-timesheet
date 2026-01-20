@@ -2,7 +2,6 @@
 
 import { useEffect, useMemo, useState } from "react";
 import styles from "./Dashboard.module.css";
-import ThemeSwitch from "@/components/ThemeSwitch";
 import DashboardNavbar from "@/components/DashboardNavbar/DashboardNavbar";
 
 /* ---------- Theme helpers ---------- */
@@ -222,12 +221,6 @@ export default function DashboardPage() {
   const [estimateHoursInput, setEstimateHoursInput] = useState<string>("");
   const [estimateBusy, setEstimateBusy] = useState(false);
 
-  /** Add Project modal */
-  const [addOpen, setAddOpen] = useState(false);
-  const [addName, setAddName] = useState("");
-  const [addAssignee, setAddAssignee] = useState<string | null>(null);
-  const [addBusy, setAddBusy] = useState(false);
-
   /** admin summary */
   const [overviewRows, setOverviewRows] = useState<{ name: string; est: number; tracked: number }[]>([]);
 
@@ -265,10 +258,6 @@ export default function DashboardPage() {
     })();
     return () => { mounted = false; };
   }, []);
-
-  useEffect(() => {
-    if (selectedUserId) setAddAssignee(selectedUserId);
-  }, [selectedUserId]);
 
   /* fetch weekly estimates for selected user (current week + next week) */
   useEffect(() => {
@@ -391,15 +380,6 @@ export default function DashboardPage() {
   }, [overviewRows, memberNameById]);
 
   /* actions */
-  const goPrev = () => setWeekStart(d => addDays(d, -7));
-  const goNext = () => setWeekStart(d => addDays(d, 7));
-  const goThis = () => setWeekStart(startOfWeek());
-
-  async function saveEstimate(taskId: string, taskName: string, i: number, val: number) {
-    // Intentionally disabled: per-day estimates removed.
-    return;
-  }
-
   async function saveTracked(taskId: string, taskName: string, i: number, val: number, note: string) {
     if (!selectedUserId) return;
     if (!note || !note.trim()) { alert("Please choose a Type."); return; }
@@ -518,33 +498,9 @@ export default function DashboardPage() {
     alert("Unlocked.");
   }
 
-  /* Add Project handler (kept as-is) */
-  async function createProject() {
-    if (!addName.trim() || !addAssignee) return;
-    setAddBusy(true);
-    try {
-      const resp = await fetch("/api/projects", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: addName.trim(), assigneeId: addAssignee }),
-      });
-      if (!resp.ok) {
-        const j = await resp.json().catch(() => ({}));
-        alert(`Failed to create project: ${j.error || resp.statusText}${j.details ? ` — ${j.details}` : ""}`);
-        return;
-      }
-      setAddOpen(false);
-      setAddName("");
-      setAddAssignee(selectedUserId);
-      // Optionally refresh projects
-    } finally {
-      setAddBusy(false);
-    }
-  }
-
   /* ---------- small UI helpers ---------- */
 
-  // Tab header component — shows logo + title + subtitle + ThemeSwitch
+  // Tab header component — shows logo + title + subtitle
   function TabHeader({ tab }: { tab: "profile" | "timesheets" | "analytics" }) {
     const logoSrc = theme === "dark" ? "/company-logo-dark.png" : "/company-logo-light.png";
     let title = "Timesheet";
@@ -880,9 +836,6 @@ export default function DashboardPage() {
                     </div>
 
                     <div className="flex items-center gap-2 flex-wrap">
-                      {isAdmin && (
-                        <button className={styles.btn} onClick={()=> setAddOpen(true)}>+ Add Project</button>
-                      )}
                       <button className={`${styles.btn} ${styles.primary}`} onClick={()=> alert("All changes auto-save on blur / Save.")}>Save</button>
                       <button className={styles.btn} onClick={exportCsv}>Export CSV</button>
                       <button className={`${styles.btn} ${styles.warn}`} onClick={()=> (window.location.href="/login")}>Log out</button>
@@ -1208,50 +1161,6 @@ export default function DashboardPage() {
                   disabled={estimateBusy || !estimateHoursInput}
                 >
                   {estimateBusy ? "Saving…" : (weeklyEstimates[estimateWeekStart]?.locked ? "View (Locked)" : "Save Estimate")}
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {isAdmin && addOpen && (
-          <div className={styles.modalBackdrop} onClick={()=> setAddOpen(false)}>
-            <div className={styles.modal} onClick={(e)=> e.stopPropagation()}>
-              <div className={styles.modalHeader}>
-                <div className={styles.modalTitle}>Add Project (Create Task)</div>
-                <div className={styles.modalMeta}>Assign a task to a consultant</div>
-              </div>
-
-              <div className={styles.modalBody}>
-                <label className={styles.label}>Task name</label>
-                <input
-                  className={styles.num}
-                  placeholder="e.g., Website Revamp"
-                  value={addName}
-                  onChange={(e)=> setAddName(e.currentTarget.value)}
-                />
-
-                <label className={styles.label} style={{ marginTop: 12 }}>Assign to</label>
-                <select
-                  className={`${styles.select} ${styles.selectWide}`}
-                  value={addAssignee ?? ""}
-                  onChange={(e)=> setAddAssignee(e.target.value)}
-                >
-                  {(members || []).map(c => (
-                    <option key={c.id} value={c.id}>{c.username || c.email}</option>
-                  ))}
-                </select>
-                <div className={styles.help}>Creates a new ClickUp task in your configured List.</div>
-              </div>
-
-              <div className={styles.modalActions}>
-                <button className={styles.btn} onClick={()=> setAddOpen(false)}>Cancel</button>
-                <button
-                  className={`${styles.btn} ${styles.primary}`}
-                  onClick={createProject}
-                  disabled={!addName.trim() || !addAssignee || addBusy}
-                >
-                  {addBusy ? "Creating…" : "Create"}
                 </button>
               </div>
             </div>
