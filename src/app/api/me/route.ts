@@ -1,4 +1,5 @@
 // src/app/api/me/route.ts
+
 import { NextRequest, NextResponse } from "next/server";
 import { getIronSession } from "iron-session";
 import { sessionOptions } from "@/lib/session";
@@ -13,65 +14,53 @@ export async function GET(req: NextRequest) {
   const res = new NextResponse();
   const session: any = await getIronSession(req, res, sessionOptions);
 
-  const accessToken = session?.accessToken || session?.access_token;
-  const sessionUser = session?.user;
-
-  if (!accessToken || !sessionUser?.id) {
+  if (!session?.user?.id) {
     return NextResponse.json({ error: "Not logged in" }, { status: 401 });
   }
+
+  const clickupUserId = String(session.user.id);
 
   /* -------------------------------------------
      Resolve org user
   -------------------------------------------- */
-  const orgUser = await getOrgUserByClickUpId(String(sessionUser.id));
-
+  const orgUser = await getOrgUserByClickUpId(clickupUserId);
   if (!orgUser) {
-    // User authenticated but not yet provisioned in IAM
-    return NextResponse.json({
-      user: {
-        id: sessionUser.id,
-        email: sessionUser.email,
-        username: sessionUser.username,
-        provisioned: false,
-        roles: [],
-        is_admin: false,
-        is_owner: false,
-        manager_id: null,
-        team_id: null,
-        country: null,
-      },
-    });
+    return NextResponse.json({ error: "User not provisioned" }, { status: 403 });
   }
 
   /* -------------------------------------------
-     Resolve roles (inheritance-aware)
+     Resolve IAM roles
   -------------------------------------------- */
   const roles = await getUserRoles(orgUser.id);
+
   const isOwner = roles.includes("OWNER");
   const isAdmin = isOwner || roles.includes("ADMIN");
+  const isManager = roles.includes("MANAGER");
 
   /* -------------------------------------------
-     Resolve hierarchy
+     Resolve hierarchy (optional but useful)
   -------------------------------------------- */
   const managerId = await getManagerForUser(orgUser.id);
   const teamId = await getTeamForUser(orgUser.id);
 
-  /* -------------------------------------------
-     Final response shape (frontend contract)
-  -------------------------------------------- */
   return NextResponse.json({
     user: {
-      id: sessionUser.id,                 // ClickUp user id
-      org_user_id: orgUser.id,             // Supabase org_users.id
+      id: clickupUserId,
       email: orgUser.email,
       username: orgUser.name,
-      country: orgUser.country,
+      role: isOwner
+        ? "OWNER"
+        : isAdmin
+        ? "ADMIN"
+        : isManager
+        ? "MANAGER"
+        : "CONSULTANT",
       roles,
-      is_admin: isAdmin,
       is_owner: isOwner,
+      is_admin: isAdmin,
+      is_manager: isManager,
       manager_id: managerId,
       team_id: teamId,
-      provisioned: true,
     },
   });
 }
