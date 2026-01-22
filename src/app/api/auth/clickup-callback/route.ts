@@ -1,14 +1,9 @@
 // src/app/api/auth/clickup-callback/route.ts
-
 import { NextRequest, NextResponse } from "next/server";
 import { getIronSession } from "iron-session";
 import axios from "axios";
 import { sessionOptions, type SessionData } from "@/lib/session";
-import {
-  ensureOrgUser,
-  getUserRoles,
-  supabaseAdmin,
-} from "@/lib/db";
+import { supabaseAdmin } from "@/lib/db";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -26,9 +21,7 @@ export async function GET(req: NextRequest) {
   }
 
   try {
-    /* -------------------------------------------
-       1) OAuth exchange
-    -------------------------------------------- */
+    // 1. Exchange token
     const tokenRes = await axios.post(
       "https://api.clickup.com/api/v2/oauth/token",
       {
@@ -40,18 +33,12 @@ export async function GET(req: NextRequest) {
     );
 
     const accessToken = tokenRes.data?.access_token;
-    if (!accessToken) {
-      throw new Error("No access_token from ClickUp");
-    }
+    if (!accessToken) throw new Error("No access token");
 
-    /* -------------------------------------------
-       2) Fetch ClickUp user
-    -------------------------------------------- */
+    // 2. Fetch ClickUp user
     const meRes = await axios.get(
       "https://api.clickup.com/api/v2/user",
-      {
-        headers: { Authorization: `Bearer ${accessToken}` },
-      }
+      { headers: { Authorization: `Bearer ${accessToken}` } }
     );
 
     const me = meRes.data?.user;
@@ -63,50 +50,30 @@ export async function GET(req: NextRequest) {
     const email = String(me.email).toLowerCase();
     const name = me.username || email;
 
-    /* -------------------------------------------
-       3) Ensure org user
-    -------------------------------------------- */
-    const orgUser = await ensureOrgUser({
-      clickupUserId,
-      email,
-      name,
-    });
+    // 3. Ensure org_users
+    const { data: user } = await supabaseAdmin
+      .from("org_users")
+      .upsert(
+        { clickup_user_id: clickupUserId, email, name },
+        { onConflict: "clickup_user_id" }
+      )
+      .select()
+      .single();
 
-    /* -------------------------------------------
-       4) IAM BOOTSTRAP (ENV-DRIVEN OWNER)
-    -------------------------------------------- */
-    const roles = await getUserRoles(orgUser.id);
+    // 4. OWNER bootstrap via ENV
+    const ownerEmail = process.env.OWNER_EMAIL?.toLowerCase();
+    const role =
+      ownerEmail && email === ownerEmail ? "OWNER" : "CONSULTANT";
 
-    if (roles.length === 0) {
-      const bootstrapEmail =
-        process.env.IAM_BOOTSTRAP_OWNER_EMAIL?.toLowerCase() || "";
+    // 5. Ensure role
+    await supabaseAdmin
+      .from("org_roles")
+      .upsert(
+        { user_id: user.id, role },
+        { onConflict: "user_id,role" }
+      );
 
-      const { data: owners } = await supabaseAdmin
-        .from("org_roles")
-        .select("id")
-        .eq("role", "OWNER")
-        .limit(1);
-
-      const ownerExists = (owners || []).length > 0;
-
-      if (!ownerExists && bootstrapEmail && email === bootstrapEmail) {
-        // FIRST OWNER
-        await supabaseAdmin.from("org_roles").insert([
-          { user_id: orgUser.id, role: "OWNER" },
-          { user_id: orgUser.id, role: "ADMIN" },
-        ]);
-      } else {
-        // DEFAULT ROLE
-        await supabaseAdmin.from("org_roles").insert({
-          user_id: orgUser.id,
-          role: "CONSULTANT",
-        });
-      }
-    }
-
-    /* -------------------------------------------
-       5) Session
-    -------------------------------------------- */
+    // 6. Session
     const session = await getIronSession<SessionData>(
       req,
       res,
@@ -118,7 +85,7 @@ export async function GET(req: NextRequest) {
       id: clickupUserId,
       email,
       username: name,
-      is_admin: false, // resolved via IAM APIs
+      is_admin: role === "OWNER",
     };
 
     await session.save();
