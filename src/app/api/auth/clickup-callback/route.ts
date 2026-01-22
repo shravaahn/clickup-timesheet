@@ -26,9 +26,9 @@ export async function GET(req: NextRequest) {
   }
 
   try {
-    /* ------------------------------------------------
-       1) Exchange OAuth code for ClickUp access token
-    ------------------------------------------------- */
+    /* -------------------------------------------
+       1) OAuth exchange
+    -------------------------------------------- */
     const tokenRes = await axios.post(
       "https://api.clickup.com/api/v2/oauth/token",
       {
@@ -41,12 +41,12 @@ export async function GET(req: NextRequest) {
 
     const accessToken = tokenRes.data?.access_token;
     if (!accessToken) {
-      throw new Error("No access_token returned from ClickUp");
+      throw new Error("No access_token from ClickUp");
     }
 
-    /* ------------------------------------------------
-       2) Fetch ClickUp user profile
-    ------------------------------------------------- */
+    /* -------------------------------------------
+       2) Fetch ClickUp user
+    -------------------------------------------- */
     const meRes = await axios.get(
       "https://api.clickup.com/api/v2/user",
       {
@@ -56,33 +56,31 @@ export async function GET(req: NextRequest) {
 
     const me = meRes.data?.user;
     if (!me?.id || !me?.email) {
-      throw new Error("Invalid ClickUp user payload");
+      throw new Error("Invalid ClickUp user");
     }
 
     const clickupUserId = String(me.id);
     const email = String(me.email).toLowerCase();
     const name = me.username || email;
 
-    /* ------------------------------------------------
-       3) Ensure org_users record exists
-    ------------------------------------------------- */
+    /* -------------------------------------------
+       3) Ensure org user
+    -------------------------------------------- */
     const orgUser = await ensureOrgUser({
       clickupUserId,
       email,
       name,
     });
 
-    /* ------------------------------------------------
-       4) IAM BOOTSTRAP LOGIC (ONE-TIME OWNER)
-    ------------------------------------------------- */
-    const existingRoles = await getUserRoles(orgUser.id);
+    /* -------------------------------------------
+       4) IAM BOOTSTRAP (ENV-DRIVEN OWNER)
+    -------------------------------------------- */
+    const roles = await getUserRoles(orgUser.id);
 
-    if (existingRoles.length === 0) {
-      const bootstrapEmail = String(
-        process.env.IAM_BOOTSTRAP_OWNER_EMAIL || ""
-      ).toLowerCase();
+    if (roles.length === 0) {
+      const bootstrapEmail =
+        process.env.IAM_BOOTSTRAP_OWNER_EMAIL?.toLowerCase() || "";
 
-      // Check if an OWNER already exists in the system
       const { data: owners } = await supabaseAdmin
         .from("org_roles")
         .select("id")
@@ -92,13 +90,13 @@ export async function GET(req: NextRequest) {
       const ownerExists = (owners || []).length > 0;
 
       if (!ownerExists && bootstrapEmail && email === bootstrapEmail) {
-        // First-ever OWNER
+        // FIRST OWNER
         await supabaseAdmin.from("org_roles").insert([
           { user_id: orgUser.id, role: "OWNER" },
           { user_id: orgUser.id, role: "ADMIN" },
         ]);
       } else {
-        // Default role
+        // DEFAULT ROLE
         await supabaseAdmin.from("org_roles").insert({
           user_id: orgUser.id,
           role: "CONSULTANT",
@@ -106,9 +104,9 @@ export async function GET(req: NextRequest) {
       }
     }
 
-    /* ------------------------------------------------
-       5) Create session (roles resolved via APIs)
-    ------------------------------------------------- */
+    /* -------------------------------------------
+       5) Session
+    -------------------------------------------- */
     const session = await getIronSession<SessionData>(
       req,
       res,
@@ -120,24 +118,17 @@ export async function GET(req: NextRequest) {
       id: clickupUserId,
       email,
       username: name,
-      is_admin: false, // derived via IAM, not session
+      is_admin: false, // resolved via IAM APIs
     };
 
     await session.save();
 
-    /* ------------------------------------------------
-       6) Redirect to dashboard
-    ------------------------------------------------- */
     return NextResponse.redirect(
       new URL("/dashboard", req.url),
       { headers: res.headers }
     );
   } catch (err: any) {
-    console.error(
-      "OAuth callback error:",
-      err?.response?.data || err?.message || err
-    );
-
+    console.error("OAuth error:", err);
     return NextResponse.redirect(
       new URL("/login?error=oauth_failed", req.url),
       { headers: res.headers }
