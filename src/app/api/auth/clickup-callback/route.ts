@@ -4,88 +4,15 @@ import { NextRequest, NextResponse } from "next/server";
 import { getIronSession } from "iron-session";
 import axios from "axios";
 import { sessionOptions, type SessionData } from "@/lib/session";
-import { supabaseAdmin } from "@/lib/db";
+import {
+  supabaseAdmin,
+  ensureOrgUser,
+  getUserRoles,
+} from "@/lib/db";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-/* =========================================================
-   AUTO-SYNC ALL WORKSPACE USERS
-========================================================= */
-async function syncWorkspaceUsers(accessToken: string) {
-  const TEAM_ID = process.env.CLICKUP_TEAM_ID;
-  if (!TEAM_ID) throw new Error("Missing CLICKUP_TEAM_ID");
-
-  const ownerEmail = (process.env.OWNER_EMAIL || "").toLowerCase();
-
-  const res = await fetch(`https://api.clickup.com/api/v2/team/${TEAM_ID}`, {
-    headers: {
-      Authorization: `Bearer ${accessToken}`,
-      Accept: "application/json",
-    },
-    cache: "no-store",
-  });
-
-  if (!res.ok) {
-    const text = await res.text();
-    throw new Error(`Failed to fetch team users: ${text}`);
-  }
-
-  const json = await res.json();
-  const members: any[] = json?.team?.members || [];
-
-  for (const m of members) {
-    const u = m?.user;
-    if (!u?.id || !u?.email) continue;
-
-    const clickupUserId = String(u.id);
-    const email = String(u.email).toLowerCase();
-    const name = u.username || email;
-
-    /* -------------------------------
-       Ensure org_users row
-    -------------------------------- */
-    const { data: orgUser } = await supabaseAdmin
-      .from("org_users")
-      .upsert(
-        {
-          clickup_user_id: clickupUserId,
-          email,
-          name,
-          is_active: true,
-        },
-        { onConflict: "clickup_user_id" }
-      )
-      .select("id")
-      .maybeSingle();
-
-    if (!orgUser?.id) continue;
-
-    /* -------------------------------
-       Ensure roles (NON-DESTRUCTIVE)
-    -------------------------------- */
-    const { data: roles } = await supabaseAdmin
-      .from("org_roles")
-      .select("role")
-      .eq("user_id", orgUser.id);
-
-    const hasRoles = (roles || []).length > 0;
-
-    if (!hasRoles) {
-      const role =
-        ownerEmail && email === ownerEmail ? "OWNER" : "CONSULTANT";
-
-      await supabaseAdmin.from("org_roles").insert({
-        user_id: orgUser.id,
-        role,
-      });
-    }
-  }
-}
-
-/* =========================================================
-   OAUTH CALLBACK
-========================================================= */
 export async function GET(req: NextRequest) {
   const url = new URL(req.url);
   const code = url.searchParams.get("code");
@@ -100,7 +27,7 @@ export async function GET(req: NextRequest) {
 
   try {
     /* -------------------------------------------
-       Exchange OAuth code
+       1) Exchange OAuth code for access token
     -------------------------------------------- */
     const tokenRes = await axios.post(
       "https://api.clickup.com/api/v2/oauth/token",
@@ -113,10 +40,12 @@ export async function GET(req: NextRequest) {
     );
 
     const accessToken = tokenRes.data?.access_token;
-    if (!accessToken) throw new Error("No access token");
+    if (!accessToken) {
+      throw new Error("No access_token returned from ClickUp");
+    }
 
     /* -------------------------------------------
-       Fetch current user
+       2) Fetch ClickUp user
     -------------------------------------------- */
     const meRes = await axios.get(
       "https://api.clickup.com/api/v2/user",
@@ -128,13 +57,44 @@ export async function GET(req: NextRequest) {
       throw new Error("Invalid ClickUp user payload");
     }
 
-    /* -------------------------------------------
-       AUTO-SYNC WORKSPACE USERS
-    -------------------------------------------- */
-    await syncWorkspaceUsers(accessToken);
+    const clickupUserId = String(me.id);
+    const email = String(me.email).toLowerCase();
+    const name = me.username || email;
 
     /* -------------------------------------------
-       Create session
+       3) Ensure org user exists
+    -------------------------------------------- */
+    const orgUser = await ensureOrgUser({
+      clickupUserId,
+      email,
+      name,
+    });
+
+    /* -------------------------------------------
+       4) OWNER bootstrap (ENV-based)
+    -------------------------------------------- */
+    const ownerEmail = process.env.OWNER_EMAIL?.toLowerCase();
+    const roles = await getUserRoles(orgUser.id);
+
+    if (ownerEmail && email === ownerEmail) {
+      if (!roles.includes("OWNER")) {
+        await supabaseAdmin.from("org_roles").insert({
+          user_id: orgUser.id,
+          role: "OWNER",
+        });
+      }
+    } else {
+      // Default role: CONSULTANT
+      if (roles.length === 0) {
+        await supabaseAdmin.from("org_roles").insert({
+          user_id: orgUser.id,
+          role: "CONSULTANT",
+        });
+      }
+    }
+
+    /* -------------------------------------------
+       5) Create session
     -------------------------------------------- */
     const session = await getIronSession<SessionData>(
       req,
@@ -144,20 +104,27 @@ export async function GET(req: NextRequest) {
 
     session.accessToken = accessToken;
     session.user = {
-      id: String(me.id),
-      email: String(me.email).toLowerCase(),
-      username: me.username || me.email,
-      is_admin: false, // derived dynamically from roles
+      id: clickupUserId,
+      email,
+      username: name,
+      is_admin: false, // resolved dynamically via IAM
     };
 
     await session.save();
 
+    /* -------------------------------------------
+       6) Redirect to dashboard
+    -------------------------------------------- */
     return NextResponse.redirect(
       new URL("/dashboard", req.url),
       { headers: res.headers }
     );
   } catch (err: any) {
-    console.error("OAuth callback error:", err);
+    console.error(
+      "OAuth callback error:",
+      err?.response?.data || err?.message || err
+    );
+
     return NextResponse.redirect(
       new URL("/login?error=oauth_failed", req.url),
       { headers: res.headers }
