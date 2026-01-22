@@ -4,7 +4,11 @@ import { NextRequest, NextResponse } from "next/server";
 import { getIronSession } from "iron-session";
 import axios from "axios";
 import { sessionOptions, type SessionData } from "@/lib/session";
-import { supabaseAdmin } from "@/lib/db";
+import {
+  ensureOrgUser,
+  getUserRoles,
+  supabaseAdmin,
+} from "@/lib/db";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -22,9 +26,9 @@ export async function GET(req: NextRequest) {
   }
 
   try {
-    /* -------------------------------------------------
-       1) Exchange OAuth code → access token
-    -------------------------------------------------- */
+    /* ------------------------------------------------
+       1) Exchange OAuth code for ClickUp access token
+    ------------------------------------------------- */
     const tokenRes = await axios.post(
       "https://api.clickup.com/api/v2/oauth/token",
       {
@@ -35,17 +39,19 @@ export async function GET(req: NextRequest) {
       }
     );
 
-    const accessToken: string | undefined = tokenRes.data?.access_token;
+    const accessToken = tokenRes.data?.access_token;
     if (!accessToken) {
       throw new Error("No access_token returned from ClickUp");
     }
 
-    /* -------------------------------------------------
-       2) Fetch ClickUp user
-    -------------------------------------------------- */
+    /* ------------------------------------------------
+       2) Fetch ClickUp user profile
+    ------------------------------------------------- */
     const meRes = await axios.get(
       "https://api.clickup.com/api/v2/user",
-      { headers: { Authorization: `Bearer ${accessToken}` } }
+      {
+        headers: { Authorization: `Bearer ${accessToken}` },
+      }
     );
 
     const me = meRes.data?.user;
@@ -57,29 +63,52 @@ export async function GET(req: NextRequest) {
     const email = String(me.email).toLowerCase();
     const name = me.username || email;
 
-    /* -------------------------------------------------
-       3) UPSERT into users table
-       (single source of truth)
-    -------------------------------------------------- */
-    const { error: upsertError } = await supabaseAdmin
-      .from("users")
-      .upsert(
-        {
-          clickup_user_id: clickupUserId,
-          email,
-          name,
-        },
-        { onConflict: "clickup_user_id" }
-      );
+    /* ------------------------------------------------
+       3) Ensure org_users record exists
+    ------------------------------------------------- */
+    const orgUser = await ensureOrgUser({
+      clickupUserId,
+      email,
+      name,
+    });
 
-    if (upsertError) {
-      throw upsertError;
+    /* ------------------------------------------------
+       4) IAM BOOTSTRAP LOGIC (ONE-TIME OWNER)
+    ------------------------------------------------- */
+    const existingRoles = await getUserRoles(orgUser.id);
+
+    if (existingRoles.length === 0) {
+      const bootstrapEmail = String(
+        process.env.IAM_BOOTSTRAP_OWNER_EMAIL || ""
+      ).toLowerCase();
+
+      // Check if an OWNER already exists in the system
+      const { data: owners } = await supabaseAdmin
+        .from("org_roles")
+        .select("id")
+        .eq("role", "OWNER")
+        .limit(1);
+
+      const ownerExists = (owners || []).length > 0;
+
+      if (!ownerExists && bootstrapEmail && email === bootstrapEmail) {
+        // First-ever OWNER
+        await supabaseAdmin.from("org_roles").insert([
+          { user_id: orgUser.id, role: "OWNER" },
+          { user_id: orgUser.id, role: "ADMIN" },
+        ]);
+      } else {
+        // Default role
+        await supabaseAdmin.from("org_roles").insert({
+          user_id: orgUser.id,
+          role: "CONSULTANT",
+        });
+      }
     }
 
-    /* -------------------------------------------------
-       4) Create session (identity only)
-       IAM/roles resolved elsewhere
-    -------------------------------------------------- */
+    /* ------------------------------------------------
+       5) Create session (roles resolved via APIs)
+    ------------------------------------------------- */
     const session = await getIronSession<SessionData>(
       req,
       res,
@@ -91,14 +120,14 @@ export async function GET(req: NextRequest) {
       id: clickupUserId,
       email,
       username: name,
-      is_admin: false, // role resolution handled separately
+      is_admin: false, // derived via IAM, not session
     };
 
     await session.save();
 
-    /* -------------------------------------------------
-       5) Redirect to dashboard
-    -------------------------------------------------- */
+    /* ------------------------------------------------
+       6) Redirect to dashboard
+    ------------------------------------------------- */
     return NextResponse.redirect(
       new URL("/dashboard", req.url),
       { headers: res.headers }
