@@ -1,19 +1,28 @@
 // src/app/api/consultants/route.ts
+
 import { NextRequest, NextResponse } from "next/server";
 import { getIronSession } from "iron-session";
 import { sessionOptions } from "@/lib/session";
 
 /**
  * GET /api/consultants
- * Returns ClickUp members for the configured team/workspace.
+ *
+ * Temporary stable implementation:
+ * - ADMIN  -> sees all ClickUp team members
+ * - USER   -> sees self only
+ *
+ * NOTE:
+ * IAM-based hierarchy (OWNER / ADMIN / REPORTS)
+ * will be reintroduced after db.ts stabilizes.
  */
 export async function GET(req: NextRequest) {
   const res = new NextResponse();
-
-  // Pull the OAuth token from iron-session
   const session: any = await getIronSession(req, res, sessionOptions);
-  const token = session?.access_token || session?.accessToken;
-  if (!token) {
+
+  const token = session?.accessToken || session?.access_token;
+  const user = session?.user;
+
+  if (!token || !user?.id) {
     return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
   }
 
@@ -25,32 +34,58 @@ export async function GET(req: NextRequest) {
     );
   }
 
-  const auth = String(token).startsWith("Bearer ") ? String(token) : `Bearer ${token}`;
+  const authHeader = String(token).startsWith("Bearer ")
+    ? String(token)
+    : `Bearer ${token}`;
 
-  // ClickUp team endpoint includes members
-  const url = `https://api.clickup.com/api/v2/team/${TEAM_ID}`;
-  const r = await fetch(url, {
-    headers: { Authorization: auth, Accept: "application/json" },
-    cache: "no-store",
-  });
-
-  const text = await r.text();
-  let json: any = null;
-  try { json = text ? JSON.parse(text) : null; } catch { /* keep text for debugging */ }
-
-  if (!r.ok) {
-    return NextResponse.json(
-      { error: "ClickUp error", details: json ?? text ?? r.statusText },
-      { status: 502 }
+  /* -------------------------------------------
+     ADMIN: fetch all ClickUp team members
+  -------------------------------------------- */
+  if (user.is_admin) {
+    const r = await fetch(
+      `https://api.clickup.com/api/v2/team/${TEAM_ID}`,
+      {
+        headers: {
+          Authorization: authHeader,
+          Accept: "application/json",
+        },
+        cache: "no-store",
+      }
     );
+
+    const text = await r.text();
+    let json: any = null;
+    try {
+      json = text ? JSON.parse(text) : null;
+    } catch {}
+
+    if (!r.ok) {
+      return NextResponse.json(
+        { error: "ClickUp error", details: json || text },
+        { status: 502 }
+      );
+    }
+
+    const members =
+      json?.team?.members?.map((m: any) => ({
+        id: String(m?.user?.id),
+        username: m?.user?.username || m?.user?.email,
+        email: m?.user?.email || null,
+      })) || [];
+
+    return NextResponse.json({ members });
   }
 
-  // Normalize members -> { id, username, email }
-  const members = (json?.team?.members ?? []).map((m: any) => ({
-    id: String(m?.user?.id ?? m?.id ?? ""),
-    username: m?.user?.username ?? m?.user?.email ?? "",
-    email: m?.user?.email ?? null,
-  })).filter((m: any) => m.id);
-
-  return NextResponse.json({ members });
+  /* -------------------------------------------
+     CONSULTANT: self only
+  -------------------------------------------- */
+  return NextResponse.json({
+    members: [
+      {
+        id: String(user.id),
+        username: user.username || user.email,
+        email: user.email || null,
+      },
+    ],
+  });
 }

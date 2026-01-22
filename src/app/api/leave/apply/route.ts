@@ -1,41 +1,33 @@
-// src/app/api/weekly-estimates/unlock/route.ts
+// src/app/api/leave/apply/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import { getIronSession } from "iron-session";
 import { sessionOptions } from "@/lib/session";
 import {
   supabaseAdmin,
   getOrgUserByClickUpId,
-  getUserRoles,
 } from "@/lib/db";
 
 export async function POST(req: NextRequest) {
-  const res = new NextResponse();
-
   try {
+    const res = new NextResponse();
     const session: any = await getIronSession(req, res, sessionOptions);
-    const sessionUser = session?.user;
 
-    if (!sessionUser?.id) {
+    if (!session?.user?.id) {
       return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
     }
 
-    const orgUser = await getOrgUserByClickUpId(String(sessionUser.id));
+    const orgUser = await getOrgUserByClickUpId(String(session.user.id));
     if (!orgUser) {
       return NextResponse.json({ error: "Not provisioned" }, { status: 403 });
     }
 
-    const roles = await getUserRoles(orgUser.id);
-    const isAdmin = roles.includes("OWNER") || roles.includes("ADMIN");
-
-    if (!isAdmin) {
-      return NextResponse.json({ error: "Admin required" }, { status: 403 });
-    }
-
     const body = await req.json().catch(() => ({}));
-    const userId = String(body.userId || "");
-    const weekStart = String(body.weekStart || "");
+    const leaveTypeId = String(body.leaveTypeId || "");
+    const startDate = String(body.startDate || "");
+    const endDate = String(body.endDate || "");
+    const reason = String(body.reason || "");
 
-    if (!userId || !weekStart) {
+    if (!leaveTypeId || !startDate || !endDate) {
       return NextResponse.json(
         { error: "Missing parameters" },
         { status: 400 }
@@ -43,26 +35,29 @@ export async function POST(req: NextRequest) {
     }
 
     const { data, error } = await supabaseAdmin
-      .from("weekly_estimates")
-      .update({
-        locked: false,
-        updated_at: new Date().toISOString(),
+      .from("leave_requests")
+      .insert({
+        user_id: orgUser.id,
+        leave_type_id: leaveTypeId,
+        start_date: startDate,
+        end_date: endDate,
+        reason,
+        status: "PENDING",
+        created_at: new Date().toISOString(),
       })
-      .eq("user_id", userId)
-      .eq("week_start", weekStart)
       .select()
       .maybeSingle();
 
     if (error) {
       return NextResponse.json(
-        { error: "Unlock failed", details: error.message },
+        { error: "Failed to apply leave", details: error.message },
         { status: 500 }
       );
     }
 
-    return NextResponse.json({ ok: true, estimate: data });
+    return NextResponse.json({ ok: true, request: data });
   } catch (err: any) {
-    console.error("weekly-estimates/unlock error:", err);
+    console.error("leave apply error:", err);
     return NextResponse.json(
       { error: "Failed", details: String(err) },
       { status: 500 }

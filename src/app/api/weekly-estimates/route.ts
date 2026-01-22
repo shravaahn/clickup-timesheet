@@ -2,120 +2,210 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getIronSession } from "iron-session";
 import { sessionOptions } from "@/lib/session";
-import { supabaseAdmin } from "@/lib/db";
+import {
+  supabaseAdmin,
+  getOrgUserByClickUpId,
+  getUserRoles,
+} from "@/lib/db";
 
-/**
- * GET: ?userId=...&weeks=YYYY-MM-DD,YYYY-MM-DD
- * POST: { userId, weekStart, hours }
- */
+/* -------------------------------------------------------
+   Helpers
+-------------------------------------------------------- */
 
+function startOfWeekUTC(d: Date) {
+  const date = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()));
+  const day = date.getUTCDay(); // 0=Sun
+  const diff = (day + 6) % 7;   // Monday start
+  date.setUTCDate(date.getUTCDate() - diff);
+  return date.toISOString().slice(0, 10);
+}
+
+function allowedWeekStarts() {
+  const now = new Date();
+  const thisWeek = startOfWeekUTC(now);
+
+  const next = new Date(now);
+  next.setUTCDate(next.getUTCDate() + 7);
+  const nextWeek = startOfWeekUTC(next);
+
+  return [thisWeek, nextWeek];
+}
+
+/* =======================================================
+   GET — Fetch weekly estimates
+======================================================= */
 export async function GET(req: NextRequest) {
   try {
-    const sp = req.nextUrl.searchParams;
-    const userId = sp.get("userId") || "";
-    const weeksRaw = sp.get("weeks") || "";
-    if (!userId) return NextResponse.json({ error: "Missing userId" }, { status: 400 });
+    const res = new NextResponse();
+    const session: any = await getIronSession(req, res, sessionOptions);
+    const sessionUser = session?.user;
 
-    const weeks = weeksRaw ? weeksRaw.split(",").map(s => s.trim()).filter(Boolean) : [];
-    if (weeks.length === 0) {
-      // default: return current week only
+    if (!sessionUser?.id) {
+      return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
     }
 
-    let q = supabaseAdmin.from("weekly_estimates").select("*").eq("user_id", userId);
-    if (weeks.length > 0) q = q.in("week_start", weeks); // note: week_start is date
-    const { data, error } = await q.order("week_start", { ascending: true });
+    const orgUser = await getOrgUserByClickUpId(String(sessionUser.id));
+    if (!orgUser) {
+      return NextResponse.json({ rows: [] });
+    }
+
+    const roles = await getUserRoles(orgUser.id);
+    const isAdmin = roles.includes("OWNER") || roles.includes("ADMIN");
+
+    const sp = req.nextUrl.searchParams;
+    const targetUserId = sp.get("userId");
+
+    // Consultants can only read their own estimates
+    if (targetUserId && !isAdmin && targetUserId !== orgUser.clickup_user_id) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+
+    const queryUserId = targetUserId || orgUser.clickup_user_id;
+
+    const { data, error } = await supabaseAdmin
+      .from("weekly_estimates")
+      .select("*")
+      .eq("user_id", queryUserId)
+      .order("week_start", { ascending: true });
 
     if (error) {
-      console.error("weekly-estimates GET error:", error);
-      return NextResponse.json({ error: "DB query failed", details: error.message }, { status: 500 });
+      return NextResponse.json(
+        { error: "DB query failed", details: error.message },
+        { status: 500 }
+      );
     }
 
     return NextResponse.json({ rows: data || [] });
   } catch (err: any) {
     console.error("weekly-estimates GET error:", err);
-    return NextResponse.json({ error: "Failed to fetch estimates", details: String(err) }, { status: 500 });
+    return NextResponse.json(
+      { error: "Failed", details: String(err) },
+      { status: 500 }
+    );
   }
 }
 
+/* =======================================================
+   POST — Submit weekly estimate
+======================================================= */
 export async function POST(req: NextRequest) {
   try {
-    const body = await req.json().catch(() => ({}));
-    const userId = String(body.userId || "");
-    const weekStart = String(body.weekStart || "");
-    const hours = Number(body.hours ?? NaN);
-    if (!userId || !weekStart || !Number.isFinite(hours)) {
-      return NextResponse.json({ error: "Missing or invalid parameters" }, { status: 400 });
-    }
-
-    // Prefer session user (consultant). If session exists, ensure the user matches the provided userId or user is admin.
     const res = new NextResponse();
     const session: any = await getIronSession(req, res, sessionOptions);
-    const sessUser = session?.user;
-    const isAdmin = !!sessUser?.is_admin;
-    const sessUserId = String(sessUser?.id || "");
+    const sessionUser = session?.user;
 
-    // If session present and not admin, require they can only create for themselves
-    if (sessUser && !isAdmin && sessUserId !== userId) {
-      return NextResponse.json({ error: "Cannot create estimate for another user" }, { status: 403 });
+    if (!sessionUser?.id) {
+      return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
     }
 
-    // Check if existing row exists
+    const body = await req.json().catch(() => ({}));
+    const weekStart = String(body.weekStart || "");
+    const hours = Number(body.hours ?? NaN);
+
+    if (!weekStart || !Number.isFinite(hours)) {
+      return NextResponse.json(
+        { error: "Missing or invalid parameters" },
+        { status: 400 }
+      );
+    }
+
+    const orgUser = await getOrgUserByClickUpId(String(sessionUser.id));
+    if (!orgUser) {
+      return NextResponse.json({ error: "User not provisioned" }, { status: 403 });
+    }
+
+    const roles = await getUserRoles(orgUser.id);
+    const isAdmin = roles.includes("OWNER") || roles.includes("ADMIN");
+
+    const targetUserId = body.userId
+      ? String(body.userId)
+      : orgUser.clickup_user_id;
+
+    // Consultants cannot submit for others
+    if (!isAdmin && targetUserId !== orgUser.clickup_user_id) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+
+    // Only allow current week or next week
+    const allowedWeeks = allowedWeekStarts();
+    if (!allowedWeeks.includes(weekStart)) {
+      return NextResponse.json(
+        { error: "Estimates allowed only for current or next week" },
+        { status: 409 }
+      );
+    }
+
+    // Check existing
     const { data: existing, error: exErr } = await supabaseAdmin
       .from("weekly_estimates")
       .select("*")
-      .eq("user_id", userId)
+      .eq("user_id", targetUserId)
       .eq("week_start", weekStart)
-      .limit(1)
       .maybeSingle();
 
     if (exErr) {
-      console.error("weekly-estimates select error:", exErr);
-      return NextResponse.json({ error: "DB error", details: exErr.message }, { status: 500 });
+      return NextResponse.json(
+        { error: "DB error", details: exErr.message },
+        { status: 500 }
+      );
     }
 
     if (existing) {
       if (existing.locked) {
-        return NextResponse.json({ error: "Estimate already locked" }, { status: 409 });
+        return NextResponse.json(
+          { error: "Estimate already locked" },
+          { status: 409 }
+        );
       }
-      // update existing row, set locked true
-      const { data: updated, error: updErr } = await supabaseAdmin
+
+      const { data, error } = await supabaseAdmin
         .from("weekly_estimates")
-        .update({ hours, locked: true, updated_at: new Date().toISOString() })
+        .update({
+          hours,
+          locked: true,
+          updated_at: new Date().toISOString(),
+        })
         .eq("id", existing.id)
         .select()
         .maybeSingle();
 
-      if (updErr) {
-        console.error("weekly-estimates update error:", updErr);
-        return NextResponse.json({ error: "DB update failed", details: updErr.message }, { status: 500 });
+      if (error) {
+        return NextResponse.json(
+          { error: "Update failed", details: error.message },
+          { status: 500 }
+        );
       }
-      return NextResponse.json({ ok: true, estimate: updated });
+
+      return NextResponse.json({ ok: true, estimate: data });
     }
 
-    // Insert new (locked by default)
-    const payload = {
-      user_id: userId,
-      week_start: weekStart,
-      hours,
-      locked: true,
-      created_at: new Date().toISOString(),
-      created_by: sessUserId || null,
-    };
-
+    // Insert new (locked immediately)
     const { data, error } = await supabaseAdmin
       .from("weekly_estimates")
-      .insert([payload])
+      .insert({
+        user_id: targetUserId,
+        week_start: weekStart,
+        hours,
+        locked: true,
+        created_at: new Date().toISOString(),
+        created_by: orgUser.id,
+      })
       .select()
       .maybeSingle();
 
     if (error) {
-      console.error("weekly-estimates insert error:", error);
-      return NextResponse.json({ error: "DB insert failed", details: error.message }, { status: 500 });
+      return NextResponse.json(
+        { error: "Insert failed", details: error.message },
+        { status: 500 }
+      );
     }
 
     return NextResponse.json({ ok: true, estimate: data });
   } catch (err: any) {
     console.error("weekly-estimates POST error:", err);
-    return NextResponse.json({ error: "Failed to save estimate", details: String(err) }, { status: 500 });
+    return NextResponse.json(
+      { error: "Failed", details: String(err) },
+      { status: 500 }
+    );
   }
 }
