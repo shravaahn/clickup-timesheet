@@ -141,3 +141,36 @@ export async function getWeeklyTimesheetStatus(
 
   return (data?.status as any) ?? "OPEN";
 }
+// ================================
+// TEAM HELPERS (SAFE ADDITIONS)
+// ================================
+
+export async function getTeamsForUser(userId: string) {
+  const { data, error } = await supabaseAdmin
+    .from("team_members")
+    .select("team_id, role")
+    .eq("user_id", userId);
+
+  if (error) throw error;
+  return data || [];
+}
+
+export async function getUsersInTeams(teamIds: string[]) {
+  if (teamIds.length === 0) return [];
+
+  const { data, error } = await supabaseAdmin
+    .from("team_members")
+    .select(`
+      role,
+      org_users (
+        id,
+        email,
+        name,
+        is_active
+      )
+    `)
+    .in("team_id", teamIds);
+
+  if (error) throw error;
+  return data || [];
+}
