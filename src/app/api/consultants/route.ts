@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getIronSession } from "iron-session";
 import { sessionOptions } from "@/lib/session";
 import {
+  supabaseAdmin,
   getOrgUserByClickUpId,
   getUserRoles,
   getTeamsForUser,
@@ -24,15 +25,26 @@ export async function GET(req: NextRequest) {
 
   const roles = await getUserRoles(viewer.id);
 
-  // OWNER → frontend already fetches all users elsewhere
+  // =========================
+  // OWNER → all active users
+  // =========================
   if (roles.includes("OWNER")) {
-    return NextResponse.json({
-      members: [],
-      scope: "owner",
-    });
+    const { data, error } = await supabaseAdmin
+      .from("org_users")
+      .select("id, email, name, is_active")
+      .eq("is_active", true)
+      .order("name");
+
+    if (error) {
+      return NextResponse.json({ error: error.message }, { status: 500 });
+    }
+
+    return NextResponse.json({ members: data || [] });
   }
 
-  // MANAGER → users in their teams only
+  // =========================
+  // MANAGER → team users
+  // =========================
   if (roles.includes("MANAGER")) {
     const teams = await getTeamsForUser(viewer.id);
     const teamIds = teams.map(t => t.team_id);
@@ -53,13 +65,13 @@ export async function GET(req: NextRequest) {
 
     return NextResponse.json({
       members: Array.from(unique.values()),
-      scope: "manager",
     });
   }
 
-  // CONSULTANT → self only
+  // =========================
+  // CONSULTANT → self
+  // =========================
   return NextResponse.json({
     members: [viewer],
-    scope: "self",
   });
 }
