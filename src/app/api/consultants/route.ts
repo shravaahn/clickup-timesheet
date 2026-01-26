@@ -3,88 +3,66 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getIronSession } from "iron-session";
 import { sessionOptions } from "@/lib/session";
+import {
+  supabaseAdmin,
+  getOrgUserByClickUpId,
+  getUserRoles,
+} from "@/lib/db";
 
-/**
- * GET /api/consultants
- *
- * Temporary stable implementation:
- * - ADMIN  -> sees all ClickUp team members
- * - USER   -> sees self only
- *
- * NOTE:
- * IAM-based hierarchy (OWNER / ADMIN / REPORTS)
- * will be reintroduced after db.ts stabilizes.
- */
 export async function GET(req: NextRequest) {
   const res = new NextResponse();
   const session: any = await getIronSession(req, res, sessionOptions);
 
-  const token = session?.accessToken || session?.access_token;
-  const user = session?.user;
-
-  if (!token || !user?.id) {
+  if (!session?.user?.id) {
     return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
   }
 
-  const TEAM_ID = process.env.CLICKUP_TEAM_ID;
-  if (!TEAM_ID) {
-    return NextResponse.json(
-      { error: "Missing CLICKUP_TEAM_ID env" },
-      { status: 500 }
-    );
+  // Logged-in org user
+  const viewer = await getOrgUserByClickUpId(String(session.user.id));
+  if (!viewer) {
+    return NextResponse.json({ error: "Not provisioned" }, { status: 403 });
   }
 
-  const authHeader = String(token).startsWith("Bearer ")
-    ? String(token)
-    : `Bearer ${token}`;
+  const roles = await getUserRoles(viewer.id);
+  const isOwner = roles.includes("OWNER");
+  const isManager = roles.includes("MANAGER");
 
-  /* -------------------------------------------
-     ADMIN: fetch all ClickUp team members
-  -------------------------------------------- */
-  if (user.is_admin) {
-    const r = await fetch(
-      `https://api.clickup.com/api/v2/team/${TEAM_ID}`,
-      {
-        headers: {
-          Authorization: authHeader,
-          Accept: "application/json",
-        },
-        cache: "no-store",
-      }
-    );
+  /**
+   * OWNER: all active users
+   * MANAGER: for now, only self (teams come in Phase 2)
+   * CONSULTANT: only self
+   */
 
-    const text = await r.text();
-    let json: any = null;
-    try {
-      json = text ? JSON.parse(text) : null;
-    } catch {}
+  if (isOwner) {
+    const { data, error } = await supabaseAdmin
+      .from("org_users")
+      .select("id, email, name")
+      .eq("is_active", true)
+      .order("name");
 
-    if (!r.ok) {
+    if (error) {
       return NextResponse.json(
-        { error: "ClickUp error", details: json || text },
-        { status: 502 }
+        { error: "Failed to fetch users", details: error.message },
+        { status: 500 }
       );
     }
 
-    const members =
-      json?.team?.members?.map((m: any) => ({
-        id: String(m?.user?.id),
-        username: m?.user?.username || m?.user?.email,
-        email: m?.user?.email || null,
-      })) || [];
-
-    return NextResponse.json({ members });
+    return NextResponse.json({
+      members: data.map(u => ({
+        id: u.id,
+        email: u.email,
+        username: u.name,
+      })),
+    });
   }
 
-  /* -------------------------------------------
-     CONSULTANT: self only
-  -------------------------------------------- */
+  // MANAGER or CONSULTANT → self only (until teams are wired)
   return NextResponse.json({
     members: [
       {
-        id: String(user.id),
-        username: user.username || user.email,
-        email: user.email || null,
+        id: viewer.id,
+        email: viewer.email,
+        username: viewer.name,
       },
     ],
   });
