@@ -42,7 +42,7 @@ function weeksInMonth(year: number, monthIdx: number): WeekItem[] {
 
 /** ---- types ---- */
 type Me = { user: { id: string; email: string; username?: string; is_admin?: boolean } };
-type Member = { id: string; username?: string; email?: string };
+type Member = { id: string; name?: string; username?: string; email?: string };
 type Project = { id: string; name: string };
 type Row = {
   taskId: string;
@@ -243,14 +243,16 @@ export default function DashboardPage() {
         if (u.is_admin) {
           const cs = await fetch("/api/consultants", { cache: "no-store" }).then(r => r.json());
           const list: Member[] = (cs?.members || []).map((m: any) => ({
-            id: String(m.id), username: m.username || m.email, email: m.email,
+            id: String(m.id),
+            name: m.name || m.username || (m.email ? m.email.split("@")[0] : ""),
+            email: m.email,
           }));
-          const sorted = list.filter(m => m.id).sort((a,b)=> (a.username||"").localeCompare(b.username||""));
-          const withMeTop = [{ id: u.id, username: u.username || u.email, email: u.email },
+          const sorted = list.filter(m => m.id).sort((a,b)=> (a.name||"").localeCompare(b.name||""));
+          const withMeTop = [{ id: u.id, name: u.username || (u.email ? u.email.split("@")[0] : ""), email: u.email },
             ...sorted.filter(m => m.id !== u.id)];
           setMembers(withMeTop);
         } else {
-          setMembers([{ id: u.id, username: u.username || u.email, email: u.email }]);
+          setMembers([{ id: u.id, name: u.username || (u.email ? u.email.split("@")[0] : ""), email: u.email }]);
         }
       } catch {
         window.location.href = "/login";
@@ -382,7 +384,7 @@ export default function DashboardPage() {
   /* names for chart */
   const memberNameById = useMemo(() => {
     const m = new Map<string,string>();
-    for (const mem of members) m.set(mem.id, mem.username || mem.email || mem.id);
+    for (const mem of members) m.set(mem.id, mem.name || mem.username || mem.email || mem.id);
     return m;
   }, [members]);
   const overviewResolved = useMemo(() => {
@@ -562,7 +564,7 @@ export default function DashboardPage() {
             <>
               <label className={styles.selectorLabel}>Consultant:</label>
               <select className={styles.selectWide} value={selectedUserId ?? ""} onChange={(e)=> setSelectedUserId(e.target.value)}>
-                {(members || []).map(m => <option key={m.id} value={m.id}>{m.username || m.email}</option>)}
+                {(members || []).map(m => <option key={m.id} value={m.id}>{m.name || m.username || m.email}</option>)}
               </select>
 
               <label className={styles.selectorLabel} style={{ marginLeft: 8 }}>Week:</label>
@@ -837,7 +839,7 @@ export default function DashboardPage() {
                             onChange={(e)=> setSelectedUserId(e.target.value)}
                           >
                             {(members || []).map(m => (
-                              <option key={m.id} value={m.id}>{m.username || m.email}</option>
+                              <option key={m.id} value={m.id}>{m.name || m.username || m.email}</option>
                             ))}
                           </select>
                           <div className="h-4 w-px bg-[var(--border)]" />
