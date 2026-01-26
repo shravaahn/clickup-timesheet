@@ -5,7 +5,11 @@ import { sessionOptions } from "@/lib/session";
 import { supabaseAdmin } from "@/lib/db";
 
 /* ---------- helpers ---------- */
-type TaskLite = { id: string; name: string; list?: { id?: string } | null };
+type TaskLite = {
+  id: string;
+  name: string;
+  list?: { id?: string } | null;
+};
 
 const EXCLUDED = new Set(
   String(process.env.CLICKUP_EXCLUDED_LIST_IDS || "")
@@ -20,37 +24,74 @@ export async function GET(req: NextRequest) {
   const session: any = await getIronSession(req, res, sessionOptions);
 
   const raw = session?.access_token || session?.accessToken;
-  if (!raw) return NextResponse.json({ error: "Not logged in" }, { status: 401 });
+  if (!raw) {
+    return NextResponse.json({ error: "Not logged in" }, { status: 401 });
+  }
 
-  const authHeader = String(raw).startsWith("Bearer ") ? String(raw) : `Bearer ${raw}`;
+  const authHeader = String(raw).startsWith("Bearer ")
+    ? String(raw)
+    : `Bearer ${raw}`;
 
   const sp = req.nextUrl.searchParams;
-  const orgUserId = sp.get("assigneeId") || ""; // THIS IS org_users.id now
+  const orgUserId = sp.get("assigneeId") || ""; // org_users.id
   const debug = sp.get("debug") === "1";
 
   const TEAM_ID = process.env.CLICKUP_TEAM_ID || "";
   const SPACE_ID = process.env.CLICKUP_SPACE_ID || "";
-  if (!SPACE_ID) return NextResponse.json({ error: "Missing CLICKUP_SPACE_ID env" }, { status: 500 });
 
-  // 🔑 Resolve ClickUp user ID from org user
-  let clickupAssigneeId = "";
+  if (!TEAM_ID || !SPACE_ID) {
+    return NextResponse.json(
+      { error: "Missing CLICKUP_TEAM_ID or CLICKUP_SPACE_ID env" },
+      { status: 500 }
+    );
+  }
+
+  /* ---------- resolve ClickUp user id ---------- */
+  let clickupAssigneeId: string | null = null;
+
   if (orgUserId) {
-    const { data } = await supabaseAdmin
+    const { data, error } = await supabaseAdmin
       .from("org_users")
       .select("clickup_user_id")
       .eq("id", orgUserId)
       .maybeSingle();
+
+    if (error) {
+      return NextResponse.json(
+        { error: "Failed to resolve org user", details: error.message },
+        { status: 500 }
+      );
+    }
 
     if (data?.clickup_user_id) {
       clickupAssigneeId = String(data.clickup_user_id);
     }
   }
 
+  /* ---------- CRITICAL GUARD ---------- */
+  // If the org user has NO ClickUp assignment → return empty list
+  if (!clickupAssigneeId || !/^\d+$/.test(clickupAssigneeId)) {
+    return NextResponse.json({
+      projects: [],
+      ...(debug
+        ? {
+            debug: {
+              orgUserId,
+              clickupAssigneeId,
+              reason: "User has no ClickUp assignee or is not assigned to any tasks",
+            },
+          }
+        : {}),
+    });
+  }
+
+  /* ---------- fetch tasks ---------- */
   const projectsMap = new Map<string, string>();
   const debugInfo: any = {
     orgUserId,
-    clickupAssigneeId: clickupAssigneeId || null,
+    clickupAssigneeId,
     calls: [],
+    excludedListIds: Array.from(EXCLUDED),
   };
 
   let page = 0;
@@ -58,16 +99,22 @@ export async function GET(req: NextRequest) {
 
   async function fetchTasks(url: URL) {
     const r = await fetch(url.toString(), {
-      headers: { Authorization: authHeader, Accept: "application/json" },
+      headers: {
+        Authorization: authHeader,
+        Accept: "application/json",
+      },
       cache: "no-store",
     });
+
     const text = await r.text();
     let json: any = null;
-    try { json = text ? JSON.parse(text) : null; } catch {}
+    try {
+      json = text ? JSON.parse(text) : null;
+    } catch {}
+
     return { ok: r.ok, status: r.status, json, text, url: url.toString() };
   }
 
-  // Try team endpoint
   while (page < maxPages) {
     const url = new URL(`https://api.clickup.com/api/v2/team/${TEAM_ID}/task`);
     url.searchParams.set("include_closed", "false");
@@ -75,23 +122,28 @@ export async function GET(req: NextRequest) {
     url.searchParams.set("order_by", "created");
     url.searchParams.set("page", String(page));
     url.searchParams.append("space_ids[]", SPACE_ID);
-    if (clickupAssigneeId) url.searchParams.append("assignees[]", clickupAssigneeId);
+    url.searchParams.append("assignees[]", clickupAssigneeId);
 
     const out = await fetchTasks(url);
     debugInfo.calls.push({ url: out.url, status: out.status });
 
     if (!out.ok) break;
 
-    const items: TaskLite[] = Array.isArray(out.json?.tasks) ? out.json.tasks : [];
+    const items: TaskLite[] = Array.isArray(out.json?.tasks)
+      ? out.json.tasks
+      : [];
+
     if (items.length === 0) break;
 
     for (const t of items) {
-      const listId = String(t?.list?.id || "");
       if ((t as any)?.parent) continue;
+
+      const listId = String(t?.list?.id || "");
       if (EXCLUDED.has(listId)) continue;
 
       projectsMap.set(String(t.id), String(t.name || t.id));
     }
+
     page++;
   }
 
