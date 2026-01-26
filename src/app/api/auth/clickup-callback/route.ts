@@ -1,14 +1,9 @@
 // src/app/api/auth/clickup-callback/route.ts
-
 import { NextRequest, NextResponse } from "next/server";
 import { getIronSession } from "iron-session";
 import axios from "axios";
 import { sessionOptions, type SessionData } from "@/lib/session";
-import {
-  supabaseAdmin,
-  ensureOrgUser,
-  getUserRoles,
-} from "@/lib/db";
+import { supabaseAdmin } from "@/lib/db";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -62,39 +57,78 @@ export async function GET(req: NextRequest) {
     const name = me.username || email;
 
     /* -------------------------------------------
-       3) Ensure org user exists
+       3) Ensure org_user exists
     -------------------------------------------- */
-    const orgUser = await ensureOrgUser({
-      clickupUserId,
-      email,
-      name,
-    });
+    const { data: existingUser } = await supabaseAdmin
+      .from("org_users")
+      .select("id, email")
+      .eq("email", email)
+      .maybeSingle();
+
+    let orgUserId: string;
+
+    if (existingUser) {
+      orgUserId = existingUser.id;
+    } else {
+      const { data: createdUser, error } = await supabaseAdmin
+        .from("org_users")
+        .insert({
+          clickup_user_id: clickupUserId,
+          email,
+          name,
+          is_active: true,
+          last_seen_at: new Date().toISOString(),
+        })
+        .select("id")
+        .single();
+
+      if (error || !createdUser) {
+        throw new Error("Failed to create org_user");
+      }
+
+      orgUserId = createdUser.id;
+    }
 
     /* -------------------------------------------
-       4) OWNER bootstrap (ENV-based)
+       4) OWNER BOOTSTRAP (ENV-BASED)
     -------------------------------------------- */
-    const ownerEmail = process.env.OWNER_EMAIL?.toLowerCase();
-    const roles = await getUserRoles(orgUser.id);
+    const ownerEmail = String(process.env.OWNER_EMAIL || "").toLowerCase();
 
     if (ownerEmail && email === ownerEmail) {
-      if (!roles.includes("OWNER")) {
+      const { data: ownerRole } = await supabaseAdmin
+        .from("org_roles")
+        .select("id")
+        .eq("user_id", orgUserId)
+        .eq("role", "OWNER")
+        .maybeSingle();
+
+      if (!ownerRole) {
         await supabaseAdmin.from("org_roles").insert({
-          user_id: orgUser.id,
+          user_id: orgUserId,
           role: "OWNER",
-        });
-      }
-    } else {
-      // Default role: CONSULTANT
-      if (roles.length === 0) {
-        await supabaseAdmin.from("org_roles").insert({
-          user_id: orgUser.id,
-          role: "CONSULTANT",
         });
       }
     }
 
     /* -------------------------------------------
-       5) Create session
+       5) Ensure CONSULTANT role exists (default)
+    -------------------------------------------- */
+    const { data: consultantRole } = await supabaseAdmin
+      .from("org_roles")
+      .select("id")
+      .eq("user_id", orgUserId)
+      .eq("role", "CONSULTANT")
+      .maybeSingle();
+
+    if (!consultantRole) {
+      await supabaseAdmin.from("org_roles").insert({
+        user_id: orgUserId,
+        role: "CONSULTANT",
+      });
+    }
+
+    /* -------------------------------------------
+       6) Create session
     -------------------------------------------- */
     const session = await getIronSession<SessionData>(
       req,
@@ -107,13 +141,13 @@ export async function GET(req: NextRequest) {
       id: clickupUserId,
       email,
       username: name,
-      is_admin: false, // resolved dynamically via IAM
+      is_admin: false, // UI derives permissions from IAM APIs
     };
 
     await session.save();
 
     /* -------------------------------------------
-       6) Redirect to dashboard
+       7) Redirect
     -------------------------------------------- */
     return NextResponse.redirect(
       new URL("/dashboard", req.url),
