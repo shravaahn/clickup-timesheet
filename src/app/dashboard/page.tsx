@@ -283,6 +283,12 @@ export default function DashboardPage() {
     return () => { mounted = false; };
   }, [selectedUserId, weekStart]);
 
+  /* reset state when user changes */
+  useEffect(() => {
+    setProjects([]);
+    setRows([]);
+  }, [selectedUserId]);
+
   /* projects for user */
   useEffect(() => {
     if (!selectedUserId) return;
@@ -290,11 +296,19 @@ export default function DashboardPage() {
     (async () => {
       setLoading(true);
       try {
-        const r = await fetch(`/api/projects/by-user?assigneeId=${selectedUserId}`, { cache: "no-store" });
+        const r = await fetch(`/api/projects/by-user?assigneeId=${encodeURIComponent(selectedUserId)}`, { cache: "no-store" });
         const j = await r.json();
+        if (j?.error) {
+          if (!mounted) return;
+          setProjects([]);
+          return;
+        }
         const list: Project[] = (j?.projects || []).map((p: any) => ({ id: String(p.id), name: String(p.name || p.id) }));
         if (!mounted) return;
         setProjects(list);
+      } catch (e) {
+        if (!mounted) return;
+        setProjects([]);
       } finally {
         if (mounted) setLoading(false);
       }
