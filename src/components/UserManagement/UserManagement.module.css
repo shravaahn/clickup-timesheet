@@ -35,7 +35,8 @@
   border-collapse: collapse;
 }
 
-th, td {
+.table th,
+.table td {
   padding: 10px;
   border-bottom: 1px solid var(--border);
   text-align: left;
