@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import styles from "./Dashboard.module.css";
 import DashboardNavbar from "@/components/DashboardNavbar/DashboardNavbar";
+import UserManagementSection from "@/components/UserManagement/UserManagement";
 
 /* ---------- Theme helpers ---------- */
 type Scheme = "light" | "dark";
@@ -152,7 +153,7 @@ export default function DashboardPage() {
   }, []);
 
   // NEW: active tab for dashboard
-  const [activeTab, setActiveTab] = useState<"profile"|"timesheets"|"analytics">("timesheets");
+  const [activeTab, setActiveTab] = useState<"profile"|"timesheets"|"analytics"|"user-management">("timesheets");
 
   /** week state */
   const [weekStart, setWeekStart] = useState<Date>(() => startOfWeek());
@@ -517,7 +518,7 @@ export default function DashboardPage() {
   /* ---------- small UI helpers ---------- */
 
   // Tab header component — shows logo + title + subtitle
-  function TabHeader({ tab }: { tab: "profile" | "timesheets" | "analytics" }) {
+  function TabHeader({ tab }: { tab: "profile" | "timesheets" | "analytics" | "user-management" }) {
     const logoSrc = theme === "dark" ? "/company-logo-dark.png" : "/company-logo-light.png";
     let title = "Timesheet";
     let subtitle = `${fmtMMMdd(weekStart)} — ${fmtMMMdd(weekEnd)} • ${isAdmin ? "Admin view" : "Consultant view"}`;
@@ -527,6 +528,9 @@ export default function DashboardPage() {
     } else if (tab === "profile") {
       title = "Profile";
       subtitle = me?.username ? `${me.username} • ${isAdmin ? "Admin" : "Consultant"}` : `${isAdmin ? "Admin" : "Consultant"}`;
+    } else if (tab === "user-management") {
+      title = "User Management";
+      subtitle = "Manage users, roles, and teams";
     }
 
     return (
@@ -806,7 +810,7 @@ export default function DashboardPage() {
 
   return (
     <div style={{ display: "flex", width: "100%", minHeight: "100vh" }}>
-      <DashboardNavbar activeTab={activeTab} onTabChange={(t: "profile"|"timesheets"|"analytics") => setActiveTab(t)} me={me} />
+      <DashboardNavbar activeTab={activeTab} onTabChange={(t: "profile"|"timesheets"|"analytics"|"user-management") => setActiveTab(t)} me={me} />
 
       <div style={{ flex: 1 }}>
         <div className={styles.page} data-theme={theme}>
@@ -818,6 +822,8 @@ export default function DashboardPage() {
               <div style={{ marginTop: 12 }}>{AnalyticsSection()}</div>
             ) : activeTab === "profile" ? (
               <div style={{ marginTop: 12 }}>{ProfileSection()}</div>
+            ) : activeTab === "user-management" ? (
+              <div style={{ marginTop: 12 }}><UserManagementSection /></div>
             ) : (
               <>
                 <div className="w-full rounded-lg border bg-[var(--panel)] border-[var(--border)] px-3 py-1.5 mb-3">
