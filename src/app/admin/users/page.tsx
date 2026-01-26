@@ -1,5 +1,4 @@
 // src/app/admin/users/page.tsx
-
 "use client";
 
 import { useEffect, useState } from "react";
@@ -34,7 +33,7 @@ export default function AdminUsersPage() {
     loadUsers();
   }
 
-  async function updateRole(userId: string, role: string) {
+  async function updateRole(userId: string, role: "CONSULTANT" | "MANAGER") {
     await fetch("/api/iam/users/role", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -77,56 +76,70 @@ export default function AdminUsersPage() {
           </thead>
 
           <tbody>
-            {users.map(u => (
-              <tr key={u.id} className="border-t">
-                <td className="p-3">{u.name}</td>
-                <td className="p-3">{u.email}</td>
+            {users.map(u => {
+              const isOwner = u.roles.includes("OWNER");
+              const isManager = u.roles.includes("MANAGER");
 
-                <td className="p-3">
-                  <select
-                    value={u.roles[0] || "CONSULTANT"}
-                    onChange={e => updateRole(u.id, e.target.value)}
-                    className="border rounded px-2 py-1"
-                  >
-                    <option value="OWNER">OWNER</option>
-                    <option value="ADMIN">ADMIN</option>
-                    <option value="CONSULTANT">CONSULTANT</option>
-                  </select>
-                </td>
+              return (
+                <tr key={u.id} className="border-t">
+                  <td className="p-3">{u.name}</td>
+                  <td className="p-3">{u.email}</td>
 
-                <td className="p-3">
-                  <select
-                    onChange={e =>
-                      updateManager(u.id, e.target.value || null)
-                    }
-                    className="border rounded px-2 py-1"
-                    defaultValue=""
-                  >
-                    <option value="">— None —</option>
-                    {users
-                      .filter(x => x.id !== u.id)
-                      .map(m => (
-                        <option key={m.id} value={m.id}>
-                          {m.name}
-                        </option>
-                      ))}
-                  </select>
-                </td>
-
-                <td className="p-3">
-                  <label className="inline-flex items-center gap-2">
-                    <input
-                      type="checkbox"
-                      checked={u.is_active}
+                  <td className="p-3">
+                    <select
+                      disabled={isOwner}
+                      value={isManager ? "MANAGER" : "CONSULTANT"}
                       onChange={e =>
-                        toggleStatus(u.id, e.target.checked)
+                        updateRole(u.id, e.target.value as "CONSULTANT" | "MANAGER")
                       }
-                    />
-                    {u.is_active ? "Active" : "Disabled"}
-                  </label>
-                </td>
-              </tr>
-            ))}
+                      className="border rounded px-2 py-1 disabled:opacity-60"
+                    >
+                      <option value="CONSULTANT">Consultant</option>
+                      <option value="MANAGER">Manager</option>
+                    </select>
+                    {isOwner && (
+                      <div className="text-xs text-gray-500 mt-1">
+                        Owner (locked via ENV)
+                      </div>
+                    )}
+                  </td>
+
+                  <td className="p-3">
+                    <select
+                      disabled={isOwner}
+                      onChange={e =>
+                        updateManager(u.id, e.target.value || null)
+                      }
+                      className="border rounded px-2 py-1 disabled:opacity-60"
+                      defaultValue=""
+                    >
+                      <option value="">— None —</option>
+                      {users
+                        .filter(x => x.id !== u.id && x.is_active)
+                        .map(m => (
+                          <option key={m.id} value={m.id}>
+                            {m.name}
+                          </option>
+                        ))}
+                    </select>
+                  </td>
+
+                  <td className="p-3">
+                    <label className="inline-flex items-center gap-2">
+                      <input
+                        type="checkbox"
+                        checked={u.is_active}
+                        disabled={isOwner}
+                        onChange={e =>
+                          toggleStatus(u.id, e.target.checked)
+                        }
+                      />
+                      {u.is_active ? "Active" : "Inactive"}
+                    </label>
+                  </td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       </div>
