@@ -809,10 +809,10 @@ export default function DashboardPage() {
   }
 
   return (
-    <div style={{ display: "flex", width: "100%", minHeight: "100vh" }}>
+    <div style={{ display: "flex", minHeight: "100vh", position: "relative" }}>
       <DashboardNavbar activeTab={activeTab} onTabChange={(t: "profile"|"timesheets"|"analytics"|"user-management") => setActiveTab(t)} me={me} />
 
-      <div style={{ flex: 1 }}>
+      <div style={{ flex: 1, marginLeft: 0 }}>
         <div className={styles.page} data-theme={theme}>
           <div className={styles.shell}>
 
