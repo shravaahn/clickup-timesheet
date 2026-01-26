@@ -47,9 +47,14 @@ export async function GET(req: NextRequest) {
   }
 
   /* ---------- resolve ClickUp user id ---------- */
-  let clickupAssigneeId: string | null = null;
+  let clickupAssigneeId = "";
 
-  if (orgUserId) {
+  // If numeric → assume ClickUp user id directly
+  if (/^\d+$/.test(orgUserId)) {
+    clickupAssigneeId = orgUserId;
+  } 
+  // Else assume UUID → resolve via org_users
+  else if (orgUserId) {
     const { data, error } = await supabaseAdmin
       .from("org_users")
       .select("clickup_user_id")
@@ -59,7 +64,7 @@ export async function GET(req: NextRequest) {
     if (error) {
       return NextResponse.json(
         { error: "Failed to resolve org user", details: error.message },
-        { status: 500 }
+        { status: 400 }
       );
     }
 
