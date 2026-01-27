@@ -45,6 +45,20 @@ export default function UserManagementSection() {
     fetchAll();
   }, []);
 
+  async function safePost(url: string, body: any) {
+    const res = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      alert(err.error || `Request failed: ${res.status}`);
+      throw new Error(err.error || "Request failed");
+    }
+  }
+
   function getPrimaryRole(roles: string[]): Role {
     if (roles.includes("OWNER")) return "OWNER";
     if (roles.includes("MANAGER")) return "MANAGER";
@@ -55,54 +69,66 @@ export default function UserManagementSection() {
     const current = getPrimaryRole(user.roles);
     if (current === nextRole) return;
 
-    // remove higher roles first
-    for (const role of ROLE_ORDER) {
-      if (role !== nextRole && user.roles.includes(role)) {
-        await fetch("/api/iam/users/role", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ userId: user.id, role, action: "REMOVE" }),
-        });
+    try {
+      // remove higher roles first
+      for (const role of ROLE_ORDER) {
+        if (role !== nextRole && user.roles.includes(role)) {
+          await safePost("/api/iam/users/role", {
+            userId: user.id,
+            role,
+            action: "REMOVE",
+          });
+        }
       }
+
+      // add selected role
+      await safePost("/api/iam/users/role", {
+        userId: user.id,
+        role: nextRole,
+        action: "ADD",
+      });
+
+      fetchAll();
+    } catch (err) {
+      // Error already shown via alert
     }
-
-    // add selected role
-    await fetch("/api/iam/users/role", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ userId: user.id, role: nextRole, action: "ADD" }),
-    });
-
-    fetchAll();
   }
 
   async function assignTeam(teamId: string, userId: string) {
-    await fetch("/api/iam/teams/assign-member", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ teamId, orgUserId: userId }),
-    });
-    fetchAll();
+    try {
+      await safePost("/api/iam/teams/assign-member", {
+        teamId,
+        orgUserId: userId,
+      });
+      fetchAll();
+    } catch (err) {
+      // Error already shown via alert
+    }
   }
 
   async function assignManager(teamId: string, managerUserId: string) {
-    await fetch("/api/iam/teams/assign-manager", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ teamId, managerUserId }),
-    });
-    fetchAll();
+    try {
+      await safePost("/api/iam/teams/assign-manager", {
+        teamId,
+        managerUserId,
+      });
+      fetchAll();
+    } catch (err) {
+      // Error already shown via alert
+    }
   }
 
   async function createTeam() {
     if (!newTeam.trim()) return;
-    await fetch("/api/iam/teams/create", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name: newTeam }),
-    });
-    setNewTeam("");
-    fetchAll();
+    try {
+      await safePost("/api/iam/teams/create", {
+        name: newTeam,
+      });
+      setNewTeam("");
+      fetchAll();
+    } catch (err) {
+      // Error already shown via alert
+    }
   }
 
   if (loading) return <div className={styles.card}>Loading…</div>;
