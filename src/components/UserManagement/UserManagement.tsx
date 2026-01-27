@@ -1,3 +1,4 @@
+// src/components/UserManagement/UserManagement.tsx
 "use client";
 
 import { useEffect, useState } from "react";
@@ -9,13 +10,21 @@ type User = {
   role: "OWNER" | "MANAGER" | "CONSULTANT";
   team?: string;
   manager?: string;
+  roles?: string[];
+};
+
+type TeamMember = {
+  id: string;
+  name: string;
+  email: string;
 };
 
 type Team = {
   id: string;
   name: string;
-  manager?: string;
-  consultant?: string;
+  manager_user_id: string | null;
+  manager: TeamMember | null;
+  members: TeamMember[];
 };
 
 export default function UserManagementSection() {
@@ -24,13 +33,15 @@ export default function UserManagementSection() {
   const [teams, setTeams] = useState<Team[]>([]);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    Promise.all([
-      fetch("/api/iam/users").then(r => r.json()).catch(() => ({ users: [] })),
-      fetch("/api/iam/teams").then(r => r.json()).catch(() => ({ teams: [] })),
-    ]).then(([u, t]) => {
+  const fetchData = async () => {
+    try {
+      const [usersRes, teamsRes] = await Promise.all([
+        fetch("/api/iam/users").then(r => r.json()).catch(() => ({ users: [] })),
+        fetch("/api/iam/teams").then(r => r.json()).catch(() => ({ teams: [] })),
+      ]);
+
       // Transform users: get primary role from roles array
-      const transformedUsers: User[] = (u.users || []).map((user: any) => {
+      const transformedUsers: User[] = (usersRes.users || []).map((user: any) => {
         const roles = user.roles || [];
         let primaryRole: "OWNER" | "MANAGER" | "CONSULTANT" = "CONSULTANT";
         if (roles.includes("OWNER")) primaryRole = "OWNER";
@@ -40,36 +51,75 @@ export default function UserManagementSection() {
           id: user.id,
           name: user.name || user.email || user.id,
           role: primaryRole,
+          roles: roles,
           team: undefined, // TODO: resolve from team_members
           manager: undefined, // TODO: resolve from org_reporting
         };
       });
-      
-      // Transform teams: flatten nested structure
-      const transformedTeams: Team[] = (t.teams || []).map((team: any) => {
-        const managerName = team.manager_user_id ? "Manager" : undefined; // TODO: resolve manager name
-        const members = team.team_members || [];
-        const consultantName = members.length > 0 && members[0].org_users 
-          ? (members[0].org_users.name || members[0].org_users.email)
-          : undefined;
-        
-        return {
-          id: team.id,
-          name: team.name,
-          manager: managerName,
-          consultant: consultantName,
-        };
-      });
-      
+
       setUsers(transformedUsers);
-      setTeams(transformedTeams);
+      setTeams(teamsRes.teams || []);
       setLoading(false);
-    });
+    } catch (err) {
+      console.error("Failed to fetch data:", err);
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchData();
   }, []);
+
+  const handleAssignManager = async (teamId: string, managerUserId: string) => {
+    try {
+      const res = await fetch("/api/iam/teams/assign-manager", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ teamId, managerUserId }),
+      });
+
+      if (!res.ok) {
+        const error = await res.json();
+        alert(error.error || "Failed to assign manager");
+        return;
+      }
+
+      await fetchData();
+    } catch (err) {
+      console.error("Failed to assign manager:", err);
+      alert("Failed to assign manager");
+    }
+  };
+
+  const handleAssignMember = async (teamId: string, orgUserId: string) => {
+    if (!orgUserId) return;
+
+    try {
+      const res = await fetch("/api/iam/teams/assign-member", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ teamId, orgUserId }),
+      });
+
+      if (!res.ok) {
+        const error = await res.json();
+        alert(error.error || "Failed to assign member");
+        return;
+      }
+
+      await fetchData();
+    } catch (err) {
+      console.error("Failed to assign member:", err);
+      alert("Failed to assign member");
+    }
+  };
 
   if (loading) {
     return <div className={styles.card}>Loading…</div>;
   }
+
+  const managerOptions = users.filter(u => u.roles?.includes("MANAGER"));
+  const consultantOptions = users.filter(u => u.roles?.includes("CONSULTANT"));
 
   return (
     <section className={styles.card}>
@@ -124,17 +174,60 @@ export default function UserManagementSection() {
             <tr>
               <th>Team</th>
               <th>Manager</th>
-              <th>Consultant</th>
+              <th>Members</th>
+              <th>Add Member</th>
             </tr>
           </thead>
           <tbody>
-            {teams.map(t => (
-              <tr key={t.id}>
-                <td>{t.name}</td>
-                <td>{t.manager || "—"}</td>
-                <td>{t.consultant || "—"}</td>
-              </tr>
-            ))}
+            {teams.map(team => {
+              const memberIds = team.members.map(m => m.id);
+              const availableConsultants = consultantOptions.filter(
+                c => !memberIds.includes(c.id)
+              );
+
+              return (
+                <tr key={team.id}>
+                  <td>{team.name}</td>
+                  <td>
+                    <select
+                      value={team.manager_user_id || ""}
+                      onChange={(e) => handleAssignManager(team.id, e.target.value)}
+                    >
+                      <option value="">Select Manager</option>
+                      {managerOptions.map(m => (
+                        <option key={m.id} value={m.id}>
+                          {m.name}
+                        </option>
+                      ))}
+                    </select>
+                  </td>
+                  <td>
+                    {team.members.length > 0 ? (
+                      <div>
+                        {team.members.map(member => (
+                          <div key={member.id}>{member.name}</div>
+                        ))}
+                      </div>
+                    ) : (
+                      "—"
+                    )}
+                  </td>
+                  <td>
+                    <select
+                      value=""
+                      onChange={(e) => handleAssignMember(team.id, e.target.value)}
+                    >
+                      <option value="">Add consultant...</option>
+                      {availableConsultants.map(c => (
+                        <option key={c.id} value={c.id}>
+                          {c.name}
+                        </option>
+                      ))}
+                    </select>
+                  </td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       )}

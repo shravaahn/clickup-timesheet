@@ -1,3 +1,4 @@
+// src/app/api/iam/teams/assign-member/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import { getIronSession } from "iron-session";
 import { sessionOptions } from "@/lib/session";
@@ -20,18 +21,42 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Missing inputs" }, { status: 400 });
   }
 
-  // one consultant → one team (enforced)
-  await supabaseAdmin
-    .from("team_members")
-    .delete()
-    .eq("org_user_id", orgUserId);
+  // Verify team exists
+  const { data: team, error: teamError } = await supabaseAdmin
+    .from("teams")
+    .select("id")
+    .eq("id", teamId)
+    .single();
 
-  const { error } = await supabaseAdmin
-    .from("team_members")
-    .insert({ team_id: teamId, org_user_id: orgUserId });
+  if (teamError || !team) {
+    return NextResponse.json({ error: "Team not found" }, { status: 404 });
+  }
 
-  if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+  // Verify user exists and check if they're an OWNER
+  const { data: user, error: userError } = await supabaseAdmin
+    .from("org_users")
+    .select("id")
+    .eq("id", orgUserId)
+    .single();
+
+  if (userError || !user) {
+    return NextResponse.json({ error: "User not found" }, { status: 404 });
+  }
+
+  // Check if user has OWNER role
+  const userRoles = await getUserRoles(orgUserId);
+  if (userRoles.includes("OWNER")) {
+    return NextResponse.json({ error: "Cannot assign OWNER to a team" }, { status: 400 });
+  }
+
+  // Update user's team_id (overwrites any previous assignment)
+  const { error: updateError } = await supabaseAdmin
+    .from("org_users")
+    .update({ team_id: teamId })
+    .eq("id", orgUserId);
+
+  if (updateError) {
+    return NextResponse.json({ error: updateError.message }, { status: 500 });
   }
 
   return NextResponse.json({ ok: true });

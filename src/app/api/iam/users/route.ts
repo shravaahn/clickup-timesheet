@@ -9,7 +9,7 @@ import { supabaseAdmin } from "@/lib/db";
  * GET /api/iam/users
  *
  * OWNER-only endpoint.
- * Returns all users with their roles.
+ * Returns all users with their roles, team, and manager information.
  */
 export async function GET(req: NextRequest) {
   const res = new NextResponse();
@@ -56,7 +56,7 @@ export async function GET(req: NextRequest) {
   }
 
   /* -------------------------------------------
-     Fetch all users
+     Fetch all users with team and manager info
   -------------------------------------------- */
   const { data: users, error } = await supabaseAdmin
     .from("org_users")
@@ -67,7 +67,18 @@ export async function GET(req: NextRequest) {
       name,
       country,
       is_active,
-      created_at
+      created_at,
+      team_id,
+      team:teams (
+        id,
+        name,
+        manager_user_id,
+        manager:org_users!teams_manager_user_id_fkey (
+          id,
+          name,
+          email
+        )
+      )
     `)
     .order("name");
 
@@ -98,12 +109,29 @@ export async function GET(req: NextRequest) {
   }
 
   /* -------------------------------------------
-     Final response
+     Final response with team and manager data
   -------------------------------------------- */
   return NextResponse.json({
-    users: (users || []).map(u => ({
-      ...u,
-      roles: rolesByUser[u.id] || [],
-    })),
+    users: (users || []).map(u => {
+      const team = Array.isArray(u.team) ? u.team[0] : u.team;
+      const managerRaw = team?.manager;
+      const manager = managerRaw && Array.isArray(managerRaw) ? managerRaw[0] : managerRaw;
+
+      return {
+        id: u.id,
+        clickup_user_id: u.clickup_user_id,
+        email: u.email,
+        name: u.name,
+        country: u.country,
+        is_active: u.is_active,
+        created_at: u.created_at,
+        roles: rolesByUser[u.id] || [],
+        team_id: u.team_id || null,
+        team_name: team?.name || null,
+        manager_id: manager?.id || null,
+        manager_name: manager?.name || null,
+        manager_email: manager?.email || null,
+      };
+    }),
   });
 }

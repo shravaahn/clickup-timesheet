@@ -1,3 +1,4 @@
+// src/app/api/iam/teams/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import { getIronSession } from "iron-session";
 import { sessionOptions } from "@/lib/session";
@@ -13,6 +14,7 @@ export async function GET(req: NextRequest) {
   const roles = await getUserRoles(viewer.id);
   const isOwner = roles.includes("OWNER");
   const isManager = roles.includes("MANAGER");
+  const isConsultant = roles.includes("CONSULTANT");
 
   let query = supabaseAdmin
     .from("teams")
@@ -20,9 +22,10 @@ export async function GET(req: NextRequest) {
       id,
       name,
       manager_user_id,
-      team_members (
-        org_user_id,
-        org_users ( id, name, email )
+      manager:org_users!teams_manager_user_id_fkey (
+        id,
+        name,
+        email
       )
     `);
 
@@ -30,15 +33,41 @@ export async function GET(req: NextRequest) {
     query = query.eq("manager_user_id", viewer.id);
   }
 
-  if (!isOwner && !isManager) {
-    query = query.eq("team_members.org_user_id", viewer.id);
+  if (!isOwner && !isManager && isConsultant) {
+    query = query.eq("id", viewer.team_id);
   }
 
-  const { data, error } = await query;
+  const { data: teams, error: teamsError } = await query;
 
-  if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+  if (teamsError) {
+    return NextResponse.json({ error: teamsError.message }, { status: 500 });
   }
 
-  return NextResponse.json({ teams: data });
+  if (!teams) {
+    return NextResponse.json({ teams: [] });
+  }
+
+  // Fetch all members for each team
+  const teamsWithMembers = await Promise.all(
+    teams.map(async (team) => {
+      const { data: members, error: membersError } = await supabaseAdmin
+        .from("org_users")
+        .select("id, name, email")
+        .eq("team_id", team.id);
+
+      if (membersError) {
+        console.error(`Error fetching members for team ${team.id}:`, membersError);
+      }
+
+      return {
+        id: team.id,
+        name: team.name,
+        manager_user_id: team.manager_user_id,
+        manager: team.manager,
+        members: members || []
+      };
+    })
+  );
+
+  return NextResponse.json({ teams: teamsWithMembers });
 }

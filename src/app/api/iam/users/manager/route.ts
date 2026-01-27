@@ -8,11 +8,8 @@ import { supabaseAdmin } from "@/lib/db";
 /**
  * POST /api/iam/users/manager
  *
- * Body:
- * {
- *   userId: string,       // org_users.id (consultant)
- *   managerId?: string   // org_users.id (manager) | null to clear
- * }
+ * DEPRECATED: Manager assignment is now derived from team assignment.
+ * Use /api/iam/teams/assign-manager instead.
  *
  * OWNER-only
  */
@@ -22,20 +19,6 @@ export async function POST(req: NextRequest) {
 
   if (!session?.user?.id) {
     return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
-  }
-
-  const body = await req.json().catch(() => ({}));
-  const { userId, managerId } = body || {};
-
-  if (!userId) {
-    return NextResponse.json({ error: "Missing userId" }, { status: 400 });
-  }
-
-  if (managerId && userId === managerId) {
-    return NextResponse.json(
-      { error: "User cannot be their own manager" },
-      { status: 400 }
-    );
   }
 
   /* -------------------------------------------
@@ -65,50 +48,12 @@ export async function POST(req: NextRequest) {
   }
 
   /* -------------------------------------------
-     Prevent circular hierarchy
+     Manager assignment disabled
   -------------------------------------------- */
-  if (managerId) {
-    let current = managerId;
-
-    while (current) {
-      if (current === userId) {
-        return NextResponse.json(
-          { error: "Circular manager relationship detected" },
-          { status: 409 }
-        );
-      }
-
-      const { data: parent } = await supabaseAdmin
-        .from("org_hierarchy")
-        .select("manager_id")
-        .eq("user_id", current)
-        .maybeSingle();
-
-      current = parent?.manager_id || null;
-    }
-  }
-
-  /* -------------------------------------------
-     Upsert hierarchy
-  -------------------------------------------- */
-  if (managerId) {
-    await supabaseAdmin
-      .from("org_hierarchy")
-      .upsert(
-        {
-          user_id: userId,
-          manager_id: managerId,
-        },
-        { onConflict: "user_id" }
-      )
-      .throwOnError();
-  } else {
-    await supabaseAdmin
-      .from("org_hierarchy")
-      .delete()
-      .eq("user_id", userId)
-      .throwOnError();
-  }
-
-  return NextResponse.json({ ok: true });
+  return NextResponse.json(
+    { 
+      error: "Manager is derived from team assignment. Use /api/iam/teams/assign-manager instead." 
+    },
+    { status: 409 }
+  );
 }
