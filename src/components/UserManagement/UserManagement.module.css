@@ -51,3 +51,28 @@
 .owner { background: #7c3aed; color: white; }
 .manager { background: #2563eb; color: white; }
 .consultant { background: #6b7280; color: white; }
+
+/* src/components/UserManagement/UserManagement.module.css */
+
+.card {
+  background: var(--card-bg);
+  padding: 16px;
+  border-radius: 12px;
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 12px;
+}
+
+.table th,
+.table td {
+  padding: 10px;
+  border-bottom: 1px solid #ddd;
+}
+
+select {
+  padding: 6px;
+  border-radius: 6px;
+}
