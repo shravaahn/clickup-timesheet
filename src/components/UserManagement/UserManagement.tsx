@@ -11,7 +11,6 @@ type User = {
   roles: string[];
   team_id: string | null;
   team_name: string | null;
-  manager_id: string | null;
   manager_name: string | null;
   is_active: boolean;
 };
@@ -22,9 +21,13 @@ type Team = {
   manager_user_id: string | null;
 };
 
+const ROLE_ORDER = ["CONSULTANT", "MANAGER", "OWNER"] as const;
+type Role = typeof ROLE_ORDER[number];
+
 export default function UserManagementSection() {
   const [users, setUsers] = useState<User[]>([]);
   const [teams, setTeams] = useState<Team[]>([]);
+  const [newTeam, setNewTeam] = useState("");
   const [loading, setLoading] = useState(true);
 
   async function fetchAll() {
@@ -42,12 +45,34 @@ export default function UserManagementSection() {
     fetchAll();
   }, []);
 
-  async function changeRole(userId: string, role: string) {
+  function getPrimaryRole(roles: string[]): Role {
+    if (roles.includes("OWNER")) return "OWNER";
+    if (roles.includes("MANAGER")) return "MANAGER";
+    return "CONSULTANT";
+  }
+
+  async function changeRole(user: User, nextRole: Role) {
+    const current = getPrimaryRole(user.roles);
+    if (current === nextRole) return;
+
+    // remove higher roles first
+    for (const role of ROLE_ORDER) {
+      if (role !== nextRole && user.roles.includes(role)) {
+        await fetch("/api/iam/users/role", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ userId: user.id, role, action: "REMOVE" }),
+        });
+      }
+    }
+
+    // add selected role
     await fetch("/api/iam/users/role", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ userId, role, action: "ADD" }),
+      body: JSON.stringify({ userId: user.id, role: nextRole, action: "ADD" }),
     });
+
     fetchAll();
   }
 
@@ -69,12 +94,34 @@ export default function UserManagementSection() {
     fetchAll();
   }
 
+  async function createTeam() {
+    if (!newTeam.trim()) return;
+    await fetch("/api/iam/teams/create", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: newTeam }),
+    });
+    setNewTeam("");
+    fetchAll();
+  }
+
   if (loading) return <div className={styles.card}>Loading…</div>;
 
   return (
     <section className={styles.card}>
       <h2>User Management</h2>
 
+      {/* CREATE TEAM */}
+      <div className={styles.createTeam}>
+        <input
+          value={newTeam}
+          onChange={e => setNewTeam(e.target.value)}
+          placeholder="New team name"
+        />
+        <button onClick={createTeam}>Create Team</button>
+      </div>
+
+      {/* USERS */}
       <table className={styles.table}>
         <thead>
           <tr>
@@ -92,12 +139,12 @@ export default function UserManagementSection() {
               <td>
                 <select
                   className={styles.select}
-                  value={u.roles.includes("MANAGER") ? "MANAGER" : u.roles.includes("OWNER") ? "OWNER" : "CONSULTANT"}
-                  onChange={e => changeRole(u.id, e.target.value)}
+                  value={getPrimaryRole(u.roles)}
+                  onChange={e => changeRole(u, e.target.value as Role)}
                 >
-                  <option value="CONSULTANT">CONSULTANT</option>
-                  <option value="MANAGER">MANAGER</option>
-                  <option value="OWNER">OWNER</option>
+                  {ROLE_ORDER.map(r => (
+                    <option key={r} value={r}>{r}</option>
+                  ))}
                 </select>
               </td>
 
@@ -120,8 +167,8 @@ export default function UserManagementSection() {
         </tbody>
       </table>
 
+      {/* TEAMS */}
       <h3>Teams</h3>
-
       <table className={styles.table}>
         <thead>
           <tr>
