@@ -91,6 +91,7 @@ export default function UserManagementSection() {
 
               <td>
                 <select
+                  className={styles.select}
                   value={u.roles.includes("MANAGER") ? "MANAGER" : u.roles.includes("OWNER") ? "OWNER" : "CONSULTANT"}
                   onChange={e => changeRole(u.id, e.target.value)}
                 >
@@ -102,6 +103,7 @@ export default function UserManagementSection() {
 
               <td>
                 <select
+                  className={styles.select}
                   value={u.team_id || ""}
                   onChange={e => assignTeam(e.target.value, u.id)}
                 >
@@ -133,6 +135,7 @@ export default function UserManagementSection() {
               <td>{t.name}</td>
               <td>
                 <select
+                  className={styles.select}
                   value={t.manager_user_id || ""}
                   onChange={e => assignManager(t.id, e.target.value)}
                 >
