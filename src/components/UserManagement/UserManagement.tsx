@@ -7,10 +7,15 @@ import styles from "./UserManagement.module.css";
 type User = {
   id: string;
   name: string;
+  email: string;
   role: "OWNER" | "MANAGER" | "CONSULTANT";
-  team?: string;
-  manager?: string;
-  roles?: string[];
+  roles: string[];
+  team_id: string | null;
+  team_name: string | null;
+  manager_id: string | null;
+  manager_name: string | null;
+  manager_email: string | null;
+  is_active: boolean;
 };
 
 type TeamMember = {
@@ -36,11 +41,11 @@ export default function UserManagementSection() {
   const fetchData = async () => {
     try {
       const [usersRes, teamsRes] = await Promise.all([
-        fetch("/api/iam/users").then(r => r.json()).catch(() => ({ users: [] })),
-        fetch("/api/iam/teams").then(r => r.json()).catch(() => ({ teams: [] })),
+        fetch("/api/iam/users").then(r => r.json()),
+        fetch("/api/iam/teams").then(r => r.json()),
       ]);
 
-      // Transform users: get primary role from roles array
+      // Transform users: get primary role from roles array and map all fields
       const transformedUsers: User[] = (usersRes.users || []).map((user: any) => {
         const roles = user.roles || [];
         let primaryRole: "OWNER" | "MANAGER" | "CONSULTANT" = "CONSULTANT";
@@ -50,10 +55,15 @@ export default function UserManagementSection() {
         return {
           id: user.id,
           name: user.name || user.email || user.id,
+          email: user.email,
           role: primaryRole,
           roles: roles,
-          team: undefined, // TODO: resolve from team_members
-          manager: undefined, // TODO: resolve from org_reporting
+          team_id: user.team_id,
+          team_name: user.team_name,
+          manager_id: user.manager_id,
+          manager_name: user.manager_name,
+          manager_email: user.manager_email,
+          is_active: user.is_active ?? true,
         };
       });
 
@@ -62,6 +72,8 @@ export default function UserManagementSection() {
       setLoading(false);
     } catch (err) {
       console.error("Failed to fetch data:", err);
+      setUsers([]);
+      setTeams([]);
       setLoading(false);
     }
   };
@@ -152,18 +164,24 @@ export default function UserManagementSection() {
             </tr>
           </thead>
           <tbody>
-            {users.map(u => (
-              <tr key={u.id}>
-                <td>{u.name}</td>
-                <td>
-                  <span className={`${styles.pill} ${styles[u.role.toLowerCase()]}`}>
-                    {u.role}
-                  </span>
-                </td>
-                <td>{u.team || "—"}</td>
-                <td>{u.manager || "—"}</td>
+            {users.length === 0 ? (
+              <tr>
+                <td colSpan={4}>No users found</td>
               </tr>
-            ))}
+            ) : (
+              users.map(u => (
+                <tr key={u.id}>
+                  <td>{u.name}</td>
+                  <td>
+                    <span className={`${styles.pill} ${styles[u.role.toLowerCase()]}`}>
+                      {u.role}
+                    </span>
+                  </td>
+                  <td>{u.team_name || "—"}</td>
+                  <td>{u.manager_name || "—"}</td>
+                </tr>
+              ))
+            )}
           </tbody>
         </table>
       )}
@@ -179,55 +197,61 @@ export default function UserManagementSection() {
             </tr>
           </thead>
           <tbody>
-            {teams.map(team => {
-              const memberIds = team.members.map(m => m.id);
-              const availableConsultants = consultantOptions.filter(
-                c => !memberIds.includes(c.id)
-              );
+            {teams.length === 0 ? (
+              <tr>
+                <td colSpan={4}>No teams found</td>
+              </tr>
+            ) : (
+              teams.map(team => {
+                const memberIds = team.members.map(m => m.id);
+                const availableConsultants = consultantOptions.filter(
+                  c => !memberIds.includes(c.id)
+                );
 
-              return (
-                <tr key={team.id}>
-                  <td>{team.name}</td>
-                  <td>
-                    <select
-                      value={team.manager_user_id || ""}
-                      onChange={(e) => handleAssignManager(team.id, e.target.value)}
-                    >
-                      <option value="">Select Manager</option>
-                      {managerOptions.map(m => (
-                        <option key={m.id} value={m.id}>
-                          {m.name}
-                        </option>
-                      ))}
-                    </select>
-                  </td>
-                  <td>
-                    {team.members.length > 0 ? (
-                      <div>
-                        {team.members.map(member => (
-                          <div key={member.id}>{member.name}</div>
+                return (
+                  <tr key={team.id}>
+                    <td>{team.name}</td>
+                    <td>
+                      <select
+                        value={team.manager_user_id || ""}
+                        onChange={(e) => handleAssignManager(team.id, e.target.value)}
+                      >
+                        <option value="">Select Manager</option>
+                        {managerOptions.map(m => (
+                          <option key={m.id} value={m.id}>
+                            {m.name}
+                          </option>
                         ))}
-                      </div>
-                    ) : (
-                      "—"
-                    )}
-                  </td>
-                  <td>
-                    <select
-                      value=""
-                      onChange={(e) => handleAssignMember(team.id, e.target.value)}
-                    >
-                      <option value="">Add consultant...</option>
-                      {availableConsultants.map(c => (
-                        <option key={c.id} value={c.id}>
-                          {c.name}
-                        </option>
-                      ))}
-                    </select>
-                  </td>
-                </tr>
-              );
-            })}
+                      </select>
+                    </td>
+                    <td>
+                      {team.members.length > 0 ? (
+                        <div>
+                          {team.members.map(member => (
+                            <div key={member.id}>{member.name}</div>
+                          ))}
+                        </div>
+                      ) : (
+                        "—"
+                      )}
+                    </td>
+                    <td>
+                      <select
+                        value=""
+                        onChange={(e) => handleAssignMember(team.id, e.target.value)}
+                      >
+                        <option value="">Add consultant...</option>
+                        {availableConsultants.map(c => (
+                          <option key={c.id} value={c.id}>
+                            {c.name}
+                          </option>
+                        ))}
+                      </select>
+                    </td>
+                  </tr>
+                );
+              })
+            )}
           </tbody>
         </table>
       )}
