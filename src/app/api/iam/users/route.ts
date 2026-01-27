@@ -89,6 +89,7 @@ export async function GET(req: NextRequest) {
   /* -------------------------------------------
      Fetch all users with team and manager info
   -------------------------------------------- */
+  // 1. Fetch users
   const { data: users, error } = await supabaseAdmin
     .from("org_users")
     .select(`
@@ -99,17 +100,7 @@ export async function GET(req: NextRequest) {
       country,
       is_active,
       created_at,
-      team_id,
-      team:teams (
-        id,
-        name,
-        manager_user_id,
-        manager:org_users!teams_manager_user_id_fkey (
-          id,
-          name,
-          email
-        )
-      )
+      team_id
     `)
     .order("name");
 
@@ -119,6 +110,29 @@ export async function GET(req: NextRequest) {
       { status: 500 }
     );
   }
+
+  // 2. Fetch teams + managers
+  const { data: teams } = await supabaseAdmin
+    .from("teams")
+    .select(`
+      id,
+      name,
+      manager_user_id
+    `);
+
+  const managerIds = Array.from(
+    new Set((teams || []).map(t => t.manager_user_id).filter(Boolean))
+  );
+
+  const { data: managers } = managerIds.length
+    ? await supabaseAdmin
+        .from("org_users")
+        .select("id, name, email")
+        .in("id", managerIds)
+    : { data: [] };
+
+  const teamsById = Object.fromEntries((teams || []).map(t => [t.id, t]));
+  const managersById = Object.fromEntries((managers || []).map(m => [m.id, m]));
 
   /* -------------------------------------------
      Fetch roles for all users
@@ -144,9 +158,10 @@ export async function GET(req: NextRequest) {
   -------------------------------------------- */
   return NextResponse.json({
     users: (users || []).map(u => {
-      const team = Array.isArray(u.team) ? u.team[0] : u.team;
-      const managerRaw = team?.manager;
-      const manager = managerRaw && Array.isArray(managerRaw) ? managerRaw[0] : managerRaw;
+      const team = u.team_id ? teamsById[u.team_id] : null;
+      const manager = team?.manager_user_id
+        ? managersById[team.manager_user_id]
+        : null;
 
       return {
         id: u.id,
@@ -157,7 +172,7 @@ export async function GET(req: NextRequest) {
         is_active: u.is_active,
         created_at: u.created_at,
         roles: rolesByUser[u.id] || [],
-        team_id: u.team_id || null,
+        team_id: u.team_id,
         team_name: team?.name || null,
         manager_id: manager?.id || null,
         manager_name: manager?.name || null,

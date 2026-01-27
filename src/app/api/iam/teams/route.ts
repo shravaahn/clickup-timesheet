@@ -16,17 +16,13 @@ export async function GET(req: NextRequest) {
   const isManager = roles.includes("MANAGER");
   const isConsultant = roles.includes("CONSULTANT");
 
+  // 1. Fetch teams
   let query = supabaseAdmin
     .from("teams")
     .select(`
       id,
       name,
-      manager_user_id,
-      manager:org_users!teams_manager_user_id_fkey (
-        id,
-        name,
-        email
-      )
+      manager_user_id
     `);
 
   if (!isOwner && isManager) {
@@ -47,7 +43,21 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ teams: [] });
   }
 
-  // Fetch all members for each team
+  // 2. Fetch all managers for these teams
+  const managerIds = Array.from(
+    new Set(teams.map(t => t.manager_user_id).filter(Boolean))
+  );
+
+  const { data: managers } = managerIds.length
+    ? await supabaseAdmin
+        .from("org_users")
+        .select("id, name, email")
+        .in("id", managerIds)
+    : { data: [] };
+
+  const managersById = Object.fromEntries((managers || []).map(m => [m.id, m]));
+
+  // 3. Fetch members for each team
   const teamsWithMembers = await Promise.all(
     teams.map(async (team) => {
       const { data: members, error: membersError } = await supabaseAdmin
@@ -59,11 +69,13 @@ export async function GET(req: NextRequest) {
         console.error(`Error fetching members for team ${team.id}:`, membersError);
       }
 
+      const manager = team.manager_user_id ? managersById[team.manager_user_id] : null;
+
       return {
         id: team.id,
         name: team.name,
         manager_user_id: team.manager_user_id,
-        manager: team.manager,
+        manager: manager || null,
         members: members || []
       };
     })
