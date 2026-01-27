@@ -4,6 +4,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getIronSession } from "iron-session";
 import { sessionOptions } from "@/lib/session";
 import { supabaseAdmin } from "@/lib/db";
+import { ensureOwnerByEnv } from "@/lib/iam";
 
 /**
  * POST /api/iam/users/role
@@ -40,13 +41,15 @@ export async function POST(req: NextRequest) {
   -------------------------------------------- */
   const { data: viewer } = await supabaseAdmin
     .from("org_users")
-    .select("id")
+    .select("id, email")
     .eq("clickup_user_id", String(session.user.id))
     .maybeSingle();
 
   if (!viewer) {
     return NextResponse.json({ error: "User not provisioned" }, { status: 403 });
   }
+
+  await ensureOwnerByEnv(viewer);
 
   /* -------------------------------------------
      OWNER check

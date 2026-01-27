@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getIronSession } from "iron-session";
 import { sessionOptions } from "@/lib/session";
 import { supabaseAdmin, getOrgUserByClickUpId, getUserRoles } from "@/lib/db";
+import { ensureOwnerByEnv } from "@/lib/iam";
 
 export async function POST(req: NextRequest) {
   const res = new NextResponse();
@@ -10,6 +11,8 @@ export async function POST(req: NextRequest) {
 
   const owner = await getOrgUserByClickUpId(String(session.user.id));
   if (!owner) return NextResponse.json({ error: "Not provisioned" }, { status: 403 });
+
+  await ensureOwnerByEnv(owner);
 
   const roles = await getUserRoles(owner.id);
   if (!roles.includes("OWNER")) {
