@@ -82,22 +82,43 @@ export async function POST(req: NextRequest) {
   }
 
   /* -------------------------------------------
-     Apply role change
+     Apply role change (idempotent)
   -------------------------------------------- */
   if (action === "ADD") {
-    await supabaseAdmin
+    // Check if role already exists
+    const { data: existing } = await supabaseAdmin
       .from("org_roles")
-      .insert({ user_id: userId, role })
-      .throwOnError();
+      .select("role")
+      .eq("user_id", userId)
+      .eq("role", role)
+      .maybeSingle();
+
+    // If already exists, return success
+    if (existing) {
+      return NextResponse.json({ ok: true });
+    }
+
+    // Insert new role
+    const { error } = await supabaseAdmin
+      .from("org_roles")
+      .insert({ user_id: userId, role });
+
+    if (error) {
+      return NextResponse.json({ error: error.message }, { status: 500 });
+    }
   }
 
   if (action === "REMOVE") {
-    await supabaseAdmin
+    // Delete the role (idempotent - no error if doesn't exist)
+    const { error } = await supabaseAdmin
       .from("org_roles")
       .delete()
       .eq("user_id", userId)
-      .eq("role", role)
-      .throwOnError();
+      .eq("role", role);
+
+    if (error) {
+      return NextResponse.json({ error: error.message }, { status: 500 });
+    }
   }
 
   return NextResponse.json({ ok: true });

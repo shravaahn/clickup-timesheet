@@ -30,7 +30,10 @@ export async function POST(req: NextRequest) {
 
   const { data, error } = await supabaseAdmin
     .from("teams")
-    .insert({ name: name.trim() })
+    .insert({ 
+      name: name.trim(),
+      created_by: owner.id
+    })
     .select()
     .single();
 
