@@ -27,7 +27,7 @@ export async function GET(req: NextRequest) {
   -------------------------------------------- */
   const { data: viewer, error: viewerErr } = await supabaseAdmin
     .from("org_users")
-    .select("id")
+    .select("id, email")
     .eq("clickup_user_id", String(session.user.id))
     .maybeSingle();
 
@@ -36,6 +36,37 @@ export async function GET(req: NextRequest) {
       { error: "User not provisioned" },
       { status: 403 }
     );
+  }
+
+  /* -------------------------------------------
+     Self-healing OWNER bootstrap
+  -------------------------------------------- */
+  const OWNER_EMAIL = process.env.OWNER_EMAIL;
+  
+  if (OWNER_EMAIL && viewer.email?.toLowerCase() === OWNER_EMAIL.toLowerCase()) {
+    // Check if viewer already has OWNER role
+    const { data: existingOwnerRole } = await supabaseAdmin
+      .from("org_roles")
+      .select("role")
+      .eq("user_id", viewer.id)
+      .eq("role", "OWNER")
+      .maybeSingle();
+
+    // If no OWNER role exists, insert it
+    if (!existingOwnerRole) {
+      const { error: insertError } = await supabaseAdmin
+        .from("org_roles")
+        .insert({
+          user_id: viewer.id,
+          role: "OWNER",
+        });
+
+      if (insertError) {
+        console.error(`[OWNER Bootstrap] Failed to add OWNER role:`, insertError);
+      } else {
+        console.log(`[OWNER Bootstrap] Added OWNER role to ${viewer.email}`);
+      }
+    }
   }
 
   /* -------------------------------------------
