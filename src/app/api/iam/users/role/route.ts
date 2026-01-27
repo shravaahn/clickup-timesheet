@@ -65,15 +65,25 @@ export async function POST(req: NextRequest) {
   }
 
   /* -------------------------------------------
+     Fetch existing roles for target user
+  -------------------------------------------- */
+  const { data: targetUserRoles } = await supabaseAdmin
+    .from("org_roles")
+    .select("role")
+    .eq("user_id", userId);
+
+  const existingRoles = (targetUserRoles || []).map(r => r.role);
+
+  /* -------------------------------------------
      Prevent removing last OWNER
   -------------------------------------------- */
   if (role === "OWNER" && action === "REMOVE") {
-    const { data: owners } = await supabaseAdmin
+    const { data: allOwners } = await supabaseAdmin
       .from("org_roles")
       .select("user_id")
       .eq("role", "OWNER");
 
-    if ((owners || []).length <= 1) {
+    if ((allOwners || []).length <= 1) {
       return NextResponse.json(
         { error: "At least one OWNER is required" },
         { status: 409 }
@@ -82,19 +92,11 @@ export async function POST(req: NextRequest) {
   }
 
   /* -------------------------------------------
-     Apply role change (idempotent)
+     Apply role change (idempotent and safe)
   -------------------------------------------- */
   if (action === "ADD") {
-    // Check if role already exists
-    const { data: existing } = await supabaseAdmin
-      .from("org_roles")
-      .select("role")
-      .eq("user_id", userId)
-      .eq("role", role)
-      .maybeSingle();
-
-    // If already exists, return success
-    if (existing) {
+    // If role already exists, return success
+    if (existingRoles.includes(role)) {
       return NextResponse.json({ ok: true });
     }
 
@@ -109,7 +111,12 @@ export async function POST(req: NextRequest) {
   }
 
   if (action === "REMOVE") {
-    // Delete the role (idempotent - no error if doesn't exist)
+    // If role does not exist, return success
+    if (!existingRoles.includes(role)) {
+      return NextResponse.json({ ok: true });
+    }
+
+    // Delete the role
     const { error } = await supabaseAdmin
       .from("org_roles")
       .delete()
