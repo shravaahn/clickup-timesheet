@@ -42,7 +42,7 @@ function weeksInMonth(year: number, monthIdx: number): WeekItem[] {
 }
 
 /** ---- types ---- */
-type Me = { user: { id: string; email: string; username?: string; is_admin?: boolean } };
+type Me = { user: { id: string; email: string; username?: string; is_admin?: boolean; is_owner?: boolean; is_manager?: boolean } };
 type Member = { id: string; name?: string; username?: string; email?: string };
 type Project = { id: string; name: string };
 type Row = {
@@ -261,6 +261,16 @@ export default function DashboardPage() {
     })();
     return () => { mounted = false; };
   }, []);
+
+  /* redirect consultants away from user-management tab */
+  useEffect(() => {
+    if (me && activeTab === "user-management") {
+      const canAccess = me.is_owner || me.is_manager;
+      if (!canAccess) {
+        setActiveTab("timesheets");
+      }
+    }
+  }, [me, activeTab]);
 
   /* fetch weekly estimates for selected user (current week + next week) */
   useEffect(() => {
@@ -485,7 +495,7 @@ export default function DashboardPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ userId: selectedUserId, weekStart: weekStartKey, hours: hoursNum }),
       });
-      const j = await r.json().catch(()=> ({}));
+      const j = await r.json().catch(() => ({}));
       if (!r.ok) {
         alert(`Failed to save estimate: ${j.error || r.statusText}${j.details ? ` — ${j.details}` : ""}`);
         return;

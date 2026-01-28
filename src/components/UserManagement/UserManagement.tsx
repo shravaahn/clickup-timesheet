@@ -3,6 +3,7 @@
 
 import { useEffect, useState } from "react";
 import styles from "./UserManagement.module.css";
+import ThemeSwitch from "@/components/ThemeSwitch";
 
 type User = {
   id: string;
@@ -25,11 +26,15 @@ type Team = {
 const ROLE_ORDER = ["CONSULTANT", "MANAGER", "OWNER"] as const;
 type Role = typeof ROLE_ORDER[number];
 
+type ViewMode = "users" | "teams";
+
 export default function UserManagementSection() {
+  const [view, setView] = useState<ViewMode>("users");
   const [users, setUsers] = useState<User[]>([]);
   const [teams, setTeams] = useState<Team[]>([]);
   const [newTeam, setNewTeam] = useState("");
   const [loading, setLoading] = useState(true);
+  const [me, setMe] = useState<any>(null);
 
   async function fetchAll() {
     setLoading(true);
@@ -43,6 +48,10 @@ export default function UserManagementSection() {
   }
 
   useEffect(() => {
+    // Fetch current user to determine permissions
+    fetch("/api/me").then(r => r.json()).then(data => {
+      setMe(data?.user || null);
+    });
     fetchAll();
   }, []);
 
@@ -154,124 +163,203 @@ export default function UserManagementSection() {
     }
   }
 
+  const isOwner = me?.is_owner || false;
+  const isReadOnly = !isOwner;
+
   if (loading) return <div className={styles.card}>Loading…</div>;
 
   return (
     <section className={styles.card}>
-      <h2>User Management</h2>
-
-      {/* CREATE TEAM */}
-      <div className={styles.createTeam}>
-        <input
-          value={newTeam}
-          onChange={e => setNewTeam(e.target.value)}
-          placeholder="New team name"
-        />
-        <button onClick={createTeam}>Create Team</button>
+      <div className={styles.header}>
+        <h2 className={styles.title}>User Management</h2>
+        
+        <div className={styles.headerRight}>
+          <div className={styles.viewToggle}>
+            <button
+              className={`${styles.toggleBtn} ${view === "users" ? styles.active : ""}`}
+              onClick={() => setView("users")}
+            >
+              <svg className={styles.icon} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+                <circle cx="9" cy="7" r="4" />
+                <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
+                <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+              </svg>
+              Users
+            </button>
+            <button
+              className={`${styles.toggleBtn} ${view === "teams" ? styles.active : ""}`}
+              onClick={() => setView("teams")}
+            >
+              <svg className={styles.icon} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <rect x="3" y="3" width="7" height="7" rx="1" />
+                <rect x="14" y="3" width="7" height="7" rx="1" />
+                <rect x="14" y="14" width="7" height="7" rx="1" />
+                <rect x="3" y="14" width="7" height="7" rx="1" />
+              </svg>
+              Teams
+            </button>
+          </div>
+          
+          <ThemeSwitch className={styles.themeSwitch} />
+        </div>
       </div>
 
-      {/* USERS */}
-      <table className={styles.table}>
-        <thead>
-          <tr>
-            <th>Name</th>
-            <th>Role</th>
-            <th>Team</th>
-            <th>Manager</th>
-          </tr>
-        </thead>
-        <tbody>
-          {users.map(u => (
-            <tr key={u.id}>
-              <td>{u.name}</td>
+      {view === "users" && (
+        <>
+          <div className={styles.tableWrapper}>
+            <table className={styles.table}>
+              <thead>
+                <tr>
+                  <th>Name</th>
+                  <th>Email</th>
+                  <th>Role</th>
+                  <th>Team</th>
+                  <th>Manager</th>
+                </tr>
+              </thead>
+              <tbody>
+                {users.map(u => (
+                  <tr key={u.id}>
+                    <td>
+                      <div className={styles.userCell}>
+                        <div className={styles.avatar}>
+                          {(u.name || u.email || "U")[0]?.toUpperCase()}
+                        </div>
+                        <span className={styles.userName}>{u.name}</span>
+                      </div>
+                    </td>
+                    <td className={styles.emailCell}>{u.email}</td>
+                    <td>
+                      <select
+                        className={styles.select}
+                        value={getPrimaryRole(u.roles)}
+                        onChange={e => changeRole(u, e.target.value as Role)}
+                        disabled={isReadOnly}
+                      >
+                        {ROLE_ORDER.map(r => (
+                          <option key={r} value={r}>{r}</option>
+                        ))}
+                      </select>
+                    </td>
+                    <td>
+                      <select
+                        className={styles.select}
+                        value={u.team_id || ""}
+                        onChange={e => assignTeam(e.target.value, u.id)}
+                        disabled={isReadOnly}
+                      >
+                        <option value="">—</option>
+                        {teams.map(t => (
+                          <option key={t.id} value={t.id}>{t.name}</option>
+                        ))}
+                      </select>
+                    </td>
+                    <td>
+                      <select
+                        className={styles.select}
+                        value={u.reporting_manager_id || ""}
+                        onChange={(e) =>
+                          assignReportingManager(
+                            u.id,
+                            e.target.value || null
+                          )
+                        }
+                        disabled={isReadOnly}
+                      >
+                        <option value="">—</option>
+                        {users
+                          .filter(
+                            mgr =>
+                              mgr.roles.includes("MANAGER") &&
+                              mgr.id !== u.id
+                          )
+                          .map(mgr => (
+                            <option key={mgr.id} value={mgr.id}>
+                              {mgr.name}
+                            </option>
+                          ))}
+                      </select>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </>
+      )}
 
-              <td>
-                <select
-                  className={styles.select}
-                  value={getPrimaryRole(u.roles)}
-                  onChange={e => changeRole(u, e.target.value as Role)}
-                >
-                  {ROLE_ORDER.map(r => (
-                    <option key={r} value={r}>{r}</option>
-                  ))}
-                </select>
-              </td>
+      {view === "teams" && (
+        <>
+          {isOwner && (
+            <div className={styles.createTeamSection}>
+              <input
+                className={styles.input}
+                value={newTeam}
+                onChange={e => setNewTeam(e.target.value)}
+                placeholder="Enter team name"
+                disabled={isReadOnly}
+              />
+              <button
+                className={styles.btnPrimary}
+                onClick={createTeam}
+                disabled={isReadOnly || !newTeam.trim()}
+              >
+                <svg className={styles.btnIcon} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <line x1="12" y1="5" x2="12" y2="19" />
+                  <line x1="5" y1="12" x2="19" y2="12" />
+                </svg>
+                Create Team
+              </button>
+            </div>
+          )}
 
-              <td>
-                <select
-                  className={styles.select}
-                  value={u.team_id || ""}
-                  onChange={e => assignTeam(e.target.value, u.id)}
-                >
-                  <option value="">—</option>
-                  {teams.map(t => (
-                    <option key={t.id} value={t.id}>{t.name}</option>
-                  ))}
-                </select>
-              </td>
-
-              <td>
-                <select
-                  className={styles.select}
-                  value={u.reporting_manager_id || ""}
-                  onChange={(e) =>
-                    assignReportingManager(
-                      u.id,
-                      e.target.value || null
-                    )
-                  }
-                >
-                  <option value="">—</option>
-
-                  {users
-                    .filter(
-                      mgr =>
-                        mgr.roles.includes("MANAGER") &&
-                        mgr.id !== u.id
-                    )
-                    .map(mgr => (
-                      <option key={mgr.id} value={mgr.id}>
-                        {mgr.name}
-                      </option>
-                    ))}
-                </select>
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-
-      {/* TEAMS */}
-      <h3>Teams</h3>
-      <table className={styles.table}>
-        <thead>
-          <tr>
-            <th>Team</th>
-            <th>Manager</th>
-          </tr>
-        </thead>
-        <tbody>
-          {teams.map(t => (
-            <tr key={t.id}>
-              <td>{t.name}</td>
-              <td>
-                <select
-                  className={styles.select}
-                  value={t.manager_user_id || ""}
-                  onChange={e => assignManager(t.id, e.target.value)}
-                >
-                  <option value="">—</option>
-                  {users
-                    .filter(u => u.roles.includes("MANAGER"))
-                    .map(u => (
-                      <option key={u.id} value={u.id}>{u.name}</option>
-                    ))}
-                </select>
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+          <div className={styles.tableWrapper}>
+            <table className={styles.table}>
+              <thead>
+                <tr>
+                  <th>Team Name</th>
+                  <th>Team Manager</th>
+                </tr>
+              </thead>
+              <tbody>
+                {teams.map(t => (
+                  <tr key={t.id}>
+                    <td>
+                      <div className={styles.teamCell}>
+                        <div className={styles.teamIcon}>
+                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                            <rect x="3" y="3" width="7" height="7" rx="1" />
+                            <rect x="14" y="3" width="7" height="7" rx="1" />
+                            <rect x="14" y="14" width="7" height="7" rx="1" />
+                            <rect x="3" y="14" width="7" height="7" rx="1" />
+                          </svg>
+                        </div>
+                        <span className={styles.teamName}>{t.name}</span>
+                      </div>
+                    </td>
+                    <td>
+                      <select
+                        className={styles.select}
+                        value={t.manager_user_id || ""}
+                        onChange={e => assignManager(t.id, e.target.value)}
+                        disabled={isReadOnly}
+                      >
+                        <option value="">—</option>
+                        {users
+                          .filter(u => u.roles.includes("MANAGER"))
+                          .map(u => (
+                            <option key={u.id} value={u.id}>{u.name}</option>
+                          ))}
+                      </select>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </>
+      )}
     </section>
   );
 }

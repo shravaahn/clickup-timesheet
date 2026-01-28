@@ -1,3 +1,4 @@
+// src/components/DashboardNavbar/DashboardNavbar.tsx
 "use client";
 
 import { useEffect, useState } from "react";
@@ -46,6 +47,9 @@ export default function DashboardNavbar({
 
   const logoSrc =
     theme === "dark" ? "/company-logo-dark.png" : "/company-logo-light.png";
+
+  // Check if user can see User Management tab
+  const canSeeUserManagement = me?.is_owner || me?.is_manager;
 
   return (
     <>
@@ -98,12 +102,14 @@ export default function DashboardNavbar({
             Analytics
           </button>
 
-          <button
-            className={`${styles.navItem} ${activeTab === "user-management" ? styles.active : ""}`}
-            onClick={() => onTabChange("user-management")}
-          >
-            User Management
-          </button>
+          {canSeeUserManagement && (
+            <button
+              className={`${styles.navItem} ${activeTab === "user-management" ? styles.active : ""}`}
+              onClick={() => onTabChange("user-management")}
+            >
+              User Management
+            </button>
+          )}
 
           <button
             className={`${styles.navItem} ${activeTab === "profile" ? styles.active : ""}`}
