@@ -135,6 +135,31 @@ export async function GET(req: NextRequest) {
   const managersById = Object.fromEntries((managers || []).map(m => [m.id, m]));
 
   /* -------------------------------------------
+     Fetch reporting managers
+  -------------------------------------------- */
+  const { data: reportingRelations } = await supabaseAdmin
+    .from("org_reporting_managers")
+    .select("user_id, manager_user_id");
+
+  const reportingManagerIds = Array.from(
+    new Set((reportingRelations || []).map(r => r.manager_user_id).filter(Boolean))
+  );
+
+  const { data: reportingManagers } = reportingManagerIds.length
+    ? await supabaseAdmin
+        .from("org_users")
+        .select("id, name, email")
+        .in("id", reportingManagerIds)
+    : { data: [] };
+
+  const reportingByUserId = Object.fromEntries(
+    (reportingRelations || []).map(r => [r.user_id, r.manager_user_id])
+  );
+  const reportingManagersById = Object.fromEntries(
+    (reportingManagers || []).map(m => [m.id, m])
+  );
+
+  /* -------------------------------------------
      Fetch roles for all users
   -------------------------------------------- */
   const userIds = (users || []).map(u => u.id);
@@ -163,6 +188,11 @@ export async function GET(req: NextRequest) {
         ? managersById[team.manager_user_id]
         : null;
 
+      const reportingManagerId = reportingByUserId[u.id];
+      const reportingManager = reportingManagerId
+        ? reportingManagersById[reportingManagerId]
+        : null;
+
       return {
         id: u.id,
         clickup_user_id: u.clickup_user_id,
@@ -177,6 +207,9 @@ export async function GET(req: NextRequest) {
         manager_id: manager?.id || null,
         manager_name: manager?.name || null,
         manager_email: manager?.email || null,
+        reporting_manager_id: reportingManager?.id || null,
+        reporting_manager_name: reportingManager?.name || null,
+        reporting_manager_email: reportingManager?.email || null,
       };
     }),
   });

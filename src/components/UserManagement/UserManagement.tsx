@@ -12,6 +12,8 @@ type User = {
   team_id: string | null;
   team_name: string | null;
   manager_name: string | null;
+  reporting_manager_id: string | null;
+  reporting_manager_name: string | null;
   is_active: boolean;
 };
 
@@ -118,6 +120,28 @@ export default function UserManagementSection() {
     }
   }
 
+  async function assignReportingManager(
+    userId: string,
+    managerUserId: string | null
+  ) {
+    const res = await fetch("/api/iam/users/manager", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        userId,
+        managerUserId: managerUserId || null,
+      }),
+    });
+
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      alert(err.error || "Failed to assign reporting manager");
+      return;
+    }
+
+    fetchAll();
+  }
+
   async function createTeam() {
     if (!newTeam.trim()) return;
     try {
@@ -155,6 +179,7 @@ export default function UserManagementSection() {
             <th>Role</th>
             <th>Team</th>
             <th>Manager</th>
+            <th>Reporting Manager</th>
           </tr>
         </thead>
         <tbody>
@@ -188,6 +213,33 @@ export default function UserManagementSection() {
               </td>
 
               <td>{u.manager_name || "—"}</td>
+
+              <td>
+                <select
+                  className={styles.select}
+                  value={u.reporting_manager_id || ""}
+                  onChange={(e) =>
+                    assignReportingManager(
+                      u.id,
+                      e.target.value || null
+                    )
+                  }
+                >
+                  <option value="">—</option>
+
+                  {users
+                    .filter(
+                      mgr =>
+                        mgr.roles.includes("MANAGER") &&
+                        mgr.id !== u.id
+                    )
+                    .map(mgr => (
+                      <option key={mgr.id} value={mgr.id}>
+                        {mgr.name}
+                      </option>
+                    ))}
+                </select>
+              </td>
             </tr>
           ))}
         </tbody>
