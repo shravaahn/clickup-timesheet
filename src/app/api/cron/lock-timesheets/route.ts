@@ -1,55 +1,67 @@
 // src/app/api/cron/lock-timesheets/route.ts
+
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/db";
 
 /**
- * Locks all OPEN weekly timesheets
- * Intended to run Fridays at 4:00 PM CST
+ * Called weekly (Friday 11 PM CST)
+ * Locks timesheets and creates approval records
  */
 export async function POST() {
-  try {
-    const now = new Date();
+  // 1. Determine current week (Mon–Sun)
+  const now = new Date();
 
-    // Convert to CST (UTC-6, ignoring DST intentionally for business rule)
-    const utc = now.getTime() + now.getTimezoneOffset() * 60000;
-    const cst = new Date(utc - 6 * 60 * 60 * 1000);
+  const day = now.getUTCDay(); // 0 = Sun
+  const diffToMonday = (day === 0 ? -6 : 1) - day;
 
-    const day = cst.getDay(); // 5 = Friday
-    const hour = cst.getHours();
+  const weekStart = new Date(now);
+  weekStart.setUTCDate(now.getUTCDate() + diffToMonday);
+  weekStart.setUTCHours(0, 0, 0, 0);
 
-    if (day !== 5 || hour < 16) {
-      return NextResponse.json({
-        skipped: true,
-        reason: "Not Friday 4 PM CST yet",
-      });
-    }
+  const weekEnd = new Date(weekStart);
+  weekEnd.setUTCDate(weekStart.getUTCDate() + 6);
 
-    const { data, error } = await supabaseAdmin
-      .from("weekly_timesheet_status")
-      .update({
-        status: "LOCKED",
-        locked_at: new Date().toISOString(),
-      })
-      .eq("status", "OPEN")
-      .select("user_id, week_start");
+  // 2. Fetch all consultants
+  const { data: consultants } = await supabaseAdmin
+    .from("org_users")
+    .select("id")
+    .eq("is_active", true);
 
-    if (error) {
-      return NextResponse.json(
-        { error: "Lock failed", details: error.message },
-        { status: 500 }
-      );
-    }
-
-    return NextResponse.json({
-      ok: true,
-      locked_count: data?.length || 0,
-      rows: data,
-    });
-  } catch (err: any) {
-    console.error("auto-lock error:", err);
-    return NextResponse.json(
-      { error: "Failed", details: String(err) },
-      { status: 500 }
-    );
+  if (!consultants?.length) {
+    return NextResponse.json({ ok: true });
   }
+
+  for (const user of consultants) {
+    // 3. Find reporting manager
+    const { data: rm } = await supabaseAdmin
+      .from("org_reporting_managers")
+      .select("manager_user_id")
+      .eq("user_id", user.id)
+      .maybeSingle();
+
+    if (!rm?.manager_user_id) continue;
+
+    // 4. Lock timesheets
+    await supabaseAdmin
+      .from("timesheet_entries")
+      .update({ is_locked: true })
+      .eq("user_id", user.id)
+      .gte("date", weekStart.toISOString())
+      .lte("date", weekEnd.toISOString());
+
+    // 5. Create approval record
+    await supabaseAdmin
+      .from("timesheet_approvals")
+      .upsert({
+        user_id: user.id,
+        manager_user_id: rm.manager_user_id,
+        week_start: weekStart.toISOString().slice(0, 10),
+        week_end: weekEnd.toISOString().slice(0, 10),
+        status: "PENDING",
+      }, {
+        onConflict: "user_id,week_start",
+      });
+  }
+
+  return NextResponse.json({ ok: true });
 }
