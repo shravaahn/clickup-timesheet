@@ -11,7 +11,6 @@ type User = {
   roles: string[];
   team_id: string | null;
   team_name: string | null;
-  manager_name: string | null;
   reporting_manager_id: string | null;
   reporting_manager_name: string | null;
   is_active: boolean;
@@ -179,7 +178,6 @@ export default function UserManagementSection() {
             <th>Role</th>
             <th>Team</th>
             <th>Manager</th>
-            <th>Reporting Manager</th>
           </tr>
         </thead>
         <tbody>
@@ -211,8 +209,6 @@ export default function UserManagementSection() {
                   ))}
                 </select>
               </td>
-
-              <td>{u.manager_name || "—"}</td>
 
               <td>
                 <select
