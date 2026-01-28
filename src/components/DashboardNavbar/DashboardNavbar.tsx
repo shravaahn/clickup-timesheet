@@ -3,6 +3,7 @@
 
 import { useEffect, useState } from "react";
 import styles from "./DashboardNavbar.module.css";
+import ThemeSwitch from "@/components/ThemeSwitch";
 
 type Tab = "profile" | "timesheets" | "analytics" | "user-management";
 type Scheme = "light" | "dark";
@@ -38,13 +39,6 @@ export default function DashboardNavbar({
     return () => window.removeEventListener("app-theme-change", onTheme as EventListener);
   }, []);
 
-  function toggleTheme() {
-    const next: Scheme = theme === "dark" ? "light" : "dark";
-    window.localStorage.setItem("theme", next);
-    window.dispatchEvent(new CustomEvent("app-theme-change", { detail: next }));
-    setTheme(next);
-  }
-
   const logoSrc =
     theme === "dark" ? "/company-logo-dark.png" : "/company-logo-light.png";
 
@@ -77,13 +71,7 @@ export default function DashboardNavbar({
             className={styles.topLogo}
           />
 
-          <button
-            className={styles.themeIconBtn}
-            onClick={toggleTheme}
-            aria-label="Toggle theme"
-          >
-            {theme === "dark" ? "🌙" : "☀️"}
-          </button>
+          <ThemeSwitch className={styles.themeSwitch} />
         </div>
 
         {/* NAV */}

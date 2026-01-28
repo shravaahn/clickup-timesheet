@@ -3,7 +3,6 @@
 
 import { useEffect, useState } from "react";
 import styles from "./UserManagement.module.css";
-import ThemeSwitch from "@/components/ThemeSwitch";
 
 type User = {
   id: string;
@@ -200,8 +199,6 @@ export default function UserManagementSection() {
               Teams
             </button>
           </div>
-          
-          <ThemeSwitch className={styles.themeSwitch} />
         </div>
       </div>
 
