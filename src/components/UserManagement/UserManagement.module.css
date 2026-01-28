@@ -147,6 +147,7 @@
   min-width: 900px;
   border-collapse: collapse;
   background: var(--card-bg);
+  table-layout: fixed;
 }
 
 .table th {
@@ -167,6 +168,13 @@
   color: var(--text);
   font-size: 14px;
   vertical-align: middle;
+  height: 64px;
+}
+
+.table td > * {
+  display: flex;
+  align-items: center;
+  height: 100%;
 }
 
 .table tbody tr {
@@ -243,7 +251,8 @@
 }
 
 .select {
-  padding: 10px 14px;
+  padding: 8px 12px;
+  height: 40px;
   border: 1px solid var(--border);
   border-radius: 8px;
   background: var(--card-bg);
@@ -252,7 +261,7 @@
   cursor: pointer;
   transition: all 0.2s ease;
   min-width: 180px;
-  line-height: 1.4;
+  line-height: 1;
 }
 
 .select:hover:not(:disabled) {
