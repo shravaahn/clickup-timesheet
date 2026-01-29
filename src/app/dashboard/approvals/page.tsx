@@ -61,16 +61,36 @@ export default function TimesheetApprovalsPage() {
     <div style={{ padding: 24 }}>
       <h2>Pending Timesheet Approvals</h2>
 
-      {rows.length === 0 && <p>No pending approvals</p>}
+      {rows.length === 0 && (
+        <div
+          style={{
+            padding: 24,
+            border: "1px dashed #444",
+            borderRadius: 12,
+            background: "rgba(255,255,255,0.02)",
+            maxWidth: 520,
+          }}
+        >
+          <h3 style={{ marginBottom: 8 }}>No pending approvals</h3>
+          <p style={{ opacity: 0.7 }}>
+            Timesheets will appear here automatically every Friday after submission.
+          </p>
+          <p style={{ opacity: 0.7, marginTop: 8 }}>
+            This section allows managers to approve or reject weekly timesheets.
+          </p>
+        </div>
+      )}
 
       {rows.map(r => (
         <div
           key={r.approval_id}
           style={{
-            border: "1px solid #333",
-            padding: 16,
-            marginBottom: 12,
-            borderRadius: 8,
+            background: "var(--card-bg)",
+            border: "1px solid var(--border)",
+            padding: 20,
+            borderRadius: 12,
+            marginBottom: 16,
+            maxWidth: 600,
           }}
         >
           <div><b>{r.user_name}</b></div>

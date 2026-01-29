@@ -153,7 +153,7 @@ export default function DashboardPage() {
   }, []);
 
   // NEW: active tab for dashboard
-  const [activeTab, setActiveTab] = useState<"profile"|"timesheets"|"analytics"|"user-management">("timesheets");
+  const [activeTab, setActiveTab] = useState<"profile"|"timesheets"|"analytics"|"user-management"|"approvals">("timesheets");
 
   /** week state */
   const [weekStart, setWeekStart] = useState<Date>(() => startOfWeek());
@@ -528,7 +528,7 @@ export default function DashboardPage() {
   /* ---------- small UI helpers ---------- */
 
   // Tab header component — shows logo + title + subtitle
-  function TabHeader({ tab }: { tab: "profile" | "timesheets" | "analytics" | "user-management" }) {
+  function TabHeader({ tab }: { tab: "profile" | "timesheets" | "analytics" | "user-management" | "approvals" }) {
     const logoSrc = theme === "dark" ? "/company-logo-dark.png" : "/company-logo-light.png";
     let title = "Timesheet";
     let subtitle = `${fmtMMMdd(weekStart)} — ${fmtMMMdd(weekEnd)} • ${isAdmin ? "Admin view" : "Consultant view"}`;
@@ -541,6 +541,9 @@ export default function DashboardPage() {
     } else if (tab === "user-management") {
       title = "User Management";
       subtitle = "Manage users, roles, and teams";
+    } else if (tab === "approvals") {
+      title = "Approvals";
+      subtitle = "Review and approve timesheets";
     }
 
     return (
@@ -820,7 +823,7 @@ export default function DashboardPage() {
 
   return (
     <div style={{ display: "flex", minHeight: "100vh", position: "relative" }}>
-      <DashboardNavbar activeTab={activeTab} onTabChange={(t: "profile"|"timesheets"|"analytics"|"user-management") => setActiveTab(t)} me={me} />
+      <DashboardNavbar activeTab={activeTab} onTabChange={(t: "profile"|"timesheets"|"analytics"|"user-management"|"approvals") => setActiveTab(t)} me={me} />
 
       <div style={{ flex: 1, marginLeft: 0 }}>
         <div className={styles.page} data-theme={theme}>
