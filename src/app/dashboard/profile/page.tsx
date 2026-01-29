@@ -3,6 +3,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import styles from "../Dashboard.module.css";
 import DashboardNavbar from "@/components/DashboardNavbar/DashboardNavbar";
 
@@ -56,6 +57,8 @@ type Row = {
 };
 
 export default function ProfilePage() {
+  const router = useRouter();
+
   /* theme sync (read only) */
   const [theme, setTheme] = useState<Scheme>("light");
   useEffect(() => {
@@ -125,11 +128,11 @@ export default function ProfilePage() {
     (async () => {
       try {
         const resp = await fetch("/api/me", { cache: "no-store" });
-        if (resp.status === 401) { window.location.href = "/login"; return; }
+        if (resp.status === 401) { router.push("/login"); return; }
         const meRes: Me = await resp.json();
         const u = meRes?.user;
         if (!mounted) return;
-        if (!u?.id) { window.location.href = "/login"; return; }
+        if (!u?.id) { router.push("/login"); return; }
 
         setMe(u);
         setIsAdmin(!!u.is_admin);
@@ -150,11 +153,11 @@ export default function ProfilePage() {
           setMembers([{ id: u.id, name: u.username || (u.email ? u.email.split("@")[0] : ""), email: u.email }]);
         }
       } catch {
-        window.location.href = "/login";
+        router.push("/login");
       }
     })();
     return () => { mounted = false; };
-  }, []);
+  }, [router]);
 
   /* fetch weekly estimates for selected user */
   useEffect(() => {
@@ -312,7 +315,7 @@ export default function ProfilePage() {
 
   return (
     <div style={{ display: "flex", minHeight: "100vh", position: "relative" }}>
-      <DashboardNavbar activeTab="profile" onTabChange={(t) => window.location.href = `/dashboard/${t}`} me={me} />
+      <DashboardNavbar activeTab="profile" me={me} />
 
       <div style={{ flex: 1, marginLeft: 0 }}>
         <div className={styles.page} data-theme={theme}>

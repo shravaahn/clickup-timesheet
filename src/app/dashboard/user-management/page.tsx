@@ -3,6 +3,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import styles from "../Dashboard.module.css";
 import DashboardNavbar from "@/components/DashboardNavbar/DashboardNavbar";
 import UserManagementSection from "@/components/UserManagement/UserManagement";
@@ -21,6 +22,8 @@ function getInitialTheme(): Scheme {
 type Me = { user: { id: string; email: string; username?: string; is_admin?: boolean; is_owner?: boolean; is_manager?: boolean } };
 
 export default function UserManagementPage() {
+  const router = useRouter();
+
   /* theme sync (read only) */
   const [theme, setTheme] = useState<Scheme>("light");
   useEffect(() => {
@@ -47,26 +50,26 @@ export default function UserManagementPage() {
     (async () => {
       try {
         const resp = await fetch("/api/me", { cache: "no-store" });
-        if (resp.status === 401) { window.location.href = "/login"; return; }
+        if (resp.status === 401) { router.push("/login"); return; }
         const meRes: Me = await resp.json();
         const u = meRes?.user;
         if (!mounted) return;
-        if (!u?.id) { window.location.href = "/login"; return; }
+        if (!u?.id) { router.push("/login"); return; }
 
         setMe(u);
 
         // Redirect if not authorized (OWNER or MANAGER only)
         const canAccess = u.is_owner || u.is_manager;
         if (!canAccess) {
-          window.location.href = "/dashboard/timesheets";
+          router.push("/dashboard/timesheets");
           return;
         }
       } catch {
-        window.location.href = "/login";
+        router.push("/login");
       }
     })();
     return () => { mounted = false; };
-  }, []);
+  }, [router]);
 
   /* Tab header component */
   function TabHeader() {
@@ -86,7 +89,7 @@ export default function UserManagementPage() {
 
   return (
     <div style={{ display: "flex", minHeight: "100vh", position: "relative" }}>
-      <DashboardNavbar activeTab="user-management" onTabChange={(t) => window.location.href = `/dashboard/${t}`} me={me} />
+      <DashboardNavbar activeTab="user-management" me={me} />
 
       <div style={{ flex: 1, marginLeft: 0 }}>
         <div className={styles.page} data-theme={theme}>
