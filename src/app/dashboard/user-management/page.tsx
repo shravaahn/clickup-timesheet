@@ -19,7 +19,15 @@ function getInitialTheme(): Scheme {
 }
 
 /** ---- types ---- */
-type Me = { user: { id: string; email: string; username?: string; is_admin?: boolean; is_owner?: boolean; is_manager?: boolean } };
+type Me = { 
+  user: { 
+    id: string; 
+    email: string; 
+    username?: string; 
+    is_admin?: boolean;
+    roles?: string[];
+  } 
+};
 
 export default function UserManagementPage() {
   const router = useRouter();
@@ -58,8 +66,11 @@ export default function UserManagementPage() {
 
         setMe(u);
 
-        // Redirect if not authorized (OWNER or MANAGER only)
-        const canAccess = u.is_owner || u.is_manager;
+        // Route-level guard: OWNER only
+        const roles = u.roles || [];
+        const isOwner = roles.includes("OWNER");
+        const canAccess = isOwner;
+
         if (!canAccess) {
           router.push("/dashboard/timesheets");
           return;

@@ -18,7 +18,15 @@ function getInitialTheme(): Scheme {
 }
 
 /** ---- types ---- */
-type Me = { user: { id: string; email: string; username?: string; is_admin?: boolean; is_owner?: boolean; is_manager?: boolean } };
+type Me = { 
+  user: { 
+    id: string; 
+    email: string; 
+    username?: string; 
+    is_admin?: boolean; 
+    roles?: string[];
+  } 
+};
 
 export default function ApprovalsPage() {
   const router = useRouter();
@@ -42,7 +50,6 @@ export default function ApprovalsPage() {
 
   /** auth + role */
   const [me, setMe] = useState<Me["user"] | null>(null);
-  const [isAdmin, setIsAdmin] = useState(false);
 
   /* load me */
   useEffect(() => {
@@ -57,10 +64,13 @@ export default function ApprovalsPage() {
         if (!u?.id) { router.push("/login"); return; }
 
         setMe(u);
-        setIsAdmin(!!u.is_admin);
 
-        // Redirect if not authorized
-        const canAccess = u.is_owner || u.is_manager;
+        // Route-level guard: OWNER + MANAGER only
+        const roles = u.roles || [];
+        const isOwner = roles.includes("OWNER");
+        const isManager = roles.includes("MANAGER");
+        const canAccess = isOwner || isManager;
+
         if (!canAccess) {
           router.push("/dashboard/timesheets");
           return;

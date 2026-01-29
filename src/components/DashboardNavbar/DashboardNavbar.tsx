@@ -52,8 +52,14 @@ export default function DashboardNavbar({
   const logoSrc =
     theme === "dark" ? "/company-logo-dark.png" : "/company-logo-light.png";
 
-  // Check if user can see User Management tab
-  const canSeeUserManagement = me?.is_owner || me?.is_manager;
+  // Extract roles from /api/me
+  const roles = me?.roles || [];
+  const isOwner = roles.includes("OWNER");
+  const isManager = roles.includes("MANAGER");
+
+  // Check if user can see tabs based on roles
+  const canSeeUserManagement = isOwner;
+  const canSeeApprovals = isOwner || isManager;
 
   // Handle navigation - use provided handler if available, otherwise use Next.js router
   const handleTabClick = (tab: Tab) => {
@@ -128,7 +134,7 @@ export default function DashboardNavbar({
             </button>
           )}
 
-          {(me?.is_manager || me?.is_owner) && (
+          {canSeeApprovals && (
             <button
               className={`${styles.navItem} ${currentTab === "approvals" ? styles.active : ""}`}
               onClick={() => handleTabClick("approvals")}
