@@ -1,67 +1,96 @@
 // src/app/api/cron/lock-timesheets/route.ts
-
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/db";
 
 /**
- * Called weekly (Friday 11 PM CST)
- * Locks timesheets and creates approval records
+ * AUTO-SUBMIT weekly timesheets
+ * Friday 11:00 PM CST
  */
 export async function POST() {
-  // 1. Determine current week (Mon–Sun)
-  const now = new Date();
+  try {
+    const now = new Date();
 
-  const day = now.getUTCDay(); // 0 = Sun
-  const diffToMonday = (day === 0 ? -6 : 1) - day;
+    // CST = UTC-6 (business rule, no DST)
+    const utc = now.getTime() + now.getTimezoneOffset() * 60000;
+    const cst = new Date(utc - 6 * 60 * 60 * 1000);
 
-  const weekStart = new Date(now);
-  weekStart.setUTCDate(now.getUTCDate() + diffToMonday);
-  weekStart.setUTCHours(0, 0, 0, 0);
+    const day = cst.getDay(); // Friday = 5
+    const hour = cst.getHours();
 
-  const weekEnd = new Date(weekStart);
-  weekEnd.setUTCDate(weekStart.getUTCDate() + 6);
-
-  // 2. Fetch all consultants
-  const { data: consultants } = await supabaseAdmin
-    .from("org_users")
-    .select("id")
-    .eq("is_active", true);
-
-  if (!consultants?.length) {
-    return NextResponse.json({ ok: true });
-  }
-
-  for (const user of consultants) {
-    // 3. Find reporting manager
-    const { data: rm } = await supabaseAdmin
-      .from("org_reporting_managers")
-      .select("manager_user_id")
-      .eq("user_id", user.id)
-      .maybeSingle();
-
-    if (!rm?.manager_user_id) continue;
-
-    // 4. Lock timesheets
-    await supabaseAdmin
-      .from("timesheet_entries")
-      .update({ is_locked: true })
-      .eq("user_id", user.id)
-      .gte("date", weekStart.toISOString())
-      .lte("date", weekEnd.toISOString());
-
-    // 5. Create approval record
-    await supabaseAdmin
-      .from("timesheet_approvals")
-      .upsert({
-        user_id: user.id,
-        manager_user_id: rm.manager_user_id,
-        week_start: weekStart.toISOString().slice(0, 10),
-        week_end: weekEnd.toISOString().slice(0, 10),
-        status: "PENDING",
-      }, {
-        onConflict: "user_id,week_start",
+    if (day !== 5 || hour < 23) {
+      return NextResponse.json({
+        skipped: true,
+        reason: "Not Friday 11 PM CST",
       });
-  }
+    }
 
-  return NextResponse.json({ ok: true });
+    const { data: openRows, error } = await supabaseAdmin
+      .from("weekly_timesheet_status")
+      .select(`
+        user_id,
+        week_start,
+        org_users!inner (
+          reporting_manager_id
+        )
+      `)
+      .eq("status", "OPEN");
+
+    if (error) {
+      throw error;
+    }
+
+    const validRows =
+      openRows?.filter(
+        (r: any) =>
+          Array.isArray(r.org_users) &&
+          r.org_users.length > 0 &&
+          r.org_users[0].reporting_manager_id
+      ) || [];
+
+    if (validRows.length === 0) {
+      return NextResponse.json({ ok: true, submitted: 0 });
+    }
+
+    // Update status → SUBMITTED
+    const { error: updateErr } = await supabaseAdmin
+      .from("weekly_timesheet_status")
+      .update({
+        status: "SUBMITTED",
+        locked_at: now.toISOString(),
+        submitted_at: now.toISOString(),
+      })
+      .in(
+        "user_id",
+        validRows.map((r: any) => r.user_id)
+      )
+      .in(
+        "week_start",
+        validRows.map((r: any) => r.week_start)
+      );
+
+    if (updateErr) {
+      throw updateErr;
+    }
+
+    // Audit log
+    await supabaseAdmin.from("timesheet_approvals").insert(
+      validRows.map((r: any) => ({
+        user_id: r.user_id,
+        week_start: r.week_start,
+        action: "SUBMIT",
+        action_by: r.org_users[0].reporting_manager_id,
+      }))
+    );
+
+    return NextResponse.json({
+      ok: true,
+      submitted: validRows.length,
+    });
+  } catch (err: any) {
+    console.error("auto-submit failed", err);
+    return NextResponse.json(
+      { error: "Auto submit failed", details: String(err) },
+      { status: 500 }
+    );
+  }
 }
