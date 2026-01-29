@@ -152,7 +152,7 @@ export default function DashboardPage() {
     };
   }, []);
 
-  // NEW: active tab for dashboard
+  // NEW: active tab for dashboard - Added "approvals"
   const [activeTab, setActiveTab] = useState<"profile"|"timesheets"|"analytics"|"user-management"|"approvals">("timesheets");
 
   /** week state */
@@ -821,6 +821,77 @@ export default function DashboardPage() {
   );
   }
 
+  // --- NEW: Approvals Section (Mock) ---
+  function ApprovalsSection() {
+    // TEMP: mock data so UI is visible for demo
+    const [rows, setRows] = useState([
+      {
+        id: "demo-1",
+        consultant: "John Doe",
+        week: "Jan 22 — Jan 26",
+        hours: 38.5,
+      },
+      {
+        id: "demo-2",
+        consultant: "Jane Smith",
+        week: "Jan 22 — Jan 26",
+        hours: 41,
+      },
+    ]);
+
+    return (
+      <section className={styles.card}>
+        <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 12 }}>
+          <div>
+            <h3 style={{ fontSize: 18, fontWeight: 800 }}>Pending Timesheet Approvals</h3>
+            <div style={{ color: "var(--muted)", fontSize: 13 }}>
+              Review and approve submitted weekly timesheets
+            </div>
+          </div>
+        </div>
+
+        {rows.length === 0 && (
+          <div style={{ padding: 24, textAlign: "center", color: "var(--muted)" }}>
+            No pending approvals right now
+          </div>
+        )}
+
+        <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+          {rows.map(r => (
+            <div
+              key={r.id}
+              style={{
+                border: "1px solid var(--border)",
+                borderRadius: 10,
+                padding: 16,
+                background: "var(--panel)",
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+              }}
+            >
+              <div>
+                <div style={{ fontWeight: 700 }}>{r.consultant}</div>
+                <div style={{ fontSize: 13, color: "var(--muted)" }}>
+                  Week: {r.week} • {r.hours}h
+                </div>
+              </div>
+
+              <div style={{ display: "flex", gap: 8 }}>
+                <button className={`${styles.btn} ${styles.primary}`}>
+                  Approve
+                </button>
+                <button className={`${styles.btn} ${styles.warn}`}>
+                  Reject
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      </section>
+    );
+  }
+
   return (
     <div style={{ display: "flex", minHeight: "100vh", position: "relative" }}>
       <DashboardNavbar activeTab={activeTab} onTabChange={(t: "profile"|"timesheets"|"analytics"|"user-management"|"approvals") => setActiveTab(t)} me={me} />
@@ -837,6 +908,8 @@ export default function DashboardPage() {
               <div style={{ marginTop: 12 }}>{ProfileSection()}</div>
             ) : activeTab === "user-management" ? (
               <div style={{ marginTop: 12 }}><UserManagementSection /></div>
+            ) : activeTab === "approvals" ? (
+              <div style={{ marginTop: 12 }}><ApprovalsSection /></div>
             ) : (
               <>
                 <div className="w-full rounded-lg border bg-[var(--panel)] border-[var(--border)] px-3 py-1.5 mb-3">

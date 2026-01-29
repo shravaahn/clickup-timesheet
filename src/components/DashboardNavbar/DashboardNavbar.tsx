@@ -2,7 +2,6 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
 import styles from "./DashboardNavbar.module.css";
 import ThemeSwitch from "@/components/ThemeSwitch";
 
@@ -25,7 +24,6 @@ export default function DashboardNavbar({
   onTabChange?: (t: Tab) => void;
   me?: any;
 }) {
-  const router = useRouter();
   const [me, setMe] = useState<any>(null);
   const [hovered, setHovered] = useState(false);
   const [pinned] = useState(false); // preserved hook
@@ -87,14 +85,14 @@ export default function DashboardNavbar({
         <nav className={styles.navList}>
           <button
             className={`${styles.navItem} ${activeTab === "timesheets" ? styles.active : ""}`}
-            onClick={() => router.push("/dashboard/timesheets")}
+            onClick={() => onTabChange?.("timesheets")}
           >
             Timesheets
           </button>
 
           <button
             className={`${styles.navItem} ${activeTab === "analytics" ? styles.active : ""}`}
-            onClick={() => router.push("/dashboard/analytics")}
+            onClick={() => onTabChange?.("analytics")}
           >
             Analytics
           </button>
@@ -102,16 +100,16 @@ export default function DashboardNavbar({
           {canSeeUserManagement && (
             <button
               className={`${styles.navItem} ${activeTab === "user-management" ? styles.active : ""}`}
-              onClick={() => router.push("/dashboard/user-management")}
+              onClick={() => onTabChange?.("user-management")}
             >
               User Management
             </button>
           )}
 
-          {(me?.roles?.includes("MANAGER") || me?.roles?.includes("OWNER")) && (
+          {(me?.is_manager || me?.is_owner) && (
             <button
               className={`${styles.navItem} ${activeTab === "approvals" ? styles.active : ""}`}
-              onClick={() => router.push("/dashboard/approvals")}
+              onClick={() => onTabChange?.("approvals")}
             >
               Approvals
             </button>
@@ -119,7 +117,7 @@ export default function DashboardNavbar({
 
           <button
             className={`${styles.navItem} ${activeTab === "profile" ? styles.active : ""}`}
-            onClick={() => router.push("/dashboard/profile")}
+            onClick={() => onTabChange?.("profile")}
           >
             Profile
           </button>
