@@ -20,9 +20,9 @@ export default function DashboardNavbar({
   onTabChange,
   me,
 }: {
-  activeTab: Tab;
-  onTabChange: (t: Tab) => void;
-  me: any;
+  activeTab?: Tab;
+  onTabChange?: (t: Tab) => void;
+  me?: any;
 }) {
   const [hovered, setHovered] = useState(false);
   const [pinned] = useState(false); // preserved hook
@@ -78,14 +78,14 @@ export default function DashboardNavbar({
         <nav className={styles.navList}>
           <button
             className={`${styles.navItem} ${activeTab === "timesheets" ? styles.active : ""}`}
-            onClick={() => onTabChange("timesheets")}
+            onClick={() => onTabChange?.("timesheets")}
           >
             Timesheets
           </button>
 
           <button
             className={`${styles.navItem} ${activeTab === "analytics" ? styles.active : ""}`}
-            onClick={() => onTabChange("analytics")}
+            onClick={() => onTabChange?.("analytics")}
           >
             Analytics
           </button>
@@ -93,7 +93,7 @@ export default function DashboardNavbar({
           {canSeeUserManagement && (
             <button
               className={`${styles.navItem} ${activeTab === "user-management" ? styles.active : ""}`}
-              onClick={() => onTabChange("user-management")}
+              onClick={() => onTabChange?.("user-management")}
             >
               User Management
             </button>
@@ -107,7 +107,7 @@ export default function DashboardNavbar({
 
           <button
             className={`${styles.navItem} ${activeTab === "profile" ? styles.active : ""}`}
-            onClick={() => onTabChange("profile")}
+            onClick={() => onTabChange?.("profile")}
           >
             Profile
           </button>
