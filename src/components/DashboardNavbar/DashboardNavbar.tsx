@@ -2,6 +2,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useRouter, usePathname } from "next/navigation";
 import styles from "./DashboardNavbar.module.css";
 import ThemeSwitch from "@/components/ThemeSwitch";
 
@@ -24,6 +25,8 @@ export default function DashboardNavbar({
   onTabChange?: (t: Tab) => void;
   me?: any;
 }) {
+  const router = useRouter();
+  const pathname = usePathname();
   const [me, setMe] = useState<any>(null);
   const [hovered, setHovered] = useState(false);
   const [pinned] = useState(false); // preserved hook
@@ -51,6 +54,25 @@ export default function DashboardNavbar({
 
   // Check if user can see User Management tab
   const canSeeUserManagement = me?.is_owner || me?.is_manager;
+
+  // Handle navigation - use provided handler if available, otherwise use Next.js router
+  const handleTabClick = (tab: Tab) => {
+    if (onTabChange) {
+      onTabChange(tab);
+    } else {
+      router.push(`/dashboard/${tab}`);
+    }
+  };
+
+  // Derive active tab from pathname if not explicitly provided
+  const currentTab = activeTab || (() => {
+    if (pathname?.includes("/timesheets")) return "timesheets";
+    if (pathname?.includes("/analytics")) return "analytics";
+    if (pathname?.includes("/profile")) return "profile";
+    if (pathname?.includes("/user-management")) return "user-management";
+    if (pathname?.includes("/approvals")) return "approvals";
+    return "timesheets"; // default
+  })();
 
   return (
     <>
@@ -84,23 +106,23 @@ export default function DashboardNavbar({
         {/* NAV */}
         <nav className={styles.navList}>
           <button
-            className={`${styles.navItem} ${activeTab === "timesheets" ? styles.active : ""}`}
-            onClick={() => onTabChange?.("timesheets")}
+            className={`${styles.navItem} ${currentTab === "timesheets" ? styles.active : ""}`}
+            onClick={() => handleTabClick("timesheets")}
           >
             Timesheets
           </button>
 
           <button
-            className={`${styles.navItem} ${activeTab === "analytics" ? styles.active : ""}`}
-            onClick={() => onTabChange?.("analytics")}
+            className={`${styles.navItem} ${currentTab === "analytics" ? styles.active : ""}`}
+            onClick={() => handleTabClick("analytics")}
           >
             Analytics
           </button>
 
           {canSeeUserManagement && (
             <button
-              className={`${styles.navItem} ${activeTab === "user-management" ? styles.active : ""}`}
-              onClick={() => onTabChange?.("user-management")}
+              className={`${styles.navItem} ${currentTab === "user-management" ? styles.active : ""}`}
+              onClick={() => handleTabClick("user-management")}
             >
               User Management
             </button>
@@ -108,16 +130,16 @@ export default function DashboardNavbar({
 
           {(me?.is_manager || me?.is_owner) && (
             <button
-              className={`${styles.navItem} ${activeTab === "approvals" ? styles.active : ""}`}
-              onClick={() => onTabChange?.("approvals")}
+              className={`${styles.navItem} ${currentTab === "approvals" ? styles.active : ""}`}
+              onClick={() => handleTabClick("approvals")}
             >
               Approvals
             </button>
           )}
 
           <button
-            className={`${styles.navItem} ${activeTab === "profile" ? styles.active : ""}`}
-            onClick={() => onTabChange?.("profile")}
+            className={`${styles.navItem} ${currentTab === "profile" ? styles.active : ""}`}
+            onClick={() => handleTabClick("profile")}
           >
             Profile
           </button>
