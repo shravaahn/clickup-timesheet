@@ -99,6 +99,12 @@ export default function DashboardNavbar({
             </button>
           )}
 
+          {(me?.roles?.includes("MANAGER") || me?.roles?.includes("OWNER")) && (
+            <a href="/dashboard/approvals" className={styles.navItem}>
+              Approvals
+            </a>
+          )}
+
           <button
             className={`${styles.navItem} ${activeTab === "profile" ? styles.active : ""}`}
             onClick={() => onTabChange("profile")}

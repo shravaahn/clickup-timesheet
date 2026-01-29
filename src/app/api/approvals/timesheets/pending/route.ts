@@ -4,6 +4,8 @@ import { getIronSession } from "iron-session";
 import { sessionOptions } from "@/lib/session";
 import { supabaseAdmin } from "@/lib/db";
 
+const DEV_PREVIEW = process.env.NODE_ENV !== "production";
+
 /**
  * GET /api/approvals/timesheets/pending
  *
@@ -85,6 +87,22 @@ export async function GET(req: NextRequest) {
       submitted_at: row.created_at,
     };
   });
+
+  if (DEV_PREVIEW && (!data || data.length === 0)) {
+    return NextResponse.json({
+      approvals: [
+        {
+          approval_id: "dev-preview",
+          user_id: "preview-user",
+          user_name: "Preview Consultant",
+          user_email: "preview@demo.com",
+          week_start: "2026-01-20",
+          weekly_status: "SUBMITTED",
+          submitted_at: new Date().toISOString(),
+        },
+      ],
+    });
+  }
 
   return NextResponse.json({ approvals });
 }
