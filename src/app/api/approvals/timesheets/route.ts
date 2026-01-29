@@ -1,9 +1,9 @@
 // src/app/api/approvals/timesheets/route.ts
 
+import { NextRequest, NextResponse } from "next/server";
 import { getIronSession } from "iron-session";
 import { sessionOptions } from "@/lib/session";
 import { supabaseAdmin } from "@/lib/db";
-import { NextRequest, NextResponse } from "next/server";
 
 export async function GET(req: NextRequest) {
   const res = new NextResponse();
@@ -13,31 +13,62 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
   }
 
-  const { data: manager } = await supabaseAdmin
+  // Resolve viewer
+  const { data: viewer } = await supabaseAdmin
     .from("org_users")
     .select("id")
     .eq("clickup_user_id", String(session.user.id))
     .maybeSingle();
 
-  if (!manager) {
+  if (!viewer) {
     return NextResponse.json({ error: "Not provisioned" }, { status: 403 });
   }
 
-  const { data } = await supabaseAdmin
-    .from("timesheet_approvals")
+  // Roles
+  const { data: roles } = await supabaseAdmin
+    .from("org_roles")
+    .select("role")
+    .eq("user_id", viewer.id);
+
+  const isOwner = roles?.some(r => r.role === "OWNER");
+  const isManager = roles?.some(r => r.role === "MANAGER");
+
+  if (!isOwner && !isManager) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
+
+  // Fetch submitted timesheets
+  let query = supabaseAdmin
+    .from("weekly_timesheet_status")
     .select(`
-      id,
+      user_id,
       week_start,
-      week_end,
-      status,
-      org_users (
+      submitted_at,
+      org_users!inner (
         id,
         name,
-        email
+        reporting_manager_id
       )
     `)
-    .eq("manager_user_id", manager.id)
-    .eq("status", "PENDING");
+    .eq("status", "SUBMITTED");
 
-  return NextResponse.json({ approvals: data || [] });
+  if (isManager && !isOwner) {
+    query = query.eq("org_users.reporting_manager_id", viewer.id);
+  }
+
+  const { data, error } = await query;
+
+  if (error) {
+    return NextResponse.json({ error: error.message }, { status: 500 });
+  }
+
+  const rows =
+    data?.map((r: any) => ({
+      user_id: r.user_id,
+      user_name: r.org_users?.[0]?.name,
+      week_start: r.week_start,
+      submitted_at: r.submitted_at,
+    })) || [];
+
+  return NextResponse.json({ approvals: rows });
 }
