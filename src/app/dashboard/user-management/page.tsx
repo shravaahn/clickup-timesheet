@@ -19,15 +19,7 @@ function getInitialTheme(): Scheme {
 }
 
 /** ---- types ---- */
-type Me = { 
-  user: { 
-    id: string; 
-    email: string; 
-    username?: string; 
-    is_admin?: boolean;
-    roles?: string[];
-  } 
-};
+type Me = { user: { id: string; email: string; username?: string; is_admin?: boolean; roles?: string[] } };
 
 export default function UserManagementPage() {
   const router = useRouter();
@@ -66,12 +58,11 @@ export default function UserManagementPage() {
 
         setMe(u);
 
-        // Route-level guard: OWNER only
+        // Route guard: OWNER only
         const roles = u.roles || [];
         const isOwner = roles.includes("OWNER");
-        const canAccess = isOwner;
-
-        if (!canAccess) {
+        
+        if (!isOwner) {
           router.push("/dashboard/timesheets");
           return;
         }

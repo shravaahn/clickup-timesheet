@@ -3,10 +3,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getIronSession } from "iron-session";
 import { sessionOptions } from "@/lib/session";
-import { supabaseAdmin } from "@/lib/db";
+import { supabaseAdmin, getOrgUserByClickUpId, getUserRoles } from "@/lib/db";
 import {
   getAuthHeader,
-  cuUpdateTimeEstimate,
   cuCreateManualTimeEntry,
 } from "@/lib/clickup";
 
@@ -24,6 +23,67 @@ function weekStartFromDate(ymd: string) {
 
 function noonUtcMs(ymd: string) {
   return Date.parse(`${ymd}T12:00:00.000Z`);
+}
+
+/* ================================
+   STATE MACHINE ENFORCEMENT
+================================ */
+
+/**
+ * Check if user can edit timesheet entries for a given week.
+ * 
+ * Rules:
+ * - OPEN: Consultant can edit
+ * - SUBMITTED: No edits allowed (waiting for manager approval)
+ * - APPROVED: No edits allowed (locked forever)
+ * - REJECTED: Consultant can edit (make corrections and resubmit)
+ * 
+ * @returns { allowed: boolean, status: string | null, reason?: string }
+ */
+async function checkWeekEditPermission(
+  userId: string,
+  weekStart: string
+): Promise<{ allowed: boolean; status: string | null; reason?: string }> {
+  const { data: weeklyTimesheet } = await supabaseAdmin
+    .from("weekly_timesheets")
+    .select("status")
+    .eq("user_id", userId)
+    .eq("week_start", weekStart)
+    .maybeSingle();
+
+  if (!weeklyTimesheet) {
+    // No weekly timesheet exists yet - assume OPEN
+    return { allowed: true, status: null };
+  }
+
+  const status = weeklyTimesheet.status;
+
+  switch (status) {
+    case "OPEN":
+    case "REJECTED":
+      return { allowed: true, status };
+    
+    case "SUBMITTED":
+      return {
+        allowed: false,
+        status,
+        reason: "Week is submitted and awaiting approval. Cannot edit until approved or rejected.",
+      };
+    
+    case "APPROVED":
+      return {
+        allowed: false,
+        status,
+        reason: "Week is approved and locked. No further edits allowed.",
+      };
+    
+    default:
+      return {
+        allowed: false,
+        status,
+        reason: `Unknown status: ${status}`,
+      };
+  }
 }
 
 /* ================================
@@ -114,6 +174,28 @@ export async function POST(req: NextRequest) {
     );
   }
 
+  /* -------- STATE MACHINE ENFORCEMENT -------- */
+  
+  const weekStart = weekStartFromDate(date);
+  const permission = await checkWeekEditPermission(
+    String(session.user.id),
+    weekStart
+  );
+
+  if (!permission.allowed) {
+    return NextResponse.json(
+      {
+        error: "Cannot edit timesheet",
+        reason: permission.reason,
+        status: permission.status,
+      },
+      { status: 403 }
+    );
+  }
+
+  /* -------- UPSERT TIMESHEET ENTRY -------- */
+
+  // Build the upsert row - ALWAYS include all required fields for the unique constraint
   const upsertRow: any = {
     user_id: String(session.user.id),
     task_id: taskId,
@@ -122,17 +204,22 @@ export async function POST(req: NextRequest) {
   };
 
   if (body.type === "estimate") {
+    // Update estimate fields, preserve tracked fields
     upsertRow.estimate_hours = body.hours;
     upsertRow.estimate_locked = true;
   } else {
+    // Update tracked fields, preserve estimate fields
     upsertRow.tracked_hours = body.hours;
     upsertRow.tracked_note = body.note ?? null;
   }
 
+  // CRITICAL: Use upsert with onConflict to UPDATE existing rows instead of creating duplicates
+  // This requires a UNIQUE constraint on (user_id, task_id, date) in the database
   const { error } = await supabaseAdmin
     .from("timesheet_entries")
     .upsert(upsertRow, {
       onConflict: "user_id,task_id,date",
+      // ignoreDuplicates: false is the default - we want to UPDATE on conflict
     });
 
   if (error) {
@@ -142,30 +229,16 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  /* -------- Optional ClickUp Sync -------- */
+  /* -------- Optional ClickUp Sync (TRACKED TIME ONLY) -------- */
 
   if (body.syncToClickUp) {
-    const authHeader = await getAuthHeader(req);
-
-    if (body.type === "estimate") {
-      const { data: rows } = await supabaseAdmin
-        .from("timesheet_entries")
-        .select("estimate_hours")
-        .eq("task_id", taskId)
-        .not("estimate_hours", "is", null);
-
-      const totalHours =
-        (rows || []).reduce(
-          (sum, r: any) => sum + Number(r.estimate_hours || 0),
-          0
-        ) || 0;
-
-      await cuUpdateTimeEstimate(
-        authHeader,
-        taskId,
-        Math.floor(totalHours * 3600_000)
-      );
-    } else {
+    // CRITICAL: Only sync TRACKED time to ClickUp, NEVER estimates
+    // Estimates are portal-only and should remain in Supabase
+    
+    if (body.type === "tracked") {
+      const authHeader = await getAuthHeader(req);
+      
+      // Create a manual time entry in ClickUp for tracked hours
       await cuCreateManualTimeEntry({
         authHeader,
         taskId,
@@ -176,6 +249,8 @@ export async function POST(req: NextRequest) {
         billable: true,
       });
     }
+    // If body.type === "estimate", we intentionally do nothing
+    // Estimates are never synced to ClickUp
   }
 
   return NextResponse.json({ ok: true });

@@ -18,15 +18,7 @@ function getInitialTheme(): Scheme {
 }
 
 /** ---- types ---- */
-type Me = { 
-  user: { 
-    id: string; 
-    email: string; 
-    username?: string; 
-    is_admin?: boolean; 
-    roles?: string[];
-  } 
-};
+type Me = { user: { id: string; email: string; username?: string; is_admin?: boolean; roles?: string[] } };
 
 export default function ApprovalsPage() {
   const router = useRouter();
@@ -65,13 +57,12 @@ export default function ApprovalsPage() {
 
         setMe(u);
 
-        // Route-level guard: OWNER + MANAGER only
+        // Route guard: OWNER or MANAGER only
         const roles = u.roles || [];
         const isOwner = roles.includes("OWNER");
         const isManager = roles.includes("MANAGER");
-        const canAccess = isOwner || isManager;
-
-        if (!canAccess) {
+        
+        if (!isOwner && !isManager) {
           router.push("/dashboard/timesheets");
           return;
         }

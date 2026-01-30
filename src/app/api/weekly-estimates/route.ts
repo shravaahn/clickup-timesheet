@@ -31,6 +31,60 @@ function allowedWeekStarts() {
   return [thisWeek, nextWeek];
 }
 
+/* -------------------------------------------------------
+   State Machine Enforcement
+-------------------------------------------------------- */
+
+/**
+ * Check if user can edit weekly estimates for a given week.
+ * Same rules as timesheet entries.
+ */
+async function checkWeekEditPermission(
+  userId: string,
+  weekStart: string
+): Promise<{ allowed: boolean; status: string | null; reason?: string }> {
+  const { data: weeklyTimesheet } = await supabaseAdmin
+    .from("weekly_timesheets")
+    .select("status")
+    .eq("user_id", userId)
+    .eq("week_start", weekStart)
+    .maybeSingle();
+
+  if (!weeklyTimesheet) {
+    // No weekly timesheet exists yet - assume OPEN
+    return { allowed: true, status: null };
+  }
+
+  const status = weeklyTimesheet.status;
+
+  switch (status) {
+    case "OPEN":
+    case "REJECTED":
+      return { allowed: true, status };
+    
+    case "SUBMITTED":
+      return {
+        allowed: false,
+        status,
+        reason: "Week is submitted and awaiting approval. Cannot edit until approved or rejected.",
+      };
+    
+    case "APPROVED":
+      return {
+        allowed: false,
+        status,
+        reason: "Week is approved and locked. No further edits allowed.",
+      };
+    
+    default:
+      return {
+        allowed: false,
+        status,
+        reason: `Unknown status: ${status}`,
+      };
+  }
+}
+
 /* =======================================================
    GET — Fetch weekly estimates
 ======================================================= */
@@ -126,6 +180,23 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
+    /* -------- STATE MACHINE ENFORCEMENT -------- */
+    
+    const permission = await checkWeekEditPermission(targetUserId, weekStart);
+    
+    if (!permission.allowed) {
+      return NextResponse.json(
+        {
+          error: "Cannot edit weekly estimate",
+          reason: permission.reason,
+          status: permission.status,
+        },
+        { status: 403 }
+      );
+    }
+
+    /* -------- VALIDATION -------- */
+
     // Only allow current week or next week
     const allowedWeeks = allowedWeekStarts();
     if (!allowedWeeks.includes(weekStart)) {
@@ -134,6 +205,8 @@ export async function POST(req: NextRequest) {
         { status: 409 }
       );
     }
+
+    /* -------- UPSERT ESTIMATE -------- */
 
     // Check existing
     const { data: existing, error: exErr } = await supabaseAdmin

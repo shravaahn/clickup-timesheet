@@ -57,9 +57,9 @@ export default function DashboardNavbar({
   const isOwner = roles.includes("OWNER");
   const isManager = roles.includes("MANAGER");
 
-  // Check if user can see tabs based on roles
-  const canSeeUserManagement = isOwner;
-  const canSeeApprovals = isOwner || isManager;
+  // Access control based on roles
+  const showUserManagement = isOwner;
+  const showApprovals = isOwner || isManager;
 
   // Handle navigation - use provided handler if available, otherwise use Next.js router
   const handleTabClick = (tab: Tab) => {
@@ -125,7 +125,7 @@ export default function DashboardNavbar({
             Analytics
           </button>
 
-          {canSeeUserManagement && (
+          {showUserManagement && (
             <button
               className={`${styles.navItem} ${currentTab === "user-management" ? styles.active : ""}`}
               onClick={() => handleTabClick("user-management")}
@@ -134,7 +134,7 @@ export default function DashboardNavbar({
             </button>
           )}
 
-          {canSeeApprovals && (
+          {showApprovals && (
             <button
               className={`${styles.navItem} ${currentTab === "approvals" ? styles.active : ""}`}
               onClick={() => handleTabClick("approvals")}
