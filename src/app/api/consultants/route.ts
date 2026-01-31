@@ -25,6 +25,9 @@ export async function GET(req: NextRequest) {
 
   const roles = await getUserRoles(viewer.id);
 
+  // Read scope query parameter
+  const scope = req.nextUrl.searchParams.get("scope");
+
   // =========================
   // OWNER → all active users
   // =========================
@@ -43,9 +46,44 @@ export async function GET(req: NextRequest) {
   }
 
   // =========================
-  // MANAGER → team users
+  // MANAGER → direct reports OR team users
   // =========================
   if (roles.includes("MANAGER")) {
+    // If scope=direct, return only direct reports from org_reporting_managers
+    if (scope === "direct") {
+      const { data, error } = await supabaseAdmin
+        .from("org_reporting_managers")
+        .select(`
+          consultant_id,
+          org_users!org_reporting_managers_consultant_id_fkey (
+            id,
+            email,
+            name,
+            is_active
+          )
+        `)
+        .eq("manager_id", viewer.id);
+
+      if (error) {
+        return NextResponse.json({ error: error.message }, { status: 500 });
+      }
+
+      // Extract and filter active users
+      const directReports = (data || [])
+        .map(row => {
+          const user = Array.isArray(row.org_users)
+            ? row.org_users[0]
+            : row.org_users;
+          return user;
+        })
+        .filter(user => user?.id && user.is_active);
+
+      return NextResponse.json({
+        members: directReports,
+      });
+    }
+
+    // Default: team-based logic (existing behavior)
     const teams = await getTeamsForUser(viewer.id);
     const teamIds = teams.map(t => t.team_id);
 

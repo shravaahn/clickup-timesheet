@@ -127,7 +127,12 @@ export default function TimesheetsPage() {
   /** auth + role */
   const [me, setMe] = useState<Me["user"] | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [isManager, setIsManager] = useState(false);
   const displayName = me?.username || me?.email?.split("@")[0] || "user";
+  
+  // Derived role flags
+  const isOwnerOrAdmin = isAdmin || (me?.is_owner ?? false);
+  const canViewOthers = isOwnerOrAdmin || isManager;
 
   /** consultants */
   const [members, setMembers] = useState<Member[]>([]);
@@ -169,9 +174,11 @@ export default function TimesheetsPage() {
 
         setMe(u);
         setIsAdmin(!!u.is_admin);
+        setIsManager(!!u.is_manager);
         setSelectedUserId(u.id);
 
-        if (u.is_admin) {
+        if (u.is_admin || u.is_owner) {
+          // Owner/Admin: fetch all consultants
           const cs = await fetch("/api/consultants", { cache: "no-store" }).then(r => r.json());
           const list: Member[] = (cs?.members || []).map((m: any) => ({
             id: String(m.id),
@@ -182,7 +189,20 @@ export default function TimesheetsPage() {
           const withMeTop = [{ id: u.id, name: u.username || (u.email ? u.email.split("@")[0] : ""), email: u.email },
             ...sorted.filter(m => m.id !== u.id)];
           setMembers(withMeTop);
+        } else if (u.is_manager) {
+          // Manager: fetch only direct reports
+          const cs = await fetch("/api/consultants?scope=direct", { cache: "no-store" }).then(r => r.json());
+          const list: Member[] = (cs?.members || []).map((m: any) => ({
+            id: String(m.id),
+            name: m.name || m.username || (m.email ? m.email.split("@")[0] : ""),
+            email: m.email,
+          }));
+          const sorted = list.filter(m => m.id).sort((a,b)=> (a.name||"").localeCompare(b.name||""));
+          const withMeTop = [{ id: u.id, name: u.username || (u.email ? u.email.split("@")[0] : ""), email: u.email },
+            ...sorted.filter(m => m.id !== u.id)];
+          setMembers(withMeTop);
         } else {
+          // Consultant: only self
           setMembers([{ id: u.id, name: u.username || (u.email ? u.email.split("@")[0] : ""), email: u.email }]);
         }
       } catch {
@@ -410,7 +430,7 @@ export default function TimesheetsPage() {
 
   /* admin unlock endpoint helper */
   async function adminUnlock(userId: string, weekStartKey: string) {
-    if (!isAdmin) return alert("Only admins can unlock");
+    if (!isOwnerOrAdmin) return alert("Only admins can unlock");
     const ok = confirm(`Unlock estimates for user ${userId} for week ${weekStartKey}?`);
     if (!ok) return;
     const r = await fetch("/api/weekly-estimates/unlock", {
@@ -434,7 +454,7 @@ export default function TimesheetsPage() {
           <div className={styles.brandText}>
             <div className={styles.brandTitle}>Timesheet</div>
             <div className={styles.brandTagline}>
-              {fmtMMMdd(weekStart)} — {fmtMMMdd(weekEnd)} • {isAdmin ? "Admin view" : "Consultant view"}
+              {fmtMMMdd(weekStart)} — {fmtMMMdd(weekEnd)} • {isOwnerOrAdmin ? "Admin view" : isManager ? "Manager view" : "Consultant view"}
             </div>
           </div>
         </div>
@@ -456,13 +476,13 @@ export default function TimesheetsPage() {
               <div className="flex items-center justify-between gap-3">
                 <div className="flex items-center gap-3 flex-wrap">
                   <div className="text-xs text-[var(--muted)] font-semibold px-2 py-1 border rounded-full border-[var(--border)]">
-                    {isAdmin ? "ADMIN" : "CONSULTANT"}
+                    {isOwnerOrAdmin ? "ADMIN" : isManager ? "MANAGER" : "CONSULTANT"}
                   </div>
                   <div className="text-sm font-semibold">{displayName}</div>
 
                   <div className="h-4 w-px bg-[var(--border)]" />
 
-                  {isAdmin && (
+                  {canViewOthers && (
                     <>
                       <label className={styles.selectorLabel}>Consultant:</label>
                       <select
@@ -691,7 +711,7 @@ export default function TimesheetsPage() {
               </>
             )}
 
-            {isAdmin && viewMode === "week" && (
+            {isOwnerOrAdmin && viewMode === "week" && (
               <section className={styles.adminPanel}>
                 <div className={styles.cardsRow}>
                   <div className={styles.statCard}>
