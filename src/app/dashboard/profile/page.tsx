@@ -6,7 +6,6 @@ import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import styles from "../Dashboard.module.css";
 import DashboardNavbar from "@/components/DashboardNavbar/DashboardNavbar";
-import LeavePortalModal from "@/components/Leave/LeavePortalModal";
 
 /* ---------- Theme helpers ---------- */
 type Scheme = "light" | "dark";
@@ -122,9 +121,6 @@ export default function ProfilePage() {
 
   /** admin summary */
   const [overviewRows, setOverviewRows] = useState<{ name: string; est: number; tracked: number }[]>([]);
-
-  /** Leave Portal modal state */
-  const [showLeavePortal, setShowLeavePortal] = useState(false);
 
   /* load me */
   useEffect(() => {
@@ -290,15 +286,6 @@ export default function ProfilePage() {
               {me?.username ? `${me.username} • ${isAdmin ? "Admin" : "Consultant"}` : `${isAdmin ? "Admin" : "Consultant"}`}
             </div>
           </div>
-        </div>
-        <div style={{ marginLeft: "auto" }}>
-          <button
-            className={styles.btnPrimary}
-            onClick={() => setShowLeavePortal(true)}
-            style={{ padding: "8px 16px", fontSize: 14 }}
-          >
-            Leave Portal
-          </button>
         </div>
       </div>
     );
@@ -468,11 +455,6 @@ export default function ProfilePage() {
           </div>
         </div>
       </div>
-
-      <LeavePortalModal 
-        open={showLeavePortal} 
-        onClose={() => setShowLeavePortal(false)} 
-      />
     </div>
   );
 }

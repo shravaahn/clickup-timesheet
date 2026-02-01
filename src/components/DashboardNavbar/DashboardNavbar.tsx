@@ -6,7 +6,7 @@ import { useRouter, usePathname } from "next/navigation";
 import styles from "./DashboardNavbar.module.css";
 import ThemeSwitch from "@/components/ThemeSwitch";
 
-type Tab = "profile" | "timesheets" | "analytics" | "user-management" | "approvals";
+type Tab = "profile" | "timesheets" | "analytics" | "user-management" | "approvals" | "leave";
 type Scheme = "light" | "dark";
 
 function getInitialTheme(): Scheme {
@@ -77,6 +77,7 @@ export default function DashboardNavbar({
     if (pathname?.includes("/profile")) return "profile";
     if (pathname?.includes("/user-management")) return "user-management";
     if (pathname?.includes("/approvals")) return "approvals";
+    if (pathname?.includes("/leave")) return "leave";
     return "timesheets"; // default
   })();
 
@@ -123,6 +124,13 @@ export default function DashboardNavbar({
             onClick={() => handleTabClick("analytics")}
           >
             Analytics
+          </button>
+
+          <button
+            className={`${styles.navItem} ${currentTab === "leave" ? styles.active : ""}`}
+            onClick={() => handleTabClick("leave")}
+          >
+            Leave
           </button>
 
           {showUserManagement && (
