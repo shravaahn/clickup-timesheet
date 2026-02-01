@@ -2,7 +2,7 @@
 
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { Suspense, useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import styles from "../Dashboard.module.css";
 import DashboardNavbar from "@/components/DashboardNavbar/DashboardNavbar";
@@ -68,7 +68,7 @@ const TRACK_TYPES = [
   "Non Billable | PreSales/Sales","Non Billable | Client Research","Non Billable | Partner Engagement",
 ];
 
-export default function TimesheetsPage() {
+function TimesheetsPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
 
@@ -234,7 +234,7 @@ export default function TimesheetsPage() {
       }
     })();
     return () => { mounted = false; };
-  }, [router]);
+  }, [router, reviewMode, reviewUserId]);
 
   /* fetch weekly estimates for selected user (current week + next week) */
   useEffect(() => {
@@ -341,7 +341,7 @@ export default function TimesheetsPage() {
       if (mounted) setRows(filteredRows);
     })();
     return () => { mounted = false; };
-  }, [projects, selectedUserId, weekStart, weekEnd, weekCols]);
+  }, [projects, selectedUserId, weekStart, weekEnd, weekCols, reviewMode]);
 
   /* totals */
   const totals = useMemo(() => {
@@ -964,5 +964,13 @@ export default function TimesheetsPage() {
         )}
       </div>
     </div>
+  );
+}
+
+export default function TimesheetsPage() {
+  return (
+    <Suspense fallback={<div>Loading timesheets...</div>}>
+      <TimesheetsPageContent />
+    </Suspense>
   );
 }
