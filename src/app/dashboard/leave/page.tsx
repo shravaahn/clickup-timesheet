@@ -7,6 +7,7 @@ import { useRouter } from "next/navigation";
 import DashboardNavbar from "@/components/DashboardNavbar/DashboardNavbar";
 import ApplyLeaveButton from "@/components/Leave/ApplyLeaveButton";
 import ApplyLeaveModal from "@/components/Leave/ApplyLeaveModal";
+import LeaveCalendar from "@/components/Leave/LeaveCalendar";
 import styles from "../Dashboard.module.css";
 
 /* ---------- Theme helpers ---------- */
@@ -195,10 +196,10 @@ export default function LeavePage() {
             </section>
 
             <section className={styles.card} style={{ marginBottom: 16 }}>
-              <strong>Leave Calendar</strong>
-              <div style={{ color: "var(--muted)", fontSize: 13 }}>
-                Coming next
-              </div>
+              <strong style={{ display: "block", marginBottom: 12 }}>
+                Leave Calendar
+              </strong>
+              <LeaveCalendar />
             </section>
 
             <section className={styles.card}>

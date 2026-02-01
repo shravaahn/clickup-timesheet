@@ -38,7 +38,7 @@ export default function LeaveCalendar() {
     // Last day of month
     const lastDay = new Date(year, month + 1, 0);
 
-    // Day of week for first day (0 = Sunday)
+    // Day of week for first day (0 = Sunday, 1 = Monday, etc.)
     const firstDayOfWeek = firstDay.getDay();
 
     // Total days in month
@@ -118,24 +118,25 @@ export default function LeaveCalendar() {
 
   if (loading) {
     return (
-      <div style={{ padding: 16, textAlign: "center", color: "var(--muted)" }}>
+      <div style={{ padding: 24, textAlign: "center", color: "var(--muted)" }}>
         Loading calendar...
       </div>
     );
   }
 
   return (
-    <div style={{ padding: 16 }}>
-      <h4 style={{ marginBottom: 16, fontSize: 18, fontWeight: 700 }}>
+    <div>
+      <div style={{ marginBottom: 16, fontSize: 16, fontWeight: 600 }}>
         {currentMonthName} {currentYear}
-      </h4>
+      </div>
 
       {/* Calendar Grid */}
       <div
         style={{
           display: "grid",
           gridTemplateColumns: "repeat(7, 1fr)",
-          gap: 4,
+          gap: 2,
+          marginBottom: 16,
         }}
       >
         {/* Day headers */}
@@ -144,10 +145,11 @@ export default function LeaveCalendar() {
             key={day}
             style={{
               textAlign: "center",
-              fontSize: 12,
-              fontWeight: 600,
-              padding: 8,
+              fontSize: 11,
+              fontWeight: 700,
+              padding: "8px 4px",
               color: "var(--muted)",
+              textTransform: "uppercase",
             }}
           >
             {day}
@@ -162,94 +164,85 @@ export default function LeaveCalendar() {
               <div
                 key={`empty-${idx}`}
                 style={{
-                  minHeight: 60,
-                  border: "1px solid var(--border)",
-                  borderRadius: 4,
-                  backgroundColor: "var(--panel)",
+                  minHeight: 80,
+                  backgroundColor: "transparent",
                 }}
               />
             );
           }
 
-          // Determine background color
-          let bgColor = "var(--panel)";
-          let tooltipParts: string[] = [];
+          // Determine background color based on priority: leave > holiday > weekend
+          let bgColor = "var(--bg)";
+          let borderColor = "var(--border)";
+          
+          if (day.isWeekend) {
+            bgColor = "var(--panel)";
+          }
 
           if (day.holiday) {
-            bgColor = "#fef3c7"; // Yellow for holidays
-            tooltipParts.push(`Holiday: ${day.holiday.name}`);
+            bgColor = "#e5e7eb"; // Gray for holidays
           }
 
           if (day.leave) {
             if (day.leave.paid) {
-              bgColor = "#d1fae5"; // Green for paid leave
-              tooltipParts.push(`Paid Leave: ${day.leave.type}`);
+              bgColor = "#dbeafe"; // Blue for paid leave
             } else {
-              bgColor = "#fee2e2"; // Red for unpaid leave
-              tooltipParts.push(`Unpaid Leave: ${day.leave.type}`);
+              bgColor = "#fed7aa"; // Orange for unpaid leave
             }
           }
 
-          if (day.isWeekend && !day.holiday && !day.leave) {
-            bgColor = "#f3f4f6"; // Light gray for weekends
+          if (day.isToday) {
+            borderColor = "var(--primary)";
           }
-
-          const tooltip = tooltipParts.length > 0 ? tooltipParts.join(" | ") : "";
 
           return (
             <div
               key={`day-${idx}`}
-              title={tooltip}
               style={{
-                minHeight: 60,
-                border: day.isToday ? "2px solid var(--primary)" : "1px solid var(--border)",
+                minHeight: 80,
+                border: `1px solid ${borderColor}`,
                 borderRadius: 4,
                 backgroundColor: bgColor,
-                padding: 4,
+                padding: 6,
                 position: "relative",
-                cursor: tooltip ? "help" : "default",
-                transition: "transform 0.1s",
-              }}
-              onMouseEnter={(e) => {
-                if (tooltip) {
-                  e.currentTarget.style.transform = "scale(1.05)";
-                }
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.transform = "scale(1)";
+                display: "flex",
+                flexDirection: "column",
               }}
             >
               <div
                 style={{
-                  fontSize: 14,
+                  fontSize: 13,
                   fontWeight: day.isToday ? 700 : 500,
-                  color: day.isWeekend ? "var(--muted)" : "var(--text)",
+                  marginBottom: 4,
                 }}
               >
                 {day.date}
               </div>
+              
               {day.holiday && (
                 <div
                   style={{
                     fontSize: 10,
-                    color: "#92400e",
-                    marginTop: 2,
+                    lineHeight: 1.3,
+                    color: "#374151",
                     fontWeight: 600,
+                    marginBottom: 2,
                   }}
                 >
-                  Holiday
+                  🎉 {day.holiday.name}
                 </div>
               )}
+              
               {day.leave && (
                 <div
                   style={{
                     fontSize: 10,
-                    color: day.leave.paid ? "#065f46" : "#991b1b",
-                    marginTop: 2,
+                    lineHeight: 1.3,
+                    color: day.leave.paid ? "#1e40af" : "#c2410c",
                     fontWeight: 600,
                   }}
                 >
-                  {day.leave.paid ? "Paid" : "Unpaid"}
+                  {day.leave.paid ? "📅" : "📋"} {day.leave.type}
                 </div>
               )}
             </div>
@@ -260,60 +253,47 @@ export default function LeaveCalendar() {
       {/* Legend */}
       <div
         style={{
-          marginTop: 16,
           display: "flex",
           gap: 16,
           flexWrap: "wrap",
           fontSize: 12,
         }}
       >
-        <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
           <div
             style={{
               width: 16,
               height: 16,
-              backgroundColor: "#fef3c7",
+              backgroundColor: "#e5e7eb",
               border: "1px solid var(--border)",
               borderRadius: 2,
             }}
           />
           <span>Holiday</span>
         </div>
-        <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
           <div
             style={{
               width: 16,
               height: 16,
-              backgroundColor: "#d1fae5",
+              backgroundColor: "#dbeafe",
               border: "1px solid var(--border)",
               borderRadius: 2,
             }}
           />
           <span>Paid Leave</span>
         </div>
-        <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
           <div
             style={{
               width: 16,
               height: 16,
-              backgroundColor: "#fee2e2",
+              backgroundColor: "#fed7aa",
               border: "1px solid var(--border)",
               borderRadius: 2,
             }}
           />
           <span>Unpaid Leave</span>
-        </div>
-        <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
-          <div
-            style={{
-              width: 16,
-              height: 16,
-              backgroundColor: "#f3f4f6",
-              border: "1px solid var(--border)",
-              borderRadius: 2,
-            }}
-          />
-          <span>Weekend</span>
         </div>
       </div>
     </div>
