@@ -7,6 +7,10 @@ import {
   getOrgUserByClickUpId,
   getUserRoles,
 } from "@/lib/db";
+import {
+  getAuthHeader,
+  cuCreateManualTimeEntry,
+} from "@/lib/clickup";
 
 /* -------------------------------------------------------
    Helpers
@@ -29,6 +33,16 @@ function allowedWeekStarts() {
   const nextWeek = startOfWeekUTC(next);
 
   return [thisWeek, nextWeek];
+}
+
+function addDays(dateStr: string, days: number): string {
+  const d = new Date(`${dateStr}T00:00:00Z`);
+  d.setUTCDate(d.getUTCDate() + days);
+  return d.toISOString().slice(0, 10);
+}
+
+function noonUtcMs(ymd: string) {
+  return Date.parse(`${ymd}T12:00:00.000Z`);
 }
 
 /* -------------------------------------------------------
@@ -82,6 +96,88 @@ async function checkWeekEditPermission(
         status,
         reason: `Unknown status: ${status}`,
       };
+  }
+}
+
+/* -------------------------------------------------------
+   ClickUp Sync Helper
+-------------------------------------------------------- */
+
+/**
+ * Sync tracked time to ClickUp for a given week.
+ * Creates ONE time entry per task with total weekly hours.
+ * Only syncs tasks with tracked_hours > 0.
+ */
+async function syncWeekToClickUp(
+  req: NextRequest,
+  userId: string,
+  weekStart: string
+): Promise<void> {
+  try {
+    const weekEnd = addDays(weekStart, 4); // Mon-Fri
+
+    // Fetch all tracked time entries for the week
+    const { data: entries, error } = await supabaseAdmin
+      .from("timesheet_entries")
+      .select("task_id, task_name, tracked_hours")
+      .eq("user_id", userId)
+      .gte("date", weekStart)
+      .lte("date", weekEnd);
+
+    if (error || !entries) {
+      console.error("Failed to fetch timesheet entries for ClickUp sync:", error);
+      return;
+    }
+
+    // Group by task_id and sum tracked_hours
+    const taskTotals = new Map<string, { taskId: string; taskName: string; totalHours: number }>();
+
+    for (const entry of entries) {
+      if (!entry.tracked_hours || entry.tracked_hours <= 0) continue;
+
+      const existing = taskTotals.get(entry.task_id);
+      if (existing) {
+        existing.totalHours += entry.tracked_hours;
+      } else {
+        taskTotals.set(entry.task_id, {
+          taskId: entry.task_id,
+          taskName: entry.task_name || entry.task_id,
+          totalHours: entry.tracked_hours,
+        });
+      }
+    }
+
+    // Sync each task to ClickUp
+    if (taskTotals.size === 0) {
+      console.log(`Weekly ClickUp sync: no tracked hours for user ${userId}, week ${weekStart}`);
+      return;
+    }
+
+    console.log(`Weekly ClickUp sync starting for user ${userId}, week ${weekStart}: ${taskTotals.size} task(s)`);
+
+    const authHeader = await getAuthHeader(req);
+
+    for (const { taskId, totalHours } of taskTotals.values()) {
+      try {
+        await cuCreateManualTimeEntry({
+          authHeader,
+          taskId,
+          startMs: noonUtcMs(weekStart),
+          timeMs: Math.max(1, Math.floor(totalHours * 3600_000)),
+          description: "Weekly Timesheet Sync",
+          assignee: Number(userId),
+          billable: true,
+        });
+      } catch (err) {
+        console.error(`Failed to sync task ${taskId} to ClickUp:`, err);
+        // Continue with other tasks even if one fails
+      }
+    }
+
+    console.log(`Weekly ClickUp sync complete for user ${userId}, week ${weekStart}`);
+  } catch (err) {
+    console.error("syncWeekToClickUp error:", err);
+    // Don't throw - we don't want to fail the estimate submission if ClickUp sync fails
   }
 }
 
@@ -231,6 +327,9 @@ export async function POST(req: NextRequest) {
         );
       }
 
+      // This is a NEW submission: previously unlocked → now locked
+      const isNewSubmission = !existing.locked;
+
       const { data, error } = await supabaseAdmin
         .from("weekly_estimates")
         .update({
@@ -249,10 +348,15 @@ export async function POST(req: NextRequest) {
         );
       }
 
+      // Sync to ClickUp only on NEW submission (when locking for first time)
+      if (isNewSubmission) {
+        await syncWeekToClickUp(req, targetUserId, weekStart);
+      }
+
       return NextResponse.json({ ok: true, estimate: data });
     }
 
-    // Insert new (locked immediately)
+    // Insert new (locked immediately) - this is always a NEW submission
     const { data, error } = await supabaseAdmin
       .from("weekly_estimates")
       .insert({
@@ -272,6 +376,9 @@ export async function POST(req: NextRequest) {
         { status: 500 }
       );
     }
+
+    // Sync to ClickUp on NEW submission
+    await syncWeekToClickUp(req, targetUserId, weekStart);
 
     return NextResponse.json({ ok: true, estimate: data });
   } catch (err: any) {

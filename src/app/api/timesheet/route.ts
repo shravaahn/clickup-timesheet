@@ -230,28 +230,32 @@ export async function POST(req: NextRequest) {
   }
 
   /* -------- Optional ClickUp Sync (TRACKED TIME ONLY) -------- */
-
-  if (body.syncToClickUp) {
-    // CRITICAL: Only sync TRACKED time to ClickUp, NEVER estimates
-    // Estimates are portal-only and should remain in Supabase
-    
-    if (body.type === "tracked") {
-      const authHeader = await getAuthHeader(req);
-      
-      // Create a manual time entry in ClickUp for tracked hours
-      await cuCreateManualTimeEntry({
-        authHeader,
-        taskId,
-        startMs: noonUtcMs(date),
-        timeMs: Math.max(1, Math.floor(body.hours * 3600_000)),
-        description: body.note,
-        assignee: Number(session.user.id),
-        billable: true,
-      });
-    }
-    // If body.type === "estimate", we intentionally do nothing
-    // Estimates are never synced to ClickUp
-  }
+  /* 
+   * DISABLED: ClickUp syncing is currently disabled to prevent duplicate time entries
+   * during normal timesheet edits. Re-enable only when a one-time sync mechanism is in place.
+   */
+  
+  // if (body.syncToClickUp) {
+  //   // CRITICAL: Only sync TRACKED time to ClickUp, NEVER estimates
+  //   // Estimates are portal-only and should remain in Supabase
+  //   
+  //   if (body.type === "tracked") {
+  //     const authHeader = await getAuthHeader(req);
+  //     
+  //     // Create a manual time entry in ClickUp for tracked hours
+  //     await cuCreateManualTimeEntry({
+  //       authHeader,
+  //       taskId,
+  //       startMs: noonUtcMs(date),
+  //       timeMs: Math.max(1, Math.floor(body.hours * 3600_000)),
+  //       description: body.note,
+  //       assignee: Number(session.user.id),
+  //       billable: true,
+  //     });
+  //   }
+  //   // If body.type === "estimate", we intentionally do nothing
+  //   // Estimates are never synced to ClickUp
+  // }
 
   return NextResponse.json({ ok: true });
 }
