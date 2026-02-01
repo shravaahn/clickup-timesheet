@@ -2,7 +2,7 @@
   "crons": [
     {
       "path": "/api/cron/lock-timesheets",
-      "schedule": "0 23 * * 5"
+      "schedule": "0 5 * * 6"
     }
   ]
 }

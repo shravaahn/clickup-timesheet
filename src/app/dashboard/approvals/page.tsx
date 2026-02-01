@@ -20,6 +20,13 @@ function getInitialTheme(): Scheme {
 /** ---- types ---- */
 type Me = { user: { id: string; email: string; username?: string; is_admin?: boolean; roles?: string[] } };
 
+type ApprovalRow = {
+  user_id: string;
+  consultant: string;
+  week_start: string; // YYYY-MM-DD
+  total_hours: number;
+};
+
 export default function ApprovalsPage() {
   const router = useRouter();
 
@@ -42,6 +49,10 @@ export default function ApprovalsPage() {
 
   /** auth + role */
   const [me, setMe] = useState<Me["user"] | null>(null);
+
+  /** pending approvals */
+  const [rows, setRows] = useState<ApprovalRow[]>([]);
+  const [loading, setLoading] = useState(true);
 
   /* load me */
   useEffect(() => {
@@ -73,21 +84,91 @@ export default function ApprovalsPage() {
     return () => { mounted = false; };
   }, [router]);
 
-  // TEMP: mock data so UI is visible for demo
-  const [rows, setRows] = useState([
-    {
-      id: "demo-1",
-      consultant: "John Doe",
-      week: "Jan 22 — Jan 26",
-      hours: 38.5,
-    },
-    {
-      id: "demo-2",
-      consultant: "Jane Smith",
-      week: "Jan 22 — Jan 26",
-      hours: 41,
-    },
-  ]);
+  /* fetch pending approvals */
+  useEffect(() => {
+    if (!me) return;
+
+    let mounted = true;
+
+    (async () => {
+      try {
+        setLoading(true);
+        const r = await fetch("/api/approvals/pending", { cache: "no-store" });
+        const j = await r.json();
+
+        if (!r.ok) throw new Error(j.error || "Failed to load approvals");
+
+        if (mounted) {
+          setRows(j.rows || []);
+        }
+      } catch (err) {
+        console.error(err);
+        if (mounted) setRows([]);
+      } finally {
+        if (mounted) setLoading(false);
+      }
+    })();
+
+    return () => {
+      mounted = false;
+    };
+  }, [me]);
+
+  /* approve handler */
+  async function approveTimesheet(userId: string, weekStart: string) {
+    const ok = confirm("Approve this timesheet?");
+    if (!ok) return;
+
+    const r = await fetch("/api/approvals/approve", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ userId, weekStart }),
+    });
+
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok) {
+      alert(j.error || "Approval failed");
+      return;
+    }
+
+    setRows(prev =>
+      prev.filter(r => !(r.user_id === userId && r.week_start === weekStart))
+    );
+  }
+
+  /* reject handler */
+  async function rejectTimesheet(userId: string, weekStart: string) {
+    const reason = prompt("Enter rejection reason");
+    if (!reason) return;
+
+    const r = await fetch("/api/approvals/reject", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ userId, weekStart, reason }),
+    });
+
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok) {
+      alert(j.error || "Rejection failed");
+      return;
+    }
+
+    setRows(prev =>
+      prev.filter(r => !(r.user_id === userId && r.week_start === weekStart))
+    );
+  }
+
+  /* week label formatter */
+  function weekLabel(weekStart: string) {
+    const d = new Date(weekStart + "T00:00:00Z");
+    const end = new Date(d);
+    end.setDate(end.getDate() + 4);
+
+    const fmt = (x: Date) =>
+      x.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+
+    return `${fmt(d)} — ${fmt(end)}`;
+  }
 
   /* Tab header component */
   function TabHeader() {
@@ -124,7 +205,13 @@ export default function ApprovalsPage() {
                 </div>
               </div>
 
-              {rows.length === 0 && (
+              {loading && (
+                <div style={{ padding: 24, textAlign: "center", color: "var(--muted)" }}>
+                  Loading approvals…
+                </div>
+              )}
+
+              {!loading && rows.length === 0 && (
                 <div style={{ padding: 24, textAlign: "center", color: "var(--muted)" }}>
                   No pending approvals right now
                 </div>
@@ -133,7 +220,7 @@ export default function ApprovalsPage() {
               <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
                 {rows.map(r => (
                   <div
-                    key={r.id}
+                    key={`${r.user_id}-${r.week_start}`}
                     style={{
                       border: "1px solid var(--border)",
                       borderRadius: 10,
@@ -147,15 +234,21 @@ export default function ApprovalsPage() {
                     <div>
                       <div style={{ fontWeight: 700 }}>{r.consultant}</div>
                       <div style={{ fontSize: 13, color: "var(--muted)" }}>
-                        Week: {r.week} • {r.hours}h
+                        Week: {weekLabel(r.week_start)} • {r.total_hours.toFixed(2)}h
                       </div>
                     </div>
 
                     <div style={{ display: "flex", gap: 8 }}>
-                      <button className={`${styles.btn} ${styles.primary}`}>
+                      <button
+                        className={`${styles.btn} ${styles.primary}`}
+                        onClick={() => approveTimesheet(r.user_id, r.week_start)}
+                      >
                         Approve
                       </button>
-                      <button className={`${styles.btn} ${styles.warn}`}>
+                      <button
+                        className={`${styles.btn} ${styles.warn}`}
+                        onClick={() => rejectTimesheet(r.user_id, r.week_start)}
+                      >
                         Reject
                       </button>
                     </div>

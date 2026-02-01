@@ -5,10 +5,12 @@
  *  - Estimate updater
  *  - Time entry (robust: task first, then team with multiple fallbacks)
  *  - Create task
+ *  - Weekly time sync helper
  */
 
 import { getIronSession } from "iron-session";
 import { sessionOptions } from "@/lib/session";
+import { supabaseAdmin } from "@/lib/db";
 
 /* ============ Auth ============ */
 
@@ -160,6 +162,67 @@ export async function cuCreateManualTimeEntry({
   if (!r2.ok) {
     const txt2 = await r2.text().catch(() => "");
     throw new Error(`Team time entry failed ${r2.status}: ${txt2 || r2.statusText}`);
+  }
+}
+
+/* ============ Weekly Time Sync ============ */
+
+/**
+ * Sync tracked time to ClickUp for a given week on a PER-DAY basis.
+ * Creates one ClickUp time entry per task per day with tracked hours.
+ * 
+ * @param userId - ClickUp user ID
+ * @param weekStart - Week start date in YYYY-MM-DD format (Monday)
+ * @param authHeader - ClickUp auth header
+ */
+export async function syncWeekDailyToClickUp({
+  userId,
+  weekStart,
+  authHeader,
+}: {
+  userId: string;
+  weekStart: string; // YYYY-MM-DD (Monday)
+  authHeader: string;
+}): Promise<void> {
+  const start = new Date(weekStart);
+  const end = new Date(start);
+  end.setDate(start.getDate() + 4);
+
+  const weekEnd = end.toISOString().slice(0, 10);
+
+  const { data, error } = await supabaseAdmin
+    .from("timesheet_entries")
+    .select("task_id, tracked_hours, date")
+    .eq("user_id", userId)
+    .gt("tracked_hours", 0)
+    .gte("date", weekStart)
+    .lte("date", weekEnd);
+
+  if (error || !data) {
+    console.error("ClickUp sync load failed", error);
+    return;
+  }
+
+  for (const row of data) {
+    try {
+      const startMs = new Date(`${row.date}T12:00:00Z`).getTime();
+      const timeMs = Math.floor(Number(row.tracked_hours) * 60 * 60 * 1000);
+
+      await cuCreateManualTimeEntry({
+        authHeader,
+        taskId: row.task_id,
+        startMs,
+        timeMs,
+        description: `Timesheet • ${row.date}`,
+        billable: true,
+      });
+    } catch (err) {
+      // NEVER fail submission
+      console.error(
+        `ClickUp sync failed: task=${row.task_id}, date=${row.date}`,
+        err
+      );
+    }
   }
 }
 

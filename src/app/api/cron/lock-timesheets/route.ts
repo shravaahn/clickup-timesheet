@@ -1,95 +1,119 @@
 // src/app/api/cron/lock-timesheets/route.ts
+
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/db";
+import { syncWeekDailyToClickUp } from "@/lib/clickup";
 
 /**
  * AUTO-SUBMIT weekly timesheets
- * Friday 11:00 PM CST
+ * Triggered by Vercel Cron
+ * Schedule enforced by vercel.json (Friday 11:00 PM CST)
+ *
+ * Rules:
+ * - Server-only
+ * - Idempotent
+ * - No timezone logic here
+ * - No session / auth
+ * - Never touches APPROVED / REJECTED
+ * - Syncs tracked time to ClickUp after submission
  */
+
+function getWeekStartUTC(date = new Date()) {
+  const d = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()));
+  const day = d.getUTCDay(); // Sun=0
+  const diff = (day === 0 ? -6 : 1) - day; // move to Monday
+  d.setUTCDate(d.getUTCDate() + diff);
+  d.setUTCHours(0, 0, 0, 0);
+  return d.toISOString().slice(0, 10);
+}
+
 export async function POST() {
   try {
-    const now = new Date();
-
-    // CST = UTC-6 (business rule, no DST)
-    const utc = now.getTime() + now.getTimezoneOffset() * 60000;
-    const cst = new Date(utc - 6 * 60 * 60 * 1000);
-
-    const day = cst.getDay(); // Friday = 5
-    const hour = cst.getHours();
-
-    if (day !== 5 || hour < 23) {
+    // Safety: only allow in production
+    if (process.env.VERCEL_ENV !== "production") {
       return NextResponse.json({
         skipped: true,
-        reason: "Not Friday 11 PM CST",
+        reason: "Not production",
       });
     }
 
+    const now = new Date();
+    const weekStart = getWeekStartUTC(now);
+
+    // 1. Fetch OPEN weekly timesheets for current week
     const { data: openRows, error } = await supabaseAdmin
-      .from("weekly_timesheet_status")
-      .select(`
-        user_id,
-        week_start,
-        org_users!inner (
-          reporting_manager_id
-        )
-      `)
+      .from("weekly_timesheets")
+      .select("user_id, week_start, status")
+      .eq("week_start", weekStart)
       .eq("status", "OPEN");
 
-    if (error) {
-      throw error;
+    if (error) throw error;
+
+    if (!openRows || openRows.length === 0) {
+      return NextResponse.json({
+        ok: true,
+        submitted: 0,
+      });
     }
 
-    const validRows =
-      openRows?.filter(
-        (r: any) =>
-          Array.isArray(r.org_users) &&
-          r.org_users.length > 0 &&
-          r.org_users[0].reporting_manager_id
-      ) || [];
+    const userIds = openRows.map(r => r.user_id);
 
-    if (validRows.length === 0) {
-      return NextResponse.json({ ok: true, submitted: 0 });
-    }
-
-    // Update status → SUBMITTED
+    // 2. Update → SUBMITTED
     const { error: updateErr } = await supabaseAdmin
-      .from("weekly_timesheet_status")
+      .from("weekly_timesheets")
       .update({
         status: "SUBMITTED",
-        locked_at: now.toISOString(),
         submitted_at: now.toISOString(),
+        locked_at: now.toISOString(),
       })
-      .in(
-        "user_id",
-        validRows.map((r: any) => r.user_id)
-      )
-      .in(
-        "week_start",
-        validRows.map((r: any) => r.week_start)
-      );
+      .eq("week_start", weekStart)
+      .eq("status", "OPEN");
 
-    if (updateErr) {
-      throw updateErr;
-    }
+    if (updateErr) throw updateErr;
 
-    // Audit log
+    // 3. Audit log (system action)
     await supabaseAdmin.from("timesheet_approvals").insert(
-      validRows.map((r: any) => ({
-        user_id: r.user_id,
-        week_start: r.week_start,
-        action: "SUBMIT",
-        action_by: r.org_users[0].reporting_manager_id,
+      userIds.map(userId => ({
+        user_id: userId,
+        week_start: weekStart,
+        action: "AUTO_SUBMIT",
+        action_by: null,
+        created_at: now.toISOString(),
       }))
     );
 
+    // 4. Sync tracked time to ClickUp for each user
+    const authHeader = `Bearer ${process.env.CLICKUP_API_TOKEN}`;
+    let syncedCount = 0;
+    let syncFailedCount = 0;
+
+    for (const userId of userIds) {
+      try {
+        await syncWeekDailyToClickUp({
+          userId,
+          weekStart,
+          authHeader,
+        });
+        syncedCount++;
+        console.log(`Cron auto-submit: ClickUp sync successful for user ${userId}, week ${weekStart}`);
+      } catch (err) {
+        syncFailedCount++;
+        console.error(`Cron auto-submit: ClickUp sync failed for user ${userId}, week ${weekStart}:`, err);
+        // Continue with other users - don't block cron
+      }
+    }
+
     return NextResponse.json({
       ok: true,
-      submitted: validRows.length,
+      submitted: userIds.length,
+      week_start: weekStart,
+      clickup_synced: syncedCount,
+      clickup_failed: syncFailedCount,
     });
   } catch (err: any) {
-    console.error("auto-submit failed", err);
+    console.error("cron lock-timesheets failed", err);
     return NextResponse.json(
-      { error: "Auto submit failed", details: String(err) },
+      { error: "Auto-submit failed", details: String(err) },
       { status: 500 }
     );
   }

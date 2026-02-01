@@ -3,7 +3,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import styles from "../Dashboard.module.css";
 import DashboardNavbar from "@/components/DashboardNavbar/DashboardNavbar";
 
@@ -70,6 +70,12 @@ const TRACK_TYPES = [
 
 export default function TimesheetsPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+
+  /* review mode detection */
+  const reviewMode = searchParams?.get("mode") === "review";
+  const reviewUserId = searchParams?.get("userId");
+  const reviewWeekStart = searchParams?.get("weekStart");
 
   /* theme sync (read only) */
   const [theme, setTheme] = useState<Scheme>("light");
@@ -89,7 +95,16 @@ export default function TimesheetsPage() {
   }, []);
 
   /** week state */
-  const [weekStart, setWeekStart] = useState<Date>(() => startOfWeek());
+  const [weekStart, setWeekStart] = useState<Date>(() => {
+    if (reviewMode && reviewWeekStart) {
+      try {
+        return toMidday(new Date(reviewWeekStart + "T00:00:00Z"));
+      } catch {
+        return startOfWeek();
+      }
+    }
+    return startOfWeek();
+  });
   const weekEnd = useMemo(() => addDays(weekStart, 4), [weekStart]);
   const weekCols = useMemo(() => [0,1,2,3,4].map(i => addDays(weekStart, i)), [weekStart]);
 
@@ -160,6 +175,9 @@ export default function TimesheetsPage() {
   const [estimateHoursInput, setEstimateHoursInput] = useState<string>("");
   const [estimateBusy, setEstimateBusy] = useState(false);
 
+  /** Approval actions state */
+  const [approvalBusy, setApprovalBusy] = useState(false);
+
   /* load me */
   useEffect(() => {
     let mounted = true;
@@ -175,7 +193,13 @@ export default function TimesheetsPage() {
         setMe(u);
         setIsAdmin(!!u.is_admin);
         setIsManager(!!u.is_manager);
-        setSelectedUserId(u.id);
+        
+        // In review mode, force selectedUserId to reviewUserId
+        if (reviewMode && reviewUserId) {
+          setSelectedUserId(reviewUserId);
+        } else {
+          setSelectedUserId(u.id);
+        }
 
         if (u.is_admin || u.is_owner) {
           // Owner/Admin: fetch all consultants
@@ -309,7 +333,12 @@ export default function TimesheetsPage() {
         return { taskId: p.id, taskName: p.name, estByDay, estLockedByDay, trackedByDay, noteByDay };
       });
 
-      if (mounted) setRows(newRows);
+      // In review mode, filter to only show projects with tracked hours
+      const filteredRows = reviewMode
+        ? newRows.filter(row => row.trackedByDay.some(h => h != null && h > 0))
+        : newRows;
+
+      if (mounted) setRows(filteredRows);
     })();
     return () => { mounted = false; };
   }, [projects, selectedUserId, weekStart, weekEnd, weekCols]);
@@ -444,9 +473,68 @@ export default function TimesheetsPage() {
     alert("Unlocked.");
   }
 
+  /* approval actions for review mode */
+  async function approveTimesheet() {
+    if (!selectedUserId) return;
+    const ok = confirm("Approve this timesheet?");
+    if (!ok) return;
+
+    setApprovalBusy(true);
+    try {
+      const r = await fetch("/api/approvals/approve", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ userId: selectedUserId, weekStart: ymd(weekStart) }),
+      });
+
+      const j = await r.json().catch(() => ({}));
+      if (!r.ok) {
+        alert(j.error || "Approval failed");
+        return;
+      }
+
+      router.push("/dashboard/approvals");
+    } catch (err) {
+      alert("Approval failed");
+    } finally {
+      setApprovalBusy(false);
+    }
+  }
+
+  async function rejectTimesheet() {
+    if (!selectedUserId) return;
+    const reason = prompt("Enter rejection reason");
+    if (!reason) return;
+
+    setApprovalBusy(true);
+    try {
+      const r = await fetch("/api/approvals/reject", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ userId: selectedUserId, weekStart: ymd(weekStart), reason }),
+      });
+
+      const j = await r.json().catch(() => ({}));
+      if (!r.ok) {
+        alert(j.error || "Rejection failed");
+        return;
+      }
+
+      router.push("/dashboard/approvals");
+    } catch (err) {
+      alert("Rejection failed");
+    } finally {
+      setApprovalBusy(false);
+    }
+  }
+
   /* Tab header component */
   function TabHeader() {
     const logoSrc = theme === "dark" ? "/company-logo-dark.png" : "/company-logo-light.png";
+    const modeLabel = reviewMode 
+      ? "Review mode (read-only)" 
+      : (isOwnerOrAdmin ? "Admin view" : isManager ? "Manager view" : "Consultant view");
+    
     return (
       <div className={styles.brandBar} style={{ marginBottom: 12 }}>
         <div className={styles.brandLeft}>
@@ -454,7 +542,7 @@ export default function TimesheetsPage() {
           <div className={styles.brandText}>
             <div className={styles.brandTitle}>Timesheet</div>
             <div className={styles.brandTagline}>
-              {fmtMMMdd(weekStart)} — {fmtMMMdd(weekEnd)} • {isOwnerOrAdmin ? "Admin view" : isManager ? "Manager view" : "Consultant view"}
+              {fmtMMMdd(weekStart)} — {fmtMMMdd(weekEnd)} • {modeLabel}
             </div>
           </div>
         </div>
@@ -498,14 +586,14 @@ export default function TimesheetsPage() {
                     </>
                   )}
 
-                  <button className={styles.btn} onClick={()=> setWeekStart(d=>addDays(d,-7))}>◀ Prev</button>
-                  <button className={styles.btn} onClick={()=> setWeekStart(startOfWeek())}>This Week</button>
-                  <button className={styles.btn} onClick={()=> setWeekStart(d=>addDays(d,7))}>Next ▶</button>
+                  <button className={styles.btn} onClick={()=> setWeekStart(d=>addDays(d,-7))} disabled={reviewMode}>◀ Prev</button>
+                  <button className={styles.btn} onClick={()=> setWeekStart(startOfWeek())} disabled={reviewMode}>This Week</button>
+                  <button className={styles.btn} onClick={()=> setWeekStart(d=>addDays(d,7))} disabled={reviewMode}>Next ▶</button>
                 </div>
 
                 <div className="flex items-center gap-2 flex-wrap">
-                  <button className={`${styles.btn} ${styles.primary}`} onClick={()=> alert("All changes auto-save on blur / Save.")}>Save</button>
-                  <button className={styles.btn} onClick={exportCsv}>Export CSV</button>
+                  <button className={`${styles.btn} ${styles.primary}`} onClick={()=> alert("All changes auto-save on blur / Save.")} disabled={reviewMode}>Save</button>
+                  <button className={styles.btn} onClick={exportCsv} disabled={reviewMode}>Export CSV</button>
                   <button className={`${styles.btn} ${styles.warn}`} onClick={()=> router.push("/login")}>Log out</button>
                 </div>
               </div>
@@ -518,6 +606,7 @@ export default function TimesheetsPage() {
                   className={styles.selectWide}
                   value={selectedMonth}
                   onChange={(e)=> onChangeMonth(e.target.value)}
+                  disabled={reviewMode}
                 >
                   {Array.from({length: 12}).map((_,i) => {
                     const y = monthYear.y;
@@ -533,6 +622,7 @@ export default function TimesheetsPage() {
                   className={styles.selectWide}
                   value={String(selectedWeekIdx)}
                   onChange={(e)=> onChangeWeek(e.target.value)}
+                  disabled={reviewMode}
                 >
                   {monthWeeks.map((w, i) => (
                     <option key={i} value={String(i)}>{`Week ${i+1}: ${w.label}`}</option>
@@ -546,10 +636,12 @@ export default function TimesheetsPage() {
                   <button
                     className={`${styles.btn} ${viewMode === "week" ? styles.selected : ""}`}
                     onClick={()=> setViewMode("week")}
+                    disabled={reviewMode}
                   >Week</button>
                   <button
                     className={`${styles.btn} ${viewMode === "month" ? styles.selected : ""}`}
                     onClick={()=> setViewMode("month")}
+                    disabled={reviewMode}
                   >Month</button>
                 </div>
               </div>
@@ -561,22 +653,24 @@ export default function TimesheetsPage() {
               <span className={styles.pill}>Δ (Tracked–Est): {(totals.delta).toFixed(2)}h</span>
               <span className={styles.period}>
                 Period: {viewMode === "week" ? "Week" : "Month"}
-                <button
-                  className={`${styles.btn} ${styles.btnSm}`}
-                  onClick={()=> openEstimateModalForWeek(weekStart)}
-                  title="Add / view estimate for this week"
-                  style={{ marginLeft: 8 }}
-                >
-                  {weeklyEstimates[ymd(weekStart)] ? (weeklyEstimates[ymd(weekStart)].locked ? "View Estimate" : "Edit Estimate") : "Add Estimate"}
-                </button>
-                <button
-                  className={`${styles.btn} ${styles.btnSm}`}
-                  onClick={()=> openEstimateModalForWeek(addDays(weekStart, 7))}
-                  title="Add / view estimate for next week"
-                  style={{ marginLeft: 8 }}
-                >
-                  {weeklyEstimates[ymd(addDays(weekStart,7))] ? (weeklyEstimates[ymd(addDays(weekStart,7))].locked ? "View (Next)" : "Edit (Next)") : "Add (Next)"}
-                </button>
+                {!reviewMode && (<>
+                  <button
+                    className={`${styles.btn} ${styles.btnSm}`}
+                    onClick={()=> openEstimateModalForWeek(weekStart)}
+                    title="Add / view estimate for this week"
+                    style={{ marginLeft: 8 }}
+                  >
+                    {weeklyEstimates[ymd(weekStart)] ? (weeklyEstimates[ymd(weekStart)].locked ? "View Estimate" : "Edit Estimate") : "Add Estimate"}
+                  </button>
+                  <button
+                    className={`${styles.btn} ${styles.btnSm}`}
+                    onClick={()=> openEstimateModalForWeek(addDays(weekStart, 7))}
+                    title="Add / view estimate for next week"
+                    style={{ marginLeft: 8 }}
+                  >
+                    {weeklyEstimates[ymd(addDays(weekStart,7))] ? (weeklyEstimates[ymd(addDays(weekStart,7))].locked ? "View (Next)" : "Edit (Next)") : "Add (Next)"}
+                  </button>
+                </>)}
               </span>
             </div>
 
@@ -627,13 +721,19 @@ export default function TimesheetsPage() {
                             {[0,1,2,3,4].map((i) => (
                               <td key={i}>
                                 <div className={styles.cellCompact}>
-                                  <button
-                                    onClick={() => openTrackModal(r.taskId, r.taskName, i, r.trackedByDay[i], r.noteByDay[i])}
-                                    className={styles.btnTrackSm}
-                                    title={r.noteByDay[i] || "Track time"}
-                                  >
-                                    {r.trackedByDay[i] != null ? `${r.trackedByDay[i]}h` : "Track"}
-                                  </button>
+                                  {reviewMode ? (
+                                    <div style={{ fontSize: 13, textAlign: "center", padding: "4px 8px" }}>
+                                      {r.trackedByDay[i] != null ? `${r.trackedByDay[i]}h` : "—"}
+                                    </div>
+                                  ) : (
+                                    <button
+                                      onClick={() => openTrackModal(r.taskId, r.taskName, i, r.trackedByDay[i], r.noteByDay[i])}
+                                      className={styles.btnTrackSm}
+                                      title={r.noteByDay[i] || "Track time"}
+                                    >
+                                      {r.trackedByDay[i] != null ? `${r.trackedByDay[i]}h` : "Track"}
+                                    </button>
+                                  )}
                                 </div>
                               </td>
                             ))}
@@ -735,6 +835,34 @@ export default function TimesheetsPage() {
                     await adminUnlock(selectedUserId, week);
                   }}>
                     Unlock current week's estimate for selected consultant
+                  </button>
+                </div>
+              </section>
+            )}
+
+            {reviewMode && (isOwnerOrAdmin || isManager) && (
+              <section className={styles.adminPanel} style={{ marginTop: 16 }}>
+                <div style={{ marginBottom: 12 }}>
+                  <h3 style={{ fontSize: 18, fontWeight: 800, marginBottom: 4 }}>Manager Approval</h3>
+                  <div style={{ color: "var(--muted)", fontSize: 13 }}>
+                    This action will finalize the weekly timesheet
+                  </div>
+                </div>
+
+                <div style={{ display: "flex", gap: 12 }}>
+                  <button
+                    className={`${styles.btn} ${styles.primary}`}
+                    onClick={approveTimesheet}
+                    disabled={approvalBusy}
+                  >
+                    {approvalBusy ? "Processing..." : "Approve"}
+                  </button>
+                  <button
+                    className={`${styles.btn} ${styles.warn}`}
+                    onClick={rejectTimesheet}
+                    disabled={approvalBusy}
+                  >
+                    {approvalBusy ? "Processing..." : "Reject"}
                   </button>
                 </div>
               </section>
