@@ -101,6 +101,13 @@ export async function POST(req: NextRequest) {
 
       const userCountry = userData?.country || null;
 
+      if (!userCountry) {
+        return NextResponse.json(
+          { error: "Employee country not set. Cannot approve leave." },
+          { status: 409 }
+        );
+      }
+
       // FIX #1: Get holidays for the year including 'BOTH' country holidays
       const year = new Date(request.start_date).getFullYear();
       const { data: holidays } = await supabaseAdmin

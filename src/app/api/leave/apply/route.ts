@@ -21,6 +21,13 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Not provisioned" }, { status: 403 });
     }
 
+    if (!orgUser.country) {
+      return NextResponse.json(
+        { error: "Country not set. Contact admin." },
+        { status: 409 }
+      );
+    }
+
     const body = await req.json().catch(() => ({}));
     const leaveTypeId = String(body.leaveTypeId || "");
     const startDate = String(body.startDate || "");

@@ -19,6 +19,13 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: "Not provisioned" }, { status: 403 });
     }
 
+    if (!orgUser.country) {
+      return NextResponse.json(
+        { error: "Country not set. Contact admin." },
+        { status: 409 }
+      );
+    }
+
     const start = req.nextUrl.searchParams.get("start");
     const end = req.nextUrl.searchParams.get("end");
 

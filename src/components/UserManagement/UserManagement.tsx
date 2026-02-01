@@ -14,6 +14,7 @@ type User = {
   reporting_manager_id: string | null;
   reporting_manager_name: string | null;
   is_active: boolean;
+  country: "US" | "INDIA" | null;
 };
 
 type Team = {
@@ -149,6 +150,18 @@ export default function UserManagementSection() {
     fetchAll();
   }
 
+  async function updateCountry(userId: string, country: "US" | "INDIA" | null) {
+    try {
+      await safePost("/api/iam/users/country", {
+        userId,
+        country,
+      });
+      fetchAll();
+    } catch (err) {
+      // Error already shown via alert
+    }
+  }
+
   async function createTeam() {
     if (!newTeam.trim()) return;
     try {
@@ -211,6 +224,7 @@ export default function UserManagementSection() {
                   <th>Name</th>
                   <th>Email</th>
                   <th>Role</th>
+                  <th>Country</th>
                   <th>Team</th>
                   <th>Manager</th>
                 </tr>
@@ -237,6 +251,18 @@ export default function UserManagementSection() {
                         {ROLE_ORDER.map(r => (
                           <option key={r} value={r}>{r}</option>
                         ))}
+                      </select>
+                    </td>
+                    <td>
+                      <select
+                        className={styles.select}
+                        value={u.country || ""}
+                        onChange={e => updateCountry(u.id, e.target.value as "US" | "INDIA" || null)}
+                        disabled={isReadOnly}
+                      >
+                        <option value="">—</option>
+                        <option value="US">United States</option>
+                        <option value="INDIA">India</option>
                       </select>
                     </td>
                     <td>

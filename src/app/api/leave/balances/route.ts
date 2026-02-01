@@ -21,6 +21,13 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: "Not provisioned" }, { status: 403 });
     }
 
+    if (!orgUser.country) {
+      return NextResponse.json(
+        { error: "Country not set. Contact admin." },
+        { status: 409 }
+      );
+    }
+
     const year = Number(req.nextUrl.searchParams.get("year")) || new Date().getFullYear();
 
     const { data, error } = await supabaseAdmin
@@ -29,8 +36,8 @@ export async function GET(req: NextRequest) {
         id,
         leave_type_id,
         year,
-        total_days,
-        used_days
+        total_hours,
+        used_hours
       `)
       .eq("user_id", orgUser.id)
       .eq("year", year);
