@@ -11,9 +11,14 @@ export default function LeaveCalendar() {
   const [leaves, setLeaves] = useState<Leave[]>([]);
   const [loading, setLoading] = useState(true);
 
+  // Month navigation state
+  const today = new Date();
+  const [currentMonth, setCurrentMonth] = useState(today.getMonth());
+  const [currentYear, setCurrentYear] = useState(today.getFullYear());
+
   useEffect(() => {
     setLoading(true);
-    fetch("/api/leave/calendar")
+    fetch(`/api/leave/calendar?year=${currentYear}`)
       .then(r => r.json())
       .then(j => {
         setHolidays(j.holidays || []);
@@ -25,13 +30,12 @@ export default function LeaveCalendar() {
       .finally(() => {
         setLoading(false);
       });
-  }, []);
+  }, [currentYear]);
 
-  // Generate calendar for current month
+  // Generate calendar for selected month
   const calendarDays = useMemo(() => {
-    const now = new Date();
-    const year = now.getFullYear();
-    const month = now.getMonth();
+    const year = currentYear;
+    const month = currentMonth;
 
     // First day of month
     const firstDay = new Date(year, month, 1);
@@ -72,9 +76,9 @@ export default function LeaveCalendar() {
       const dayOfWeek = currentDate.getDay();
       const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
       const isToday =
-        d === now.getDate() &&
-        month === now.getMonth() &&
-        year === now.getFullYear();
+        d === today.getDate() &&
+        month === today.getMonth() &&
+        year === today.getFullYear();
 
       // Check if this date is a holiday
       const holiday = holidays.find(h => h.date === dateStr) || null;
@@ -95,7 +99,7 @@ export default function LeaveCalendar() {
     }
 
     return days;
-  }, [holidays, leaves]);
+  }, [holidays, leaves, currentMonth, currentYear]);
 
   const monthNames = [
     "January",
@@ -112,9 +116,23 @@ export default function LeaveCalendar() {
     "December",
   ];
 
-  const now = new Date();
-  const currentMonthName = monthNames[now.getMonth()];
-  const currentYear = now.getFullYear();
+  const handlePreviousMonth = () => {
+    if (currentMonth === 0) {
+      setCurrentMonth(11);
+      setCurrentYear(currentYear - 1);
+    } else {
+      setCurrentMonth(currentMonth - 1);
+    }
+  };
+
+  const handleNextMonth = () => {
+    if (currentMonth === 11) {
+      setCurrentMonth(0);
+      setCurrentYear(currentYear + 1);
+    } else {
+      setCurrentMonth(currentMonth + 1);
+    }
+  };
 
   if (loading) {
     return (
@@ -126,8 +144,50 @@ export default function LeaveCalendar() {
 
   return (
     <div>
-      <div style={{ marginBottom: 16, fontSize: 16, fontWeight: 600 }}>
-        {currentMonthName} {currentYear}
+      {/* Month Navigation Header */}
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          marginBottom: 16,
+        }}
+      >
+        <button
+          onClick={handlePreviousMonth}
+          style={{
+            background: "var(--panel)",
+            border: "1px solid var(--border)",
+            borderRadius: 4,
+            padding: "6px 12px",
+            cursor: "pointer",
+            fontSize: 16,
+            fontWeight: 600,
+          }}
+          aria-label="Previous month"
+        >
+          ◀
+        </button>
+
+        <div style={{ fontSize: 16, fontWeight: 600 }}>
+          {monthNames[currentMonth]} {currentYear}
+        </div>
+
+        <button
+          onClick={handleNextMonth}
+          style={{
+            background: "var(--panel)",
+            border: "1px solid var(--border)",
+            borderRadius: 4,
+            padding: "6px 12px",
+            cursor: "pointer",
+            fontSize: 16,
+            fontWeight: 600,
+          }}
+          aria-label="Next month"
+        >
+          ▶
+        </button>
       </div>
 
       {/* Calendar Grid */}
