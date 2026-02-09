@@ -3,26 +3,37 @@
 
 import { useEffect, useState, useMemo } from "react";
 
-type Holiday = { date: string; name: string };
-type Leave = { start_date: string; end_date: string; type: string; paid: boolean };
+type CalendarEntry = {
+  type: "HOLIDAY" | "LEAVE";
+  date: string;
+  name?: string;
+  leave_type?: string;
+  paid?: boolean;
+  status?: string;
+};
 
 export default function LeaveCalendar() {
-  const [holidays, setHolidays] = useState<Holiday[]>([]);
-  const [leaves, setLeaves] = useState<Leave[]>([]);
+  const [calendar, setCalendar] = useState<CalendarEntry[]>([]);
   const [loading, setLoading] = useState(true);
 
   // Month navigation state
   const today = new Date();
-  const [currentMonth, setCurrentMonth] = useState(today.getMonth());
-  const [currentYear, setCurrentYear] = useState(today.getFullYear());
+  const [month, setMonth] = useState(new Date());
+
+  const start = new Date(month.getFullYear(), month.getMonth(), 1)
+    .toISOString()
+    .slice(0, 10);
+
+  const end = new Date(month.getFullYear(), month.getMonth() + 1, 0)
+    .toISOString()
+    .slice(0, 10);
 
   useEffect(() => {
     setLoading(true);
-    fetch(`/api/leave/calendar?year=${currentYear}`)
+    fetch(`/api/leave/calendar?start=${start}&end=${end}`)
       .then(r => r.json())
       .then(j => {
-        setHolidays(j.holidays || []);
-        setLeaves(j.leaves || []);
+        setCalendar(j.calendar || []);
       })
       .catch(() => {
         // Silent fail
@@ -30,17 +41,17 @@ export default function LeaveCalendar() {
       .finally(() => {
         setLoading(false);
       });
-  }, [currentYear]);
+  }, [start, end]);
 
   // Generate calendar for selected month
   const calendarDays = useMemo(() => {
-    const year = currentYear;
-    const month = currentMonth;
+    const year = month.getFullYear();
+    const monthIndex = month.getMonth();
 
     // First day of month
-    const firstDay = new Date(year, month, 1);
+    const firstDay = new Date(year, monthIndex, 1);
     // Last day of month
-    const lastDay = new Date(year, month + 1, 0);
+    const lastDay = new Date(year, monthIndex + 1, 0);
 
     // Day of week for first day (0 = Sunday, 1 = Monday, etc.)
     const firstDayOfWeek = firstDay.getDay();
@@ -53,7 +64,7 @@ export default function LeaveCalendar() {
       dateStr: string | null;
       isToday: boolean;
       isWeekend: boolean;
-      holiday: Holiday | null;
+      holiday: { name: string } | null;
       leave: { type: string; paid: boolean } | null;
     }> = [];
 
@@ -71,22 +82,26 @@ export default function LeaveCalendar() {
 
     // Add actual days of the month
     for (let d = 1; d <= daysInMonth; d++) {
-      const currentDate = new Date(year, month, d);
-      const dateStr = `${year}-${String(month + 1).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
+      const currentDate = new Date(year, monthIndex, d);
+      const dateStr = `${year}-${String(monthIndex + 1).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
       const dayOfWeek = currentDate.getDay();
       const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
       const isToday =
         d === today.getDate() &&
-        month === today.getMonth() &&
+        monthIndex === today.getMonth() &&
         year === today.getFullYear();
 
       // Check if this date is a holiday
-      const holiday = holidays.find(h => h.date === dateStr) || null;
+      const holidayEntry =
+        calendar.find(e => e.type === "HOLIDAY" && e.date === dateStr) || null;
+      const holiday =
+        holidayEntry?.name ? { name: holidayEntry.name } : null;
 
       // Check if this date falls within an approved leave
-      const leave = leaves.find(l => {
-        return dateStr >= l.start_date && dateStr <= l.end_date;
-      });
+      const leaveEntry =
+        calendar.find(e => e.type === "LEAVE" && e.date === dateStr) || null;
+      const leave =
+        leaveEntry ? { type: leaveEntry.leave_type || "LEAVE", paid: leaveEntry.paid ?? false } : null;
 
       days.push({
         date: d,
@@ -94,12 +109,12 @@ export default function LeaveCalendar() {
         isToday,
         isWeekend,
         holiday,
-        leave: leave ? { type: leave.type, paid: leave.paid } : null,
+        leave,
       });
     }
 
     return days;
-  }, [holidays, leaves, currentMonth, currentYear]);
+  }, [calendar, month]);
 
   const monthNames = [
     "January",
@@ -117,21 +132,11 @@ export default function LeaveCalendar() {
   ];
 
   const handlePreviousMonth = () => {
-    if (currentMonth === 0) {
-      setCurrentMonth(11);
-      setCurrentYear(currentYear - 1);
-    } else {
-      setCurrentMonth(currentMonth - 1);
-    }
+    setMonth(prev => new Date(prev.getFullYear(), prev.getMonth() - 1, 1));
   };
 
   const handleNextMonth = () => {
-    if (currentMonth === 11) {
-      setCurrentMonth(0);
-      setCurrentYear(currentYear + 1);
-    } else {
-      setCurrentMonth(currentMonth + 1);
-    }
+    setMonth(prev => new Date(prev.getFullYear(), prev.getMonth() + 1, 1));
   };
 
   if (loading) {
@@ -170,7 +175,7 @@ export default function LeaveCalendar() {
         </button>
 
         <div style={{ fontSize: 16, fontWeight: 600 }}>
-          {monthNames[currentMonth]} {currentYear}
+          {monthNames[month.getMonth()]} {month.getFullYear()}
         </div>
 
         <button
