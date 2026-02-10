@@ -13,7 +13,7 @@ type CalendarEntry = {
 };
 
 export default function LeaveCalendar() {
-  const [calendar, setCalendar] = useState<CalendarEntry[]>([]);
+  const [items, setItems] = useState<CalendarEntry[]>([]);
   const [loading, setLoading] = useState(true);
 
   // Month navigation state
@@ -33,7 +33,7 @@ export default function LeaveCalendar() {
     fetch(`/api/leave/calendar?start=${start}&end=${end}`)
       .then(r => r.json())
       .then(j => {
-        setCalendar(j.calendar || []);
+        setItems(j.calendar || []);
       })
       .catch(() => {
         // Silent fail
@@ -93,13 +93,13 @@ export default function LeaveCalendar() {
 
       // Check if this date is a holiday
       const holidayEntry =
-        calendar.find(e => e.type === "HOLIDAY" && e.date === dateStr) || null;
+        items.find(e => e.type === "HOLIDAY" && e.date === dateStr) || null;
       const holiday =
         holidayEntry?.name ? { name: holidayEntry.name } : null;
 
       // Check if this date falls within an approved leave
       const leaveEntry =
-        calendar.find(e => e.type === "LEAVE" && e.date === dateStr) || null;
+        items.find(e => e.type === "LEAVE" && e.date === dateStr) || null;
       const leave =
         leaveEntry ? { type: leaveEntry.leave_type || "LEAVE", paid: leaveEntry.paid ?? false } : null;
 
@@ -114,7 +114,7 @@ export default function LeaveCalendar() {
     }
 
     return days;
-  }, [calendar, month]);
+  }, [items, month]);
 
   const monthNames = [
     "January",

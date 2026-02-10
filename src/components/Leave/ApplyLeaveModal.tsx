@@ -31,12 +31,19 @@ export default function ApplyLeaveModal({
       const r = await fetch("/api/leave/balances", { cache: "no-store" });
       const j = await r.json();
       const mapped =
-        (j.balances || []).map((b: any) => ({
-          id: b.leave_type_id,
-          name: b.leave_type.name,
-          code: b.leave_type.code,
-          paid: b.leave_type.paid,
-        })) || [];
+        (j.balances || [])
+          .map((b: any) => {
+            const leaveType = b.leave_type || {};
+            const id = b.leave_type_id || leaveType.id;
+            if (!id) return null;
+            return {
+              id,
+              name: leaveType.name || b.leave_type_id || "Leave",
+              code: leaveType.code || b.leave_type_id || "LEAVE",
+              paid: leaveType.paid ?? false,
+            };
+          })
+          .filter(Boolean) || [];
 
       setLeaveTypes(mapped);
     })();

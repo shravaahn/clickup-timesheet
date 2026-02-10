@@ -2,10 +2,11 @@
 "use client";
 
 type Row = {
-  id: string;
-  total_hours: number;
+  leave_type_id: string;
+  accrued_hours: number;
   used_hours: number;
-  leave_type: {
+  balance_hours: number;
+  leave_type?: {
     name: string;
     code: string;
     paid: boolean;
@@ -34,18 +35,17 @@ export default function LeaveBalancesTable({ rows }: { rows: Row[] }) {
       </thead>
       <tbody>
         {rows.map(r => {
-          const available = Math.max(
-            0,
-            (r.total_hours || 0) - (r.used_hours || 0)
-          );
+          const accrued = r.accrued_hours ?? 0;
+          const used = r.used_hours ?? 0;
+          const available = r.balance_hours ?? 0;
 
           return (
-            <tr key={r.id} style={{ fontSize: 14 }}>
-              <td>{r.leave_type.name}</td>
-              <td>{r.total_hours}h</td>
-              <td>{r.used_hours}h</td>
+            <tr key={r.leave_type_id} style={{ fontSize: 14 }}>
+              <td>{r.leave_type?.name ?? r.leave_type_id}</td>
+              <td>{accrued}h</td>
+              <td>{used}h</td>
               <td>{available}h</td>
-              <td>{r.leave_type.paid ? "Yes" : "No"}</td>
+              <td>{r.leave_type?.paid ? "Yes" : "No"}</td>
             </tr>
           );
         })}

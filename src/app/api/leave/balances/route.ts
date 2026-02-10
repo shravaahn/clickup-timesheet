@@ -50,15 +50,15 @@ export async function GET(req: NextRequest) {
       );
     }
 
-    const balances =
-      data?.map(row => ({
-        leave_type_id: row.leave_type_id,
-        accrued_hours: row.accrued_hours ?? 0,
-        used_hours: row.used_hours ?? 0,
-        balance_hours: row.balance_hours ?? 0,
-      })) || [];
-
-    return NextResponse.json({ year, balances });
+    return NextResponse.json({
+      year,
+      balances: (data || []).map(b => ({
+        leave_type_id: b.leave_type_id,
+        accrued_hours: b.accrued_hours,
+        used_hours: b.used_hours,
+        balance_hours: b.balance_hours,
+      })),
+    });
   } catch (err: any) {
     console.error("leave balances error:", err);
     return NextResponse.json(

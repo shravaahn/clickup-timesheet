@@ -26,19 +26,33 @@ export async function GET(req: NextRequest) {
       );
     }
 
-    const start = req.nextUrl.searchParams.get("start");
-    const end = req.nextUrl.searchParams.get("end");
-    const baseDate = start
-      ? new Date(start)
-      : end
-        ? new Date(end)
+    const startParam = req.nextUrl.searchParams.get("start");
+    const endParam = req.nextUrl.searchParams.get("end");
+
+    const baseDate = startParam
+      ? new Date(startParam)
+      : endParam
+        ? new Date(endParam)
         : new Date();
-    const monthStart = new Date(baseDate.getFullYear(), baseDate.getMonth(), 1)
+
+    const monthStart = new Date(
+      baseDate.getFullYear(),
+      baseDate.getMonth(),
+      1
+    )
       .toISOString()
       .slice(0, 10);
-    const monthEnd = new Date(baseDate.getFullYear(), baseDate.getMonth() + 1, 0)
+
+    const monthEnd = new Date(
+      baseDate.getFullYear(),
+      baseDate.getMonth() + 1,
+      0
+    )
       .toISOString()
       .slice(0, 10);
+
+    const start = startParam || monthStart;
+    const end = endParam || monthEnd;
 
     /* -------------------------
        Fetch leave requests
@@ -57,17 +71,26 @@ export async function GET(req: NextRequest) {
       `)
       .eq("user_id", orgUser.id)
       .in("status", ["APPROVED", "PENDING"])
-      .lte("start_date", monthEnd)
-      .gte("end_date", monthStart);
+      .lte("start_date", end)
+      .gte("end_date", start);
 
     /* -------------------------
        Fetch holidays
     -------------------------- */
     const { data: holidays, error: holidayErr } = await supabaseAdmin
       .from("holidays")
-      .select("date, name, country")
-      .gte("date", monthStart)
-      .lte("date", monthEnd);
+      .select("date, name")
+      .eq("year", new Date(start).getFullYear())
+      .or(`country.eq.${orgUser.country},country.eq.BOTH`)
+      .gte("date", start)
+      .lte("date", end);
+
+    if (holidayErr) {
+      return NextResponse.json(
+        { error: "Failed to fetch holidays", details: holidayErr.message },
+        { status: 500 }
+      );
+    }
 
     const results: any[] = [];
 

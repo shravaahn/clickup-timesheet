@@ -22,8 +22,14 @@ function getInitialTheme(): Scheme {
 
 type LeaveBalance = {
   leave_type_id: string;
-  total_hours: number;
+  accrued_hours: number;
   used_hours: number;
+  balance_hours: number;
+  leave_type?: {
+    name: string;
+    code: string;
+    paid: boolean;
+  };
 };
 
 function getLeaveTypeName(leaveTypeId: string): string {
@@ -168,7 +174,9 @@ export default function LeavePage() {
               {!balancesLoading && balances.length > 0 && (
                 <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(240px, 1fr))", gap: 12 }}>
                   {balances.map((b) => {
-                    const remaining = b.total_hours - b.used_hours;
+                    const remaining = b.balance_hours ?? 0;
+                    const used = b.used_hours ?? 0;
+                    const accrued = b.accrued_hours ?? 0;
                     return (
                       <div
                         key={b.leave_type_id}
@@ -186,7 +194,7 @@ export default function LeavePage() {
                           {formatBalance(remaining)}
                         </div>
                         <div style={{ fontSize: 12, color: "var(--muted)" }}>
-                          {formatBalance(b.used_hours)} used of {formatBalance(b.total_hours)}
+                          {formatBalance(used)} used of {formatBalance(accrued)}
                         </div>
                       </div>
                     );

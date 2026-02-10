@@ -6,12 +6,11 @@ import styles from "@/app/dashboard/Dashboard.module.css";
 import LeaveBalancesTable from "@/components/Leave/LeaveBalancesTable";
 
 type BalanceRow = {
-  id: string;
   leave_type_id: string;
-  year: number;
-  total_hours: number;
+  accrued_hours: number;
   used_hours: number;
-  leave_type: {
+  balance_hours: number;
+  leave_type?: {
     name: string;
     code: string;
     paid: boolean;

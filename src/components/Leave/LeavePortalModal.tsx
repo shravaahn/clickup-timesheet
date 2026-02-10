@@ -8,8 +8,14 @@ import ApplyLeaveModal from "./ApplyLeaveModal";
 
 type Balance = {
   leave_type_id: string;
-  total_hours: number;
+  accrued_hours: number;
   used_hours: number;
+  balance_hours: number;
+  leave_type?: {
+    name: string;
+    code: string;
+    paid: boolean;
+  };
 };
 
 export default function LeavePortalModal({
@@ -45,7 +51,7 @@ export default function LeavePortalModal({
             {balances.length === 0 && <div>No balances available</div>}
             {balances.map(b => (
               <div key={b.leave_type_id}>
-                {b.leave_type_id}: {b.total_hours - b.used_hours}h remaining
+                {b.leave_type_id}: {(b.balance_hours ?? 0)}h remaining
               </div>
             ))}
           </section>
