@@ -38,7 +38,12 @@ export async function GET(req: NextRequest) {
         year,
         accrued_hours,
         used_hours,
-        balance_hours
+        balance_hours,
+        leave_types (
+          name,
+          code,
+          paid
+        )
       `)
       .eq("user_id", orgUser.id)
       .eq("year", year);
@@ -54,9 +59,13 @@ export async function GET(req: NextRequest) {
       year,
       balances: (data || []).map(b => ({
         leave_type_id: b.leave_type_id,
+        year: b.year,
         accrued_hours: b.accrued_hours,
         used_hours: b.used_hours,
         balance_hours: b.balance_hours,
+        leave_type: Array.isArray(b.leave_types)
+          ? b.leave_types[0]
+          : b.leave_types,
       })),
     });
   } catch (err: any) {

@@ -30,22 +30,20 @@ export default function ApplyLeaveModal({
     (async () => {
       const r = await fetch("/api/leave/balances", { cache: "no-store" });
       const j = await r.json();
-      const mapped =
-        (j.balances || [])
-          .map((b: any) => {
-            const leaveType = b.leave_type || {};
-            const id = b.leave_type_id || leaveType.id;
-            if (!id) return null;
-            return {
-              id,
-              name: leaveType.name || b.leave_type_id || "Leave",
-              code: leaveType.code || b.leave_type_id || "LEAVE",
-              paid: leaveType.paid ?? false,
-            };
-          })
-          .filter(Boolean) || [];
+      const map = new Map<string, LeaveType>();
+      (j.balances || []).forEach((b: any) => {
+        const leaveType = b.leave_type || {};
+        const id = b.leave_type_id || leaveType.id;
+        if (!id || map.has(id)) return;
+        map.set(id, {
+          id,
+          name: leaveType.name || leaveType.code || "Leave",
+          code: leaveType.code || "",
+          paid: leaveType.paid ?? false,
+        });
+      });
 
-      setLeaveTypes(mapped);
+      setLeaveTypes(Array.from(map.values()));
     })();
   }, [open]);
 
@@ -135,7 +133,7 @@ export default function ApplyLeaveModal({
           </button>
           <button
             className={`${styles.btn} ${styles.primary}`}
-            disabled={busy}
+            disabled={busy || !leaveTypeId}
             onClick={submit}
           >
             {busy ? "Submitting…" : "Submit"}
