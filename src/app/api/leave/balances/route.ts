@@ -36,8 +36,9 @@ export async function GET(req: NextRequest) {
         id,
         leave_type_id,
         year,
-        total_hours,
-        used_hours
+        accrued_hours,
+        used_hours,
+        balance_hours
       `)
       .eq("user_id", orgUser.id)
       .eq("year", year);
@@ -49,7 +50,15 @@ export async function GET(req: NextRequest) {
       );
     }
 
-    return NextResponse.json({ year, balances: data || [] });
+    const balances =
+      data?.map(row => ({
+        leave_type_id: row.leave_type_id,
+        accrued_hours: row.accrued_hours ?? 0,
+        used_hours: row.used_hours ?? 0,
+        balance_hours: row.balance_hours ?? 0,
+      })) || [];
+
+    return NextResponse.json({ year, balances });
   } catch (err: any) {
     console.error("leave balances error:", err);
     return NextResponse.json(

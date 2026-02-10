@@ -28,13 +28,17 @@ export async function GET(req: NextRequest) {
 
     const start = req.nextUrl.searchParams.get("start");
     const end = req.nextUrl.searchParams.get("end");
-
-    if (!start || !end) {
-      return NextResponse.json(
-        { error: "Missing start or end date" },
-        { status: 400 }
-      );
-    }
+    const baseDate = start
+      ? new Date(start)
+      : end
+        ? new Date(end)
+        : new Date();
+    const monthStart = new Date(baseDate.getFullYear(), baseDate.getMonth(), 1)
+      .toISOString()
+      .slice(0, 10);
+    const monthEnd = new Date(baseDate.getFullYear(), baseDate.getMonth() + 1, 0)
+      .toISOString()
+      .slice(0, 10);
 
     /* -------------------------
        Fetch leave requests
@@ -53,8 +57,8 @@ export async function GET(req: NextRequest) {
       `)
       .eq("user_id", orgUser.id)
       .in("status", ["APPROVED", "PENDING"])
-      .lte("start_date", end)
-      .gte("end_date", start);
+      .lte("start_date", monthEnd)
+      .gte("end_date", monthStart);
 
     /* -------------------------
        Fetch holidays
@@ -62,8 +66,8 @@ export async function GET(req: NextRequest) {
     const { data: holidays, error: holidayErr } = await supabaseAdmin
       .from("holidays")
       .select("date, name, country")
-      .gte("date", start)
-      .lte("date", end);
+      .gte("date", monthStart)
+      .lte("date", monthEnd);
 
     const results: any[] = [];
 
