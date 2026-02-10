@@ -59,10 +59,9 @@ export async function GET(req: NextRequest) {
     /* -------------------------
        Fetch holidays
     -------------------------- */
-    const { data: holidays } = await supabaseAdmin
+    const { data: holidays, error: holidayErr } = await supabaseAdmin
       .from("holidays")
-      .select("date, name")
-      .or(`country.eq.${orgUser.country},country.eq.BOTH`)
+      .select("date, name, country")
       .gte("date", start)
       .lte("date", end);
 
