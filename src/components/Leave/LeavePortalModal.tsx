@@ -51,7 +51,7 @@ export default function LeavePortalModal({
             {balances.length === 0 && <div>No balances available</div>}
             {balances.map(b => (
               <div key={b.leave_type_id}>
-                {b.leave_type_id}: {(b.balance_hours ?? 0)}h remaining
+                {b.leave_type?.name ?? b.leave_type_id}: {(b.balance_hours ?? 0)}h remaining
               </div>
             ))}
           </section>

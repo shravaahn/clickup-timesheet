@@ -27,7 +27,7 @@ export default function LeaveBalancesTable({ rows }: { rows: Row[] }) {
       <thead>
         <tr style={{ textAlign: "left", fontSize: 13 }}>
           <th>Leave Type</th>
-          <th>Total</th>
+          <th>Accrued</th>
           <th>Used</th>
           <th>Available</th>
           <th>Paid</th>
@@ -39,13 +39,20 @@ export default function LeaveBalancesTable({ rows }: { rows: Row[] }) {
           const used = r.used_hours ?? 0;
           const available = r.balance_hours ?? 0;
 
+          const paidLabel =
+            r.leave_type?.paid === undefined
+              ? "—"
+              : r.leave_type.paid
+                ? "Yes"
+                : "No";
+
           return (
             <tr key={r.leave_type_id} style={{ fontSize: 14 }}>
               <td>{r.leave_type?.name ?? r.leave_type_id}</td>
               <td>{accrued}h</td>
               <td>{used}h</td>
               <td>{available}h</td>
-              <td>{r.leave_type?.paid ? "Yes" : "No"}</td>
+              <td>{paidLabel}</td>
             </tr>
           );
         })}

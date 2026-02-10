@@ -73,7 +73,60 @@ export default function LeaveBalancesCard() {
       )}
 
       {!loading && !error && (
-        <LeaveBalancesTable rows={rows} />
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))",
+            gap: 12,
+          }}
+        >
+          {rows.map(r => {
+            const remaining = r.balance_hours ?? 0;
+            const used = r.used_hours ?? 0;
+            const accrued = r.accrued_hours ?? 0;
+            const name = r.leave_type?.name ?? r.leave_type_id;
+            const paidLabel =
+              r.leave_type?.paid === undefined
+                ? "—"
+                : r.leave_type.paid
+                  ? "Paid"
+                  : "Unpaid";
+            const isEmpty = remaining === 0;
+
+            return (
+              <div
+                key={r.leave_type_id}
+                style={{
+                  border: "1px solid var(--border)",
+                  borderRadius: 8,
+                  padding: 12,
+                  background: "var(--panel)",
+                  opacity: isEmpty ? 0.6 : 1,
+                }}
+              >
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                    marginBottom: 6,
+                  }}
+                >
+                  <div style={{ fontWeight: 700 }}>{name}</div>
+                  <div style={{ fontSize: 11, color: "var(--muted)" }}>
+                    {paidLabel}
+                  </div>
+                </div>
+                <div style={{ fontSize: 20, fontWeight: 800, marginBottom: 4 }}>
+                  {remaining}h
+                </div>
+                <div style={{ fontSize: 12, color: "var(--muted)" }}>
+                  {used} used of {accrued}
+                </div>
+              </div>
+            );
+          })}
+        </div>
       )}
     </section>
   );
